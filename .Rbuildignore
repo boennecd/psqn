@@ -1,0 +1,6 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^vignettes/psqn_cache
+^vignettes/render\.R
+^vignettes/psqn\.md
+^vignettes/psqn_files

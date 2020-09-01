@@ -1,0 +1,471 @@
+---
+title: "psqn: Partially Separable Quasi-Newton"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{psqn: Partially Separable Quasi-Newton}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+<style>
+img {
+    border: none;
+}
+</style>
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, fig.align = "center", error = FALSE,
+  comment = "#>", fig.width = 7, fig.height = 4)
+options(digits = 3)
+```
+
+$$
+\renewcommand\vec{\boldsymbol}
+\def\bigO#1{\mathcal{O}(#1)}
+\def\Cond#1#2{\left(#1\,\middle|\, #2\right)}
+\def\mat#1{\boldsymbol{#1}}
+\def\der{{\mathop{}\!\mathrm{d}}}
+\def\argmax{\text{arg}\,\text{max}}
+\def\Prob{\text{P}}
+\def\diag{\text{diag}}
+$$
+
+This package provides an optimization method for _partially separable_ 
+functions. Partially separable functions are of the following form:
+
+$$
+f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i}) 
+$$
+
+where $\vec r\in \mathbb R^l$,
+
+$$
+\vec x_{\mathcal I_i} = 
+  (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad 
+  \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in 
+  \{1, \dots l\}^l,
+$$
+and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix. 
+Each function $f_i$ is called an _element function_ and only depends on 
+$m_i \ll l$ parameters. This allows for an efficient quasi-Newton 
+method when all the $m_i$'s are much smaller than the dimension of the 
+parameter vector $\vec x$, $l$. The framework can be extended to allow for 
+a linear combination of $m_i$ parameters but we do not cover such problems. 
+TODO: add reference.
+
+We only consider a more restricted form of the problem. Assume that each 
+index set $\mathcal I_i$ is of the form 
+
+$$
+\begin{align*}
+\mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\
+\mathcal J_i \cap \mathcal J_k &= \emptyset \qquad k\neq i \\
+\mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n
+\end{align*}
+$$
+
+That is, each index set contains $p$ _global parameters_ and 
+$q_i = \lvert\mathcal J_i\rvert$ _private parameters_ which are particular 
+for each element function, $f_i$. For implementation reason, we let 
+
+$$
+\begin{align*}
+\overleftarrow q_i &= 
+  \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\
+\mathcal J_i &= 
+  \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}
+\end{align*}
+$$
+
+such that the element function's private parameters lies in consecutive 
+part. 
+
+## Example
+We are going to consider a Taylor approximation for a generalized linear 
+mixed model. In particular, we focus on a mixed logit regression where 
+
+$$
+\begin{align*}
+\vec U_i &\sim N^{(r)}(\vec 0, \mat\Sigma) \\
+\vec\eta_i &= \mat X_i\top\vec\beta + \mat Z_i\vec U_i \\
+Y_{ij} &\sim \text{Bin}(\text{logit}^{-1}(\eta_{ij}), 1), 
+\qquad j = 1, \dots, t_i
+\end{align*}
+$$
+
+where $N^{(r)}(\vec\mu,\mat\Sigma)$ means a $r$-dimensional a multivariate 
+normal distribution with mean $\vec\mu$ and covariance matrix $\mat\Sigma$
+and $\text{Bin}(p, k)$ means a binomial distribution probability $p$ and 
+size $k$. $\vec U_i$ is an unknown random effect with an unknown covariance 
+$\mat\Sigma$ and $\vec\beta\in\mathbb{R}^p$ is an unknown fixed effect vector. $\mat X_i$ 
+and $\mat Z_i$ are known design matrices each with $t_i$ rows for each of 
+the $t_i$ observed outcomes. 
+
+As part of a Taylor approximation, we find a mode of 
+$\vec x = (\vec\beta^\top, \widehat{\vec u}_1^\top, \dots, \widehat{\vec u}_n^\top)$
+of the log of the integrand given a covariance matrix estimate, 
+$\widehat{\mat \Sigma}$. That is, we are minimizing 
+
+$$
+\begin{align*}
+f(\vec x) &= -\sum_{i = 1}^n \left(
+  \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))
+  - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i
+  \right) \\
+&= -\sum_{i = 1}^n \left(
+  \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)
+  - \sum_{k = 1}^{t_i}
+  \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))
+  - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i
+  \right) \\
+&= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)) \\
+f_i((\vec\beta^\top, \vec u^\top)) &= 
+  -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)
+  + \sum_{k = 1}^{t_i}
+  \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))
+  + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u
+\end{align*}
+$$
+
+In this problem, $\vec\beta$ is the shared parameters and the 
+$\widehat{\vec u}_i$'s are the private parameters. Thus, 
+$l = p + nr$. 
+
+### Variational Approximation
+TODO: write about variational approximations.
+
+## Quasi-Newton Method for Partially Separable Functions
+We are going to assume some prior knowledge of Newton's method and the 
+Broyden–Fletcher–Goldfarb–Shanno (BFGS) algorithm and we only provide a few 
+details of these methods. However, will need a bit of notations from these 
+methods to motivate the quasi-Newton method we have implemented. 
+
+Newton's method to minimize a function is to start at some value 
+$\vec x_0$. Then we set $k = 1$ and 
+
+ 1. compute a direction $\vec p_k$ given by $$\nabla^2 f(\vec x_{k - 1})\vec p_k = - \nabla f(\vec x_{k -1}),$$
+ 2. set $\vec x_k = \vec x_{k - 1} + \vec p_k$ or $\vec x_k = \vec x_{k - 1} + \gamma\vec p_k$ for $\gamma \in (0, 1]$ set
+ to satisfy the [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions), and
+ 3. repeat with $k\leftarrow k + 1$ if a convergence criterion is not satisfied. 
+
+Computing the Hessian, $\nabla^2 f(\vec x_{k - 1})$, at every iteration can be 
+expensive. The BFGS algorithm offers an alternative where we use an 
+approximation instead. Here we start with some Hessian approximation 
+$\mat B_0$ and 
+
+ 1. compute a direction $\vec p_k$ given by $$\mat B_{k - 1}\vec p_k = - \nabla f(\vec x_{k -1}),$$
+ 2. find a step size $\alpha$ such that $\vec x_{k - 1} + \vec\alpha\vec p_k$ satisfy 
+ the [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions), 
+ 3. set $\vec x_k = \vec x_{k - 1} + \alpha\vec p_k$, 
+ $\vec s_k = \alpha\vec p_k = \vec x_k - \vec x_{k - 1}$, 
+ $\vec d_k = \nabla f(\vec x_k) - \nabla f(\vec x_{k - 1})$, 
+ 4. perform a rank-two update 
+ $$\mat B_k = \mat B_{k - 1} + \frac{\vec y_k\vec y_k^\top}{\vec y_k^\top\vec s_k} - \frac{\mat B_{k - 1}\vec s_k\vec s_k^\top\mat B_{k - 1}^\top}{\vec s_k^\top\mat B_{k - 1}\vec s_k},$$ and 
+ 3. repeat with $k\leftarrow k + 1$ if a convergence criterion is not satisfied.
+ 
+This reduces the cost of computing the Hessian. Further, we can update 
+$\mat B_k^{-1}$ to avoid solving 
+$\mat B_{k - 1}\vec p_k = - \nabla f(\vec x_{k -1})$. The matrix 
+$\mat B_k^{-1}$ will still be large and dense when $l$ is large. 
+
+### Using Partial Separability
+As an alternative, we can exploit the structure of the problem we are 
+solving. Let 
+
+$$
+\mat H_i = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)
+$$
+
+The true Hessian in our case is sparse and given by 
+
+$$
+\nabla^2 f(\vec x) = \sum_{i = 1}^n 
+  \mat H_i^\top\nabla^2f_i(\vec x_{\mathcal I_i})\mat H_i
+$$
+ 
+Notice that each $\nabla^2f_i(\vec x_{\mathcal I_i})$ is only a 
+$(p + q_i)\times (p + q_i)$ matrix. We illustrate this below with $n = 10$
+element functions. 
+Each plot is $\mat H_i^\top\nabla^2f_i(\vec x_{\mathcal I_i})\mat H_i$ where
+black entries are a non-zero.
+
+```{r ex_hes_plot, echo = FALSE, fig.width = 7, fig.height = 2.8 * 1}
+p <- 3L
+q <- c(2L, 6L, 2L, 3L, 6L, 3L, 5L, 3L, 9L, 6L)
+
+idx <- list()
+off <- p
+for(qi in q){
+  idx <- c(idx, list(c(1:p, 1:qi + off)))
+  off <- off + qi
+}
+
+l <- max(unlist(idx))
+get_mat <- function(x){
+  o <- matrix(0L, l, l)
+  for(xj in x)
+    for(xi in x)
+      o[xi, xj] <- o[xj, xi] <- 1L
+  o
+}
+
+img_rev <- function(x, ...){
+  x <- x[, NROW(x):1]
+  cl <- match.call()
+  cl$x <- x
+  cl[[1L]] <- image
+  eval(cl, parent.frame())
+}
+par(mfcol = c(2, 5), mar = c(1, 1, 1, 1))
+for(idxi in idx)
+  img_rev(get_mat(idxi), xaxt = "n", yaxt = "n", 
+          col = gray.colors(2L, 1, 0))
+```
+
+The whole Hessian is:
+
+```{r whole_ex_hes_plot, echo = FALSE, fig.height = 3, fig.width = 3}
+par(mar = c(.5, .5, .5, .5))
+img_rev(apply(sapply(idx, get_mat, simplify = "array"), 1:2, sum) > 0, 
+        xaxt = "n", yaxt = "n", col = gray.colors(2L, 1, 0))
+```
+ 
+We can use the partial separability to implement a BFGS method 
+where we make $n$ BFGS approximations, one for each element function, 
+$f_i$. Let $\mat B_{ki}$ be the approximation of 
+$\nabla^2f_i(\vec x_{\mathcal I_i})$ at iteration $k$. Then the method 
+we have implemented starts with $\mat B_{k1},\dots,\mat B_{kn}$ and 
+ 
+  1. computes a direction $\vec p_k$ given by $$\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec p_k = - \nabla f(\vec x_{k -1}),$$
+ 2. finds a step size $\alpha$ such that $\vec x_{k - 1} + \vec\alpha\vec p_k$ satisfy 
+ the [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions), 
+ 3. sets $\vec x_k = \vec x_{k - 1} + \alpha\vec p_k$,
+ 4. performs BFGS updates for each $\mat B_{k1},\dots,\mat B_{kn}$, and 
+ 3. repeats with $k\leftarrow k + 1$ if a convergence criterion is not satisfied.
+
+This seems as if it is going to be much slower as we are solving 
+a large linear system if $l$ is large. 
+However, we can use the conjugate gradient method we describe in the 
+next section. This will be fast if we can perform the following 
+matrix-vector product fast:
+
+$$
+\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec z.
+$$
+
+To elaborate on this, 
+each $\mat H_i^\top\mat B_{k - 1,i}\mat H_i\vec z$ consists 
+of matrix-vector product with a $o_i \times o_i$ symmetric 
+matrix and a vector where $o_i = (p + q_i)$. This can be done in 
+$o_i(o_i + 1)$ flops. Thus, the total cost is 
+$\sum_{i = 1}^n o_i(o_i + 1)$ flops. This is in contrast to the 
+original $l(l + 1)$ flops with the BFGS method. 
+
+As an example suppose that 
+$q_i = 5$ for all $n$ element functions, 
+$n = 5000$, and $p = 10$. Then $o_i = 15$ and the 
+matrix-vector product above requires $5000 \cdot 15(15 + 1) = 1200000$ 
+flops. In 
+contrast $l = 5000 \cdot 5 + 10 = 25010$ and 
+the matrix-vector product in the BFGS method 
+requires $25010 (25010 + 1) =  625525110$ flops. 
+That is 521 times more flops. Similar ratios are shown in the
+[BFGS and Partially Separable Quasi-Newton](#bfgs-and-partially-separable-quasi-newton)
+section.
+
+More formerly, the former is 
+$\mathcal O(n(p + q_{\text max})^2)$ where 
+$q_{\text max} = \text{max}_{i = 1,\dots, n} q_i$ whereas the matrix-vector product 
+in the BFGS method is $\mathcal O((p + \sum_{i = 1}^n q_i)^2)$. Further,
+the rank-two BFGS updates are cheaper. However, we should keep in mind that 
+the original BFGS method yields an approximation of $\mat B_k^{-1}$. Thus, 
+we do not need to solve a linear system.
+
+## Conjugate Gradient Method
+
+The conjugate gradient method we use solve 
+
+$$\mat A\vec b = \vec v$$
+
+which in our quasi-Newton method is 
+
+$$\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec p_k = - \nabla f(\vec x_{k -1})$$
+
+We start of with some initial value $\vec x_0$. Then we set $k = 0$, 
+$\vec r_0 = \mat A\vec x_0 - \vec v$, $\vec p_0 = -\vec r_0$, and: 
+
+1. find the step length $$\alpha_k = \frac{\vec r_k^\top\vec r_k}{\vec p_k^\top\mat A\vec p_k},$$ 
+2. find the new value $$\vec x_{k + 1} = \vec x_k + \alpha_k\vec p_k,$$ 
+3. find the new residual $$\vec r_{k + 1} = \vec r_k + \alpha_k\mat A\vec p_k,$$
+4. set $\vec\beta_{k + 1} = (\vec r_k^\top\vec r_k)^{-1}\vec r_{k + 1}^\top\vec r_{k + 1}$, 
+5. set the new search direction to 
+  $$\vec p_{k + 1} = - \vec r_{k + 1} + \vec \beta_{k + 1}\vec p_k,$$
+  and
+6. stop if $\vec r_{k + 1}^\top\vec r_{k + 1}$ is smaller. Otherwise set $k\leftarrow k + 1$ and repeat.
+
+The main issue is the matrix-vector product $\mat A\vec p_k$ but as we 
+argued in the previous section that this can be computed in 
+$\mathcal O(n(p + q_{\text max})^2)$ time.
+
+## Line Search and Wolfe Condition
+TODO: write this section.
+
+## Symmetric Rank-one Updates
+TODO: write this section.
+
+## Example Using the Implementation
+
+```{r sim_dat}
+# assign model parameters and number of random effects and fixed effects
+q <- 4
+p <- 5
+beta <- sqrt((1:p) / sum(1:p))
+Sigma <- diag(q)
+
+# simulate data set
+n_clusters <- 400L
+set.seed(66608927)
+
+sim_dat <- replicate(n_clusters, {
+  n_members <- sample.int(20L, 1L) + 2L
+  X <- matrix(runif(p * n_members, -sqrt(6 / 2), sqrt(6 / 2)), 
+              p)
+  u <- drop(rnorm(q) %*% chol(Sigma))
+  Z <- matrix(runif(q * n_members, -sqrt(6 / 2 / q), sqrt(6 / 2 / q)), 
+              q)
+  eta <- drop(beta %*% X + u %*% Z)
+  y <- as.numeric((1 + exp(-eta))^(-1) > runif(n_members))
+  
+  list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
+}, simplify = FALSE)
+
+# example of the first cluster
+sim_dat[[1L]]
+```
+
+The combined vector with global and private parameters can be created like 
+this (it is a misnoma to call this `true_params` as the modes of the random 
+effects, the private parameters, should only match the random effects if 
+the clusters are very large): 
+
+```{r show_glob_priv}
+true_params <- c(beta, sapply(sim_dat, function(x) x$u))
+
+# global parameters
+true_params[1:p]
+
+# some of the private parameters
+true_params[1:(4 *q) + p]
+```
+
+As a reference, we will create the following function to evaluate the 
+log of the integrand: 
+
+```{r assing_integrand}
+eval_integrand <- function(par){
+  out <- 0.
+  inc <- p
+  beta <- par[1:p]
+  for(i in seq_along(sim_dat)){
+    dat <- sim_dat[[i]]
+    X <- dat$X
+    Z <- dat$Z
+    y <- dat$y
+    Sigma_inv <- dat$Sigma_inv
+    
+    u <- par[1:q + inc]
+    inc <- inc + q
+    eta <- drop(beta %*% X + u %*% Z)
+    
+    out <- out - drop(y %*% eta) + sum(log(1 + exp(eta))) + 
+      .5 * drop(u %*% Sigma_inv %*% u)
+  }
+  
+  out
+}
+
+# check the log integrand at true global parameters and the random effects
+eval_integrand(true_params)
+```
+
+### R Implementation
+TODO: write this section.
+
+### C++ Implementation
+We provide a C++ implementation with the package. This can be found by 
+calling `system.file("mlogit-ex.cpp", package = "psqn")`. The content of 
+the file is:
+
+```{cpp, code = readLines(system.file("mlogit-ex.cpp", package = "psqn"))}
+```
+
+We can use the code by calling `Rcpp::sourceCpp` to compile the code: 
+
+```{r create_ptr, cache = 1}
+library(Rcpp)
+sourceCpp(system.file("mlogit-ex.cpp", package = "psqn"))
+```
+
+Then we can create a pointer to an optimizer and check that it yields the 
+correct value and gradient like this:
+
+```{r get_optimizer, cache = 1, dependson = "create_ptr"}
+optimizer <- get_mlogit_optimizer(sim_dat)
+
+all.equal(eval_integrand(true_params), 
+          eval_mlogit(val = true_params, ptr = optimizer))
+
+library(numDeriv)
+gr_num <- grad(function(par) eval_mlogit(val = par, ptr = optimizer), 
+               true_params)
+gr_opt <- grad_mlogit(val = true_params, ptr = optimizer)
+all.equal(gr_num, gr_opt, tolerance = 1e-5)
+```
+
+We can now use the BFGS implementation in the `optim` function to 
+compare with like this:
+
+```{r comp_optim, cache = 1, dependson = "create_ptr"}
+start_val <- true_params
+start_val[-(1:p)] <- 0
+optim_func <- function(par)
+  optim(par, function(par) eval_mlogit(val = par, ptr = optimizer), 
+        function(par) grad_mlogit(val = par, ptr = optimizer), 
+        method = "BFGS")
+
+bfgs_res <- optim_func(start_val)
+```
+
+Finally, here is a benchmark for comparison
+
+```{r end_bench, cache = 1, dependson = "create_ptr"}
+bench::mark(BFGS = optim_func(start_val))
+```
+
+## Details
+### Using the Code in a Package
+TODO: write this section.
+
+### BFGS and Partially Separable Quasi-Newton
+
+Ratio for flops required in the matrix-vector product BFGS relative to 
+the flops in required in the matrix-vector product for the conjugate 
+gradient method for the quasi-Newton method:
+
+```{r compare_flops}
+vals <- expand.grid(n = 2^(8:13), p = 2^(2:4), q = 2^(2:8))
+vals <- within(vals, {
+  flops_qsn <- n * (p + q) * (p + q + 1L)
+  flops_bfgs <- (q * n + p)^2
+  ratio <- flops_bfgs / flops_qsn
+})
+nq <- length(unique(vals$q))
+tvals <- c(vals$n[seq_len(NROW(vals) / nq)], 
+           vals$p[seq_len(NROW(vals) / nq)], floor(vals[, "ratio"]))
+
+vals <- matrix(
+  tvals, ncol = nq + 2L, dimnames = list(
+    NULL, c("n", "p/q", unique(vals$q))))
+knitr::kable(vals)
+```
