@@ -20,32 +20,16 @@ knitr::opts_chunk$set(
 options(digits = 3)
 ```
 
-$$
-\renewcommand\vec{\boldsymbol}
-\def\bigO#1{\mathcal{O}(#1)}
-\def\Cond#1#2{\left(#1\,\middle|\, #2\right)}
-\def\mat#1{\boldsymbol{#1}}
-\def\der{{\mathop{}\!\mathrm{d}}}
-\def\argmax{\text{arg}\,\text{max}}
-\def\Prob{\text{P}}
-\def\diag{\text{diag}}
-$$
+$$\renewcommand\vec{\boldsymbol}   \def\bigO#1{\mathcal{O}(#1)}   \def\Cond#1#2{\left(#1\,\middle|\, #2\right)}   \def\mat#1{\boldsymbol{#1}}   \def\der{{\mathop{}\!\mathrm{d}}}   \def\argmax{\text{arg}\,\text{max}}  \def\Prob{\text{P}}  \def\diag{\text{diag}}$$
 
 This package provides an optimization method for _partially separable_ 
 functions. Partially separable functions are of the following form:
 
-$$
-f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i}) 
-$$
+$$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
 
 where $\vec r\in \mathbb R^l$,
 
-$$
-\vec x_{\mathcal I_i} = 
-  (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad 
-  \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in 
-  \{1, \dots l\}^l,
-$$
+$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots l\}^l,$$
 and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix. 
 Each function $f_i$ is called an _element function_ and only depends on 
 $m_i \ll l$ parameters. This allows for an efficient quasi-Newton 
@@ -57,26 +41,13 @@ TODO: add reference.
 We only consider a more restricted form of the problem. Assume that each 
 index set $\mathcal I_i$ is of the form 
 
-$$
-\begin{align*}
-\mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\
-\mathcal J_i \cap \mathcal J_k &= \emptyset \qquad k\neq i \\
-\mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n
-\end{align*}
-$$
+$$\begin{align*}   \mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_k &= \emptyset \qquad k\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}$$
 
 That is, each index set contains $p$ _global parameters_ and 
 $q_i = \lvert\mathcal J_i\rvert$ _private parameters_ which are particular 
 for each element function, $f_i$. For implementation reason, we let 
 
-$$
-\begin{align*}
-\overleftarrow q_i &= 
-  \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\
-\mathcal J_i &= 
-  \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}
-\end{align*}
-$$
+$$\begin{align*}   \overleftarrow q_i &=    \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\   \mathcal J_i &=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}$$
 
 such that the element function's private parameters lies in consecutive 
 part. 
@@ -85,14 +56,7 @@ part.
 We are going to consider a Taylor approximation for a generalized linear 
 mixed model. In particular, we focus on a mixed logit regression where 
 
-$$
-\begin{align*}
-\vec U_i &\sim N^{(r)}(\vec 0, \mat\Sigma) \\
-\vec\eta_i &= \mat X_i\top\vec\beta + \mat Z_i\vec U_i \\
-Y_{ij} &\sim \text{Bin}(\text{logit}^{-1}(\eta_{ij}), 1), 
-\qquad j = 1, \dots, t_i
-\end{align*}
-$$
+$$\begin{align*}   \vec U_i &\sim N^{(r)}(\vec 0, \mat\Sigma) \\   \vec\eta_i &= \mat X_i\top\vec\beta + \mat Z_i\vec U_i \\   Y_{ij} &\sim \text{Bin}(\text{logit}^{-1}(\eta_{ij}), 1),    \qquad j = 1, \dots, t_i   \end{align*}$$
 
 where $N^{(r)}(\vec\mu,\mat\Sigma)$ means a $r$-dimensional a multivariate 
 normal distribution with mean $\vec\mu$ and covariance matrix $\mat\Sigma$
@@ -107,26 +71,7 @@ $\vec x = (\vec\beta^\top, \widehat{\vec u}_1^\top, \dots, \widehat{\vec u}_n^\t
 of the log of the integrand given a covariance matrix estimate, 
 $\widehat{\mat \Sigma}$. That is, we are minimizing 
 
-$$
-\begin{align*}
-f(\vec x) &= -\sum_{i = 1}^n \left(
-  \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))
-  - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i
-  \right) \\
-&= -\sum_{i = 1}^n \left(
-  \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)
-  - \sum_{k = 1}^{t_i}
-  \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))
-  - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i
-  \right) \\
-&= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)) \\
-f_i((\vec\beta^\top, \vec u^\top)) &= 
-  -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)
-  + \sum_{k = 1}^{t_i}
-  \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))
-  + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u
-\end{align*}
-$$
+$$\begin{align*}   f(\vec x) &= -\sum_{i = 1}^n \left(     \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))     - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= -\sum_{i = 1}^n \left(     \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)     - \sum_{k = 1}^{t_i}     \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))   - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)) \\   f_i((\vec\beta^\top, \vec u^\top)) &=    -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)     + \sum_{k = 1}^{t_i}   \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))   + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u   \end{align*}$$
 
 In this problem, $\vec\beta$ is the shared parameters and the 
 $\widehat{\vec u}_i$'s are the private parameters. Thus, 
@@ -173,16 +118,11 @@ $\mat B_k^{-1}$ will still be large and dense when $l$ is large.
 As an alternative, we can exploit the structure of the problem we are 
 solving. Let 
 
-$$
-\mat H_i = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)
-$$
+$$\mat H_i = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)$$
 
 The true Hessian in our case is sparse and given by 
 
-$$
-\nabla^2 f(\vec x) = \sum_{i = 1}^n 
-  \mat H_i^\top\nabla^2f_i(\vec x_{\mathcal I_i})\mat H_i
-$$
+$$\nabla^2 f(\vec x) = \sum_{i = 1}^n    \mat H_i^\top\nabla^2f_i(\vec x_{\mathcal I_i})\mat H_i$$
  
 Notice that each $\nabla^2f_i(\vec x_{\mathcal I_i})$ is only a 
 $(p + q_i)\times (p + q_i)$ matrix. We illustrate this below with $n = 10$
@@ -250,9 +190,7 @@ However, we can use the conjugate gradient method we describe in the
 next section. This will be fast if we can perform the following 
 matrix-vector product fast:
 
-$$
-\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec z.
-$$
+$$\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec z.$$
 
 To elaborate on this, 
 each $\mat H_i^\top\mat B_{k - 1,i}\mat H_i\vec z$ consists 
@@ -356,7 +294,7 @@ true_params <- c(beta, sapply(sim_dat, function(x) x$u))
 true_params[1:p]
 
 # some of the private parameters
-true_params[1:(4 *q) + p]
+true_params[1:(4 * q) + p]
 ```
 
 As a reference, we will create the following function to evaluate the 

@@ -230,7 +230,6 @@ public:
     return out;
   }
 };
-
 } // namespace PSQN
 
 #endif

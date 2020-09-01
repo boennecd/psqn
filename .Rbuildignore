@@ -2,5 +2,6 @@
 ^\.Rproj\.user$
 ^vignettes/psqn_cache
 ^vignettes/render\.R
-^vignettes/psqn\.md
+^vignettes/psqn\.html
 ^vignettes/psqn_files
+^README\.md$
