@@ -460,7 +460,7 @@ computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(BFGS = optim_func(start_val), psqn = psqn_func(start_val), 
-            check = FALSE, relative = TRUE)
+            check = FALSE)
 ```
 
 We see a large reduction.
@@ -471,8 +471,8 @@ TODO: write this section.
 
 ### BFGS and Partially Separable Quasi-Newton
 
-Ratio for flops required in the matrix-vector product BFGS relative to 
-the flops in required in the matrix-vector product for the conjugate 
+Ratio for flops required in the matrix-vector product in BFGS relative to 
+the flops required in the matrix-vector product for the conjugate 
 gradient method for the quasi-Newton method:
 
 ```{r compare_flops}

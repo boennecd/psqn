@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+<title>psqn: Partially Separable Quasi-Newton</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; left: -4em; }
+pre.numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#header {
+text-align: center;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">psqn: Partially Separable Quasi-Newton</h1>
+
+
+
+<style>
+img {
+    border: none;
+}
+</style>
+<p><span class="math display">\[\renewcommand\vec{\boldsymbol}   \def\bigO#1{\mathcal{O}(#1)}   \def\Cond#1#2{\left(#1\,\middle|\, #2\right)}   \def\mat#1{\boldsymbol{#1}}   \def\der{{\mathop{}\!\mathrm{d}}}   \def\argmax{\text{arg}\,\text{max}}  \def\Prob{\text{P}}  \def\diag{\text{diag}}\]</span></p>
+<p>This package provides an optimization method for <em>partially separable</em> functions. Partially separable functions are of the following form:</p>
+<p><span class="math display">\[f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})\]</span></p>
+<p>where <span class="math inline">\(\vec r\in \mathbb R^l\)</span>,</p>
+<p><span class="math display">\[\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots l\}^l,\]</span> and <span class="math inline">\(\vec e_k\)</span> is the <span class="math inline">\(k\)</span>’th column of the <span class="math inline">\(l\)</span> dimensional identity matrix. Each function <span class="math inline">\(f_i\)</span> is called an <em>element function</em> and only depends on <span class="math inline">\(m_i \ll l\)</span> parameters. This allows for an efficient quasi-Newton method when all the <span class="math inline">\(m_i\)</span>’s are much smaller than the dimension of the parameter vector <span class="math inline">\(\vec x\)</span>, <span class="math inline">\(l\)</span>. The framework can be extended to allow for a linear combination of <span class="math inline">\(m_i\)</span> parameters but we do not cover such problems. TODO: add reference.</p>
+<p>We only consider a more restricted form of the problem. Assume that each index set <span class="math inline">\(\mathcal I_i\)</span> is of the form</p>
+<p><span class="math display">\[\begin{align*}   \mathcal I_i &amp;= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_k &amp;= \emptyset \qquad k\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &amp;= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}\]</span></p>
+<p>That is, each index set contains <span class="math inline">\(p\)</span> <em>global parameters</em> and <span class="math inline">\(q_i = \lvert\mathcal J_i\rvert\)</span> <em>private parameters</em> which are particular for each element function, <span class="math inline">\(f_i\)</span>. For implementation reason, we let</p>
+<p><span class="math display">\[\begin{align*}   \overleftarrow q_i &amp;=    \begin{cases} p &amp; i = 0 \\ p + \sum_{k = 1}^i q_k &amp; i &gt; 0 \end{cases} \\   \mathcal J_i &amp;=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}\]</span></p>
+<p>such that the element functions’ private parameters lies in a consecutive part for <span class="math inline">\(\vec x\)</span>.</p>
+<div id="example" class="section level2">
+<h2>Example</h2>
+<p>We are going to consider a Taylor approximation for a generalized linear mixed model. In particular, we focus on a mixed logit regression where</p>
+<p><span class="math display">\[\begin{align*}   \vec U_i &amp;\sim N^{(r)}(\vec 0, \mat\Sigma) \\   \vec\eta_i &amp;= \mat X_i\top\vec\beta + \mat Z_i\vec U_i \\   Y_{ij} &amp;\sim \text{Bin}(\text{logit}^{-1}(\eta_{ij}), 1),    \qquad j = 1, \dots, t_i   \end{align*}\]</span></p>
+<p>where <span class="math inline">\(N^{(r)}(\vec\mu,\mat\Sigma)\)</span> means a <span class="math inline">\(r\)</span>-dimensional a multivariate normal distribution with mean <span class="math inline">\(\vec\mu\)</span> and covariance matrix <span class="math inline">\(\mat\Sigma\)</span> and <span class="math inline">\(\text{Bin}(p, k)\)</span> means a binomial distribution probability <span class="math inline">\(p\)</span> and size <span class="math inline">\(k\)</span>. <span class="math inline">\(\vec U_i\)</span> is an unknown random effect with an unknown covariance <span class="math inline">\(\mat\Sigma\)</span> and <span class="math inline">\(\vec\beta\in\mathbb{R}^p\)</span> is an unknown fixed effect vector. <span class="math inline">\(\mat X_i\)</span> and <span class="math inline">\(\mat Z_i\)</span> are known design matrices each with <span class="math inline">\(t_i\)</span> rows for each of the <span class="math inline">\(t_i\)</span> observed outcomes, the <span class="math inline">\(y_{ij}\)</span>s.</p>
+<p>As part of a Taylor approximation, we find a mode of <span class="math inline">\(\vec x = (\vec\beta^\top, \widehat{\vec u}_1^\top, \dots, \widehat{\vec u}_n^\top)\)</span> of the log of the integrand given a covariance matrix estimate, <span class="math inline">\(\widehat{\mat \Sigma}\)</span>. That is, we are minimizing</p>
+<p><span class="math display">\[\begin{align*}   f(\vec x) &amp;= -\sum_{i = 1}^n \left(     \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))     - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &amp;= -\sum_{i = 1}^n \left(     \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)     - \sum_{k = 1}^{t_i}     \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))   - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &amp;= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)) \\   f_i((\vec\beta^\top, \vec u^\top)) &amp;=    -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)     + \sum_{k = 1}^{t_i}   \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))   + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u   \end{align*}\]</span></p>
+<p>In this problem, <span class="math inline">\(\vec\beta\)</span> is the shared parameters and the <span class="math inline">\(\widehat{\vec u}_i\)</span>’s are the private parameters. Thus, <span class="math inline">\(l = p + nr\)</span>. We will later return to this example with an implementation which uses this package.</p>
+<div id="variational-approximation" class="section level3">
+<h3>Variational Approximation</h3>
+<p>TODO: write about variational approximations.</p>
+</div>
+</div>
+<div id="quasi-newton-method-for-partially-separable-functions" class="section level2">
+<h2>Quasi-Newton Method for Partially Separable Functions</h2>
+<p>We are going to assume some prior knowledge of Newton’s method and the Broyden–Fletcher–Goldfarb–Shanno (BFGS) algorithm and we only provide a few details of these methods. However, will need a bit of notations from these methods to motivate the quasi-Newton method we have implemented.</p>
+<p>Newton’s method to minimize a function is to start at some value <span class="math inline">\(\vec x_0\)</span>. Then we set <span class="math inline">\(k = 1\)</span> and</p>
+<ol style="list-style-type: decimal">
+<li>compute a direction <span class="math inline">\(\vec p_k\)</span> given by <span class="math display">\[\nabla^2 f(\vec x_{k - 1})\vec p_k = - \nabla f(\vec x_{k -1}),\]</span></li>
+<li>set <span class="math inline">\(\vec x_k = \vec x_{k - 1} + \vec p_k\)</span> or <span class="math inline">\(\vec x_k = \vec x_{k - 1} + \gamma\vec p_k\)</span> for <span class="math inline">\(\gamma \in (0, 1]\)</span> set to satisfy the <a href="https://en.wikipedia.org/wiki/Wolfe_conditions">Wolfe conditions</a>, and</li>
+<li>repeat with <span class="math inline">\(k\leftarrow k + 1\)</span> if a convergence criterion is not satisfied.</li>
+</ol>
+<p>Computing the Hessian, <span class="math inline">\(\nabla^2 f(\vec x_{k - 1})\)</span>, at every iteration can be expensive. The BFGS algorithm offers an alternative where we use an approximation instead. Here we start with some Hessian approximation <span class="math inline">\(\mat B_0\)</span> and</p>
+<ol style="list-style-type: decimal">
+<li>compute a direction <span class="math inline">\(\vec p_k\)</span> given by <span class="math display">\[\mat B_{k - 1}\vec p_k = - \nabla f(\vec x_{k -1}),\]</span></li>
+<li>find a step size <span class="math inline">\(\alpha\)</span> such that <span class="math inline">\(\vec x_{k - 1} + \alpha\vec p_k\)</span> satisfy the <a href="https://en.wikipedia.org/wiki/Wolfe_conditions">Wolfe conditions</a>,</li>
+<li>set <span class="math inline">\(\vec x_k = \vec x_{k - 1} + \alpha\vec p_k\)</span>, <span class="math inline">\(\vec s_k = \alpha\vec p_k = \vec x_k - \vec x_{k - 1}\)</span>, <span class="math inline">\(\vec d_k = \nabla f(\vec x_k) - \nabla f(\vec x_{k - 1})\)</span>,</li>
+<li>perform a rank-two update <span class="math display">\[\mat B_k = \mat B_{k - 1} + \frac{\vec y_k\vec y_k^\top}{\vec y_k^\top\vec s_k} - \frac{\mat B_{k - 1}\vec s_k\vec s_k^\top\mat B_{k - 1}^\top}{\vec s_k^\top\mat B_{k - 1}\vec s_k},\]</span> and</li>
+<li>repeat with <span class="math inline">\(k\leftarrow k + 1\)</span> if a convergence criterion is not satisfied.</li>
+</ol>
+<p>This reduces the cost of computing the Hessian. Further, we can update <span class="math inline">\(\mat B_k^{-1}\)</span> to avoid solving <span class="math inline">\(\mat B_{k - 1}\vec p_k = - \nabla f(\vec x_{k -1})\)</span>. The matrix <span class="math inline">\(\mat B_k^{-1}\)</span> will still be large and dense when <span class="math inline">\(l\)</span> is large.</p>
+<div id="using-partial-separability" class="section level3">
+<h3>Using Partial Separability</h3>
+<p>As an alternative, we can exploit the structure of the problem we are solving. Let</p>
+<p><span class="math display">\[\mat H_i = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top).\]</span></p>
+<p>The true Hessian in our case is sparse and given by</p>
+<p><span class="math display">\[\nabla^2 f(\vec x) = \sum_{i = 1}^n    \mat H_i^\top\nabla^2f_i(\vec x_{\mathcal I_i})\mat H_i\]</span></p>
+<p>Notice that each <span class="math inline">\(\nabla^2f_i(\vec x_{\mathcal I_i})\)</span> is only a <span class="math inline">\((p + q_i)\times (p + q_i)\)</span> matrix. We illustrate this below with <span class="math inline">\(n = 10\)</span> element functions. Each plot is <span class="math inline">\(\mat H_i^\top\nabla^2f_i(\vec x_{\mathcal I_i})\mat H_i\)</span> where black entries are a non-zero.</p>
+<p><img src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
+<p>The whole Hessian is:</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASAAAAEgCAMAAAAjXV6yAAAAD1BMVEUAAAAaGhoiIiJFRUX////5cEo+AAAACXBIWXMAAA7DAAAOwwHHb6hkAAACgUlEQVR4nO3QQY6CABBFQRTvf2Z3jAHCUzPDINbbd+enhps2G/57wNEDFAGKAEWAIkARoAhQ9AM0XjU1rgBdBk1dAG0HKAIUAYoARYAiQBGgCFAEKAIUAYoARYAiQNHLQLcvC1AEKAIUAYoARYAiQBGgCFAEKAIUPQX0eLCFd0ZBQBGgCFAEKAIUAYoARYAiQBGgCFAEKAIUAYoARYAiQBGgCFAEKAIUAYoARYAiQBGgCFAEKAIUAYoARYCil4Gyk1kBigBFgCJAEaAIUAQoAhQBigBFvw/00PzPJ4oBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhT9KdCihdjxCQFFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBF+wJ1hxMDFAGKAEWAIkARoAhQBCgCFAGKAEWAIkARoAhQBCg6GtCihdjOuwBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgCJA0eGBttpjJ6AIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgKKPBpo33/1E+RNQBCgCFAGKAEWAIkARoAhQBCgCFAGKAEWAIkARoAhQBCgCFAGKAEWAIkARoAhQBCgCFAGKAEWAIkARoAhQBCgCFAGKAEWAIkARoAhQBCgCFAGKAEWAIkARoAhQBCg6FdAbpSAgQJsBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUAQoAhQBigBFgCJAEaAIUPQW0HjV1LgCpNUARYAiQBGgCFAEKAIUAYrup18JmeoS7cYAAAAASUVORK5CYII=" style="display: block; margin: auto;" /></p>
+<p>We can use the partial separability to implement a BFGS method where we make <span class="math inline">\(n\)</span> BFGS approximations, one for each element function, <span class="math inline">\(f_i\)</span>. Let <span class="math inline">\(\mat B_{ki}\)</span> be the approximation of <span class="math inline">\(\nabla^2f_i(\vec x_{\mathcal I_i})\)</span> at iteration <span class="math inline">\(k\)</span>. Then the method we have implemented starts with <span class="math inline">\(\mat B_{k1},\dots,\mat B_{kn}\)</span> and</p>
+<ol style="list-style-type: decimal">
+<li>computes a direction <span class="math inline">\(\vec p_k\)</span> given by <span class="math display">\[\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec p_k = - \nabla f(\vec x_{k -1}),\]</span></li>
+<li>finds a step size <span class="math inline">\(\alpha\)</span> such that <span class="math inline">\(\vec x_{k - 1} + \alpha\vec p_k\)</span> satisfy the <a href="https://en.wikipedia.org/wiki/Wolfe_conditions">Wolfe conditions</a>,</li>
+<li>sets <span class="math inline">\(\vec x_k = \vec x_{k - 1} + \alpha\vec p_k\)</span>,</li>
+<li>performs BFGS updates for each <span class="math inline">\(\mat B_{k1},\dots,\mat B_{kn}\)</span>, and</li>
+<li>repeats with <span class="math inline">\(k\leftarrow k + 1\)</span> if a convergence criterion is not satisfied.</li>
+</ol>
+<p>This seems as if it is going to be much slower as we are solving a large linear system if <span class="math inline">\(l\)</span> is large. However, we can use the conjugate gradient method we describe in the next section. This will be fast if we can perform the following matrix-vector product fast:</p>
+<p><span class="math display">\[\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec z.\]</span></p>
+<p>To elaborate on this, each <span class="math inline">\(\mat H_i^\top\mat B_{k - 1,i}\mat H_i\vec z\)</span> consists of matrix-vector product with a <span class="math inline">\(o_i \times o_i\)</span> symmetric matrix and a vector where <span class="math inline">\(o_i = (p + q_i)\)</span>. This can be done in <span class="math inline">\(o_i(o_i + 1)\)</span> flops. Thus, the total cost is <span class="math inline">\(\sum_{i = 1}^n o_i(o_i + 1)\)</span> flops. This is in contrast to the original <span class="math inline">\(l(l + 1)\)</span> flops with the BFGS method.</p>
+<p>As an example suppose that <span class="math inline">\(q_i = 5\)</span> for all <span class="math inline">\(n\)</span> element functions, <span class="math inline">\(n = 5000\)</span>, and <span class="math inline">\(p = 10\)</span>. Then <span class="math inline">\(o_i = 15\)</span> and the matrix-vector product above requires <span class="math inline">\(5000 \cdot 15(15 + 1) = 1200000\)</span> flops. In contrast <span class="math inline">\(l = 5000 \cdot 5 + 10 = 25010\)</span> and the matrix-vector product in the BFGS method requires <span class="math inline">\(25010 (25010 + 1) = 625525110\)</span> flops. That is 521 times more flops. Similar ratios are shown in the <a href="#bfgs-and-partially-separable-quasi-newton">BFGS and Partially Separable Quasi-Newton</a> section.</p>
+<p>More formerly, the former is <span class="math inline">\(\mathcal O(n(p + q_{\text max})^2)\)</span> where <span class="math inline">\(q_{\text max} = \text{max}_{i = 1,\dots, n} q_i\)</span> whereas the matrix-vector product in the BFGS method is <span class="math inline">\(\mathcal O((p + \sum_{i = 1}^n q_i)^2)\)</span>. Further, the rank-two BFGS updates are cheaper and may converge faster to a good approximation. However, we should keep in mind that the original BFGS method yields an approximation of <span class="math inline">\(\mat B_k^{-1}\)</span>. Thus, we do not need to solve a linear system.</p>
+</div>
+</div>
+<div id="conjugate-gradient-method" class="section level2">
+<h2>Conjugate Gradient Method</h2>
+<p>The conjugate gradient method we use solves</p>
+<p><span class="math display">\[\mat A\vec b = \vec v\]</span></p>
+<p>which in our quasi-Newton method is</p>
+<p><span class="math display">\[\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec p_k = - \nabla f(\vec x_{k -1})\]</span></p>
+<p>We start of with some initial value <span class="math inline">\(\vec x_0\)</span>. Then we set <span class="math inline">\(k = 0\)</span>, <span class="math inline">\(\vec r_0 = \mat A\vec x_0 - \vec v\)</span>, <span class="math inline">\(\vec p_0 = -\vec r_0\)</span>, and:</p>
+<ol style="list-style-type: decimal">
+<li>find the step length <span class="math display">\[\alpha_k = \frac{\vec r_k^\top\vec r_k}{\vec p_k^\top\mat A\vec p_k},\]</span></li>
+<li>find the new value <span class="math display">\[\vec x_{k + 1} = \vec x_k + \alpha_k\vec p_k,\]</span></li>
+<li>find the new residual <span class="math display">\[\vec r_{k + 1} = \vec r_k + \alpha_k\mat A\vec p_k,\]</span></li>
+<li>set <span class="math inline">\(\beta_{k + 1} = (\vec r_k^\top\vec r_k)^{-1}\vec r_{k + 1}^\top\vec r_{k + 1}\)</span>,</li>
+<li>set the new search direction to <span class="math display">\[\vec p_{k + 1} = - \vec r_{k + 1} + \beta_{k + 1}\vec p_k,\]</span> and</li>
+<li>stop if <span class="math inline">\(\vec r_{k + 1}^\top\vec r_{k + 1}\)</span> is smaller. Otherwise set <span class="math inline">\(k\leftarrow k + 1\)</span> and repeat.</li>
+</ol>
+<p>The main issue is the matrix-vector product <span class="math inline">\(\mat A\vec p_k\)</span> but as we argued in the previous section that this can be computed in <span class="math inline">\(\mathcal O(n(p + q_{\text max})^2)\)</span> time. The conjugate gradient method will at most take <span class="math inline">\(h\)</span> iterations where <span class="math inline">\(h\)</span> is the number of rows and columns of <span class="math inline">\(\mat A\)</span>. Moreover, if <span class="math inline">\(\mat A\)</span> only has <span class="math inline">\(r &lt; h\)</span> distinct eigenvalues then we will at most make <span class="math inline">\(r\)</span> conjugate gradient iterations. Lastly, if <span class="math inline">\(\mat A\)</span> has clusters of eigenvalues then we may expect to perform only a number of iterations close to the number of distinct clusters.</p>
+</div>
+<div id="line-search-and-wolfe-condition" class="section level2">
+<h2>Line Search and Wolfe Condition</h2>
+<p>TODO: write this section.</p>
+</div>
+<div id="symmetric-rank-one-updates" class="section level2">
+<h2>Symmetric Rank-one Updates</h2>
+<p>TODO: write this section.</p>
+</div>
+<div id="example-using-the-implementation" class="section level2">
+<h2>Example Using the Implementation</h2>
+<p>We simulate a data set below from the mixed logit model we showed earlier.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="co"># assign model parameters and number of random effects and fixed effects</span></a>
+<a class="sourceLine" id="cb1-2" data-line-number="2">q &lt;-<span class="st"> </span><span class="dv">4</span></a>
+<a class="sourceLine" id="cb1-3" data-line-number="3">p &lt;-<span class="st"> </span><span class="dv">5</span></a>
+<a class="sourceLine" id="cb1-4" data-line-number="4">beta &lt;-<span class="st"> </span><span class="kw">sqrt</span>((<span class="dv">1</span><span class="op">:</span>p) <span class="op">/</span><span class="st"> </span><span class="kw">sum</span>(<span class="dv">1</span><span class="op">:</span>p))</a>
+<a class="sourceLine" id="cb1-5" data-line-number="5">Sigma &lt;-<span class="st"> </span><span class="kw">diag</span>(q)</a>
+<a class="sourceLine" id="cb1-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb1-7" data-line-number="7"><span class="co"># simulate data set</span></a>
+<a class="sourceLine" id="cb1-8" data-line-number="8">n_clusters &lt;-<span class="st"> </span>400L</a>
+<a class="sourceLine" id="cb1-9" data-line-number="9"><span class="kw">set.seed</span>(<span class="dv">66608927</span>)</a>
+<a class="sourceLine" id="cb1-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb1-11" data-line-number="11">sim_dat &lt;-<span class="st"> </span><span class="kw">replicate</span>(n_clusters, {</a>
+<a class="sourceLine" id="cb1-12" data-line-number="12">  n_members &lt;-<span class="st"> </span><span class="kw">sample.int</span>(20L, 1L) <span class="op">+</span><span class="st"> </span>2L</a>
+<a class="sourceLine" id="cb1-13" data-line-number="13">  X &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="kw">runif</span>(p <span class="op">*</span><span class="st"> </span>n_members, <span class="op">-</span><span class="kw">sqrt</span>(<span class="dv">6</span> <span class="op">/</span><span class="st"> </span><span class="dv">2</span>), <span class="kw">sqrt</span>(<span class="dv">6</span> <span class="op">/</span><span class="st"> </span><span class="dv">2</span>)), </a>
+<a class="sourceLine" id="cb1-14" data-line-number="14">              p)</a>
+<a class="sourceLine" id="cb1-15" data-line-number="15">  u &lt;-<span class="st"> </span><span class="kw">drop</span>(<span class="kw">rnorm</span>(q) <span class="op">%*%</span><span class="st"> </span><span class="kw">chol</span>(Sigma))</a>
+<a class="sourceLine" id="cb1-16" data-line-number="16">  Z &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="kw">runif</span>(q <span class="op">*</span><span class="st"> </span>n_members, <span class="op">-</span><span class="kw">sqrt</span>(<span class="dv">6</span> <span class="op">/</span><span class="st"> </span><span class="dv">2</span> <span class="op">/</span><span class="st"> </span>q), <span class="kw">sqrt</span>(<span class="dv">6</span> <span class="op">/</span><span class="st"> </span><span class="dv">2</span> <span class="op">/</span><span class="st"> </span>q)), </a>
+<a class="sourceLine" id="cb1-17" data-line-number="17">              q)</a>
+<a class="sourceLine" id="cb1-18" data-line-number="18">  eta &lt;-<span class="st"> </span><span class="kw">drop</span>(beta <span class="op">%*%</span><span class="st"> </span>X <span class="op">+</span><span class="st"> </span>u <span class="op">%*%</span><span class="st"> </span>Z)</a>
+<a class="sourceLine" id="cb1-19" data-line-number="19">  y &lt;-<span class="st"> </span><span class="kw">as.numeric</span>((<span class="dv">1</span> <span class="op">+</span><span class="st"> </span><span class="kw">exp</span>(<span class="op">-</span>eta))<span class="op">^</span>(<span class="op">-</span><span class="dv">1</span>) <span class="op">&gt;</span><span class="st"> </span><span class="kw">runif</span>(n_members))</a>
+<a class="sourceLine" id="cb1-20" data-line-number="20">  </a>
+<a class="sourceLine" id="cb1-21" data-line-number="21">  <span class="kw">list</span>(<span class="dt">X =</span> X, <span class="dt">Z =</span> Z, <span class="dt">y =</span> y, <span class="dt">u =</span> u, <span class="dt">Sigma_inv =</span> <span class="kw">solve</span>(Sigma))</a>
+<a class="sourceLine" id="cb1-22" data-line-number="22">}, <span class="dt">simplify =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb1-23" data-line-number="23"></a>
+<a class="sourceLine" id="cb1-24" data-line-number="24"><span class="co"># example of the first cluster</span></a>
+<a class="sourceLine" id="cb1-25" data-line-number="25">sim_dat[[1L]]</a>
+<a class="sourceLine" id="cb1-26" data-line-number="26"><span class="co">#&gt; $X</span></a>
+<a class="sourceLine" id="cb1-27" data-line-number="27"><span class="co">#&gt;         [,1]   [,2]    [,3]</span></a>
+<a class="sourceLine" id="cb1-28" data-line-number="28"><span class="co">#&gt; [1,]  0.0416 -0.809 -0.1839</span></a>
+<a class="sourceLine" id="cb1-29" data-line-number="29"><span class="co">#&gt; [2,]  0.6524 -1.373 -0.9254</span></a>
+<a class="sourceLine" id="cb1-30" data-line-number="30"><span class="co">#&gt; [3,] -1.3339 -0.957 -0.8708</span></a>
+<a class="sourceLine" id="cb1-31" data-line-number="31"><span class="co">#&gt; [4,]  0.7547 -0.156  0.0178</span></a>
+<a class="sourceLine" id="cb1-32" data-line-number="32"><span class="co">#&gt; [5,]  0.7191 -0.681 -0.7232</span></a>
+<a class="sourceLine" id="cb1-33" data-line-number="33"><span class="co">#&gt; </span></a>
+<a class="sourceLine" id="cb1-34" data-line-number="34"><span class="co">#&gt; $Z</span></a>
+<a class="sourceLine" id="cb1-35" data-line-number="35"><span class="co">#&gt;        [,1]   [,2]   [,3]</span></a>
+<a class="sourceLine" id="cb1-36" data-line-number="36"><span class="co">#&gt; [1,]  0.167 -0.483 -0.785</span></a>
+<a class="sourceLine" id="cb1-37" data-line-number="37"><span class="co">#&gt; [2,] -0.266 -0.823  0.794</span></a>
+<a class="sourceLine" id="cb1-38" data-line-number="38"><span class="co">#&gt; [3,]  0.609 -0.549  0.269</span></a>
+<a class="sourceLine" id="cb1-39" data-line-number="39"><span class="co">#&gt; [4,] -0.414 -0.457  0.605</span></a>
+<a class="sourceLine" id="cb1-40" data-line-number="40"><span class="co">#&gt; </span></a>
+<a class="sourceLine" id="cb1-41" data-line-number="41"><span class="co">#&gt; $y</span></a>
+<a class="sourceLine" id="cb1-42" data-line-number="42"><span class="co">#&gt; [1] 0 0 0</span></a>
+<a class="sourceLine" id="cb1-43" data-line-number="43"><span class="co">#&gt; </span></a>
+<a class="sourceLine" id="cb1-44" data-line-number="44"><span class="co">#&gt; $u</span></a>
+<a class="sourceLine" id="cb1-45" data-line-number="45"><span class="co">#&gt; [1]  0.0705 -1.7285  0.1538 -0.3245</span></a>
+<a class="sourceLine" id="cb1-46" data-line-number="46"><span class="co">#&gt; </span></a>
+<a class="sourceLine" id="cb1-47" data-line-number="47"><span class="co">#&gt; $Sigma_inv</span></a>
+<a class="sourceLine" id="cb1-48" data-line-number="48"><span class="co">#&gt;      [,1] [,2] [,3] [,4]</span></a>
+<a class="sourceLine" id="cb1-49" data-line-number="49"><span class="co">#&gt; [1,]    1    0    0    0</span></a>
+<a class="sourceLine" id="cb1-50" data-line-number="50"><span class="co">#&gt; [2,]    0    1    0    0</span></a>
+<a class="sourceLine" id="cb1-51" data-line-number="51"><span class="co">#&gt; [3,]    0    0    1    0</span></a>
+<a class="sourceLine" id="cb1-52" data-line-number="52"><span class="co">#&gt; [4,]    0    0    0    1</span></a></code></pre></div>
+<p>The combined vector with global and private parameters can be created like this (it is a misnoma to call this <code>true_params</code> as the modes of the random effects, the private parameters, should only match the random effects if the clusters are very large):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb2-1" data-line-number="1">true_params &lt;-<span class="st"> </span><span class="kw">c</span>(beta, <span class="kw">sapply</span>(sim_dat, <span class="cf">function</span>(x) x<span class="op">$</span>u))</a>
+<a class="sourceLine" id="cb2-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb2-3" data-line-number="3"><span class="co"># global parameters</span></a>
+<a class="sourceLine" id="cb2-4" data-line-number="4">true_params[<span class="dv">1</span><span class="op">:</span>p]</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5"><span class="co">#&gt; [1] 0.258 0.365 0.447 0.516 0.577</span></a>
+<a class="sourceLine" id="cb2-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb2-7" data-line-number="7"><span class="co"># some of the private parameters</span></a>
+<a class="sourceLine" id="cb2-8" data-line-number="8">true_params[<span class="dv">1</span><span class="op">:</span>(<span class="dv">4</span> <span class="op">*</span><span class="st"> </span>q) <span class="op">+</span><span class="st"> </span>p]</a>
+<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="co">#&gt;  [1]  0.0705 -1.7285  0.1538 -0.3245  0.2516 -0.5419 -0.5537 -0.2805 -1.1777</span></a>
+<a class="sourceLine" id="cb2-10" data-line-number="10"><span class="co">#&gt; [10] -1.7539  1.7338  0.5616 -0.8379  1.2412 -1.2046  1.4547</span></a></code></pre></div>
+<p>As a reference, we will create the following function to evaluate the log of the integrand:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1">eval_integrand &lt;-<span class="st"> </span><span class="cf">function</span>(par){</a>
+<a class="sourceLine" id="cb3-2" data-line-number="2">  out &lt;-<span class="st"> </span><span class="fl">0.</span></a>
+<a class="sourceLine" id="cb3-3" data-line-number="3">  inc &lt;-<span class="st"> </span>p</a>
+<a class="sourceLine" id="cb3-4" data-line-number="4">  beta &lt;-<span class="st"> </span>par[<span class="dv">1</span><span class="op">:</span>p]</a>
+<a class="sourceLine" id="cb3-5" data-line-number="5">  <span class="cf">for</span>(i <span class="cf">in</span> <span class="kw">seq_along</span>(sim_dat)){</a>
+<a class="sourceLine" id="cb3-6" data-line-number="6">    dat &lt;-<span class="st"> </span>sim_dat[[i]]</a>
+<a class="sourceLine" id="cb3-7" data-line-number="7">    X &lt;-<span class="st"> </span>dat<span class="op">$</span>X</a>
+<a class="sourceLine" id="cb3-8" data-line-number="8">    Z &lt;-<span class="st"> </span>dat<span class="op">$</span>Z</a>
+<a class="sourceLine" id="cb3-9" data-line-number="9">    y &lt;-<span class="st"> </span>dat<span class="op">$</span>y</a>
+<a class="sourceLine" id="cb3-10" data-line-number="10">    Sigma_inv &lt;-<span class="st"> </span>dat<span class="op">$</span>Sigma_inv</a>
+<a class="sourceLine" id="cb3-11" data-line-number="11">    </a>
+<a class="sourceLine" id="cb3-12" data-line-number="12">    u &lt;-<span class="st"> </span>par[<span class="dv">1</span><span class="op">:</span>q <span class="op">+</span><span class="st"> </span>inc]</a>
+<a class="sourceLine" id="cb3-13" data-line-number="13">    inc &lt;-<span class="st"> </span>inc <span class="op">+</span><span class="st"> </span>q</a>
+<a class="sourceLine" id="cb3-14" data-line-number="14">    eta &lt;-<span class="st"> </span><span class="kw">drop</span>(beta <span class="op">%*%</span><span class="st"> </span>X <span class="op">+</span><span class="st"> </span>u <span class="op">%*%</span><span class="st"> </span>Z)</a>
+<a class="sourceLine" id="cb3-15" data-line-number="15">    </a>
+<a class="sourceLine" id="cb3-16" data-line-number="16">    out &lt;-<span class="st"> </span>out <span class="op">-</span><span class="st"> </span><span class="kw">drop</span>(y <span class="op">%*%</span><span class="st"> </span>eta) <span class="op">+</span><span class="st"> </span><span class="kw">sum</span>(<span class="kw">log</span>(<span class="dv">1</span> <span class="op">+</span><span class="st"> </span><span class="kw">exp</span>(eta))) <span class="op">+</span><span class="st"> </span></a>
+<a class="sourceLine" id="cb3-17" data-line-number="17"><span class="st">      </span><span class="fl">.5</span> <span class="op">*</span><span class="st"> </span><span class="kw">drop</span>(u <span class="op">%*%</span><span class="st"> </span>Sigma_inv <span class="op">%*%</span><span class="st"> </span>u)</a>
+<a class="sourceLine" id="cb3-18" data-line-number="18">  }</a>
+<a class="sourceLine" id="cb3-19" data-line-number="19">  </a>
+<a class="sourceLine" id="cb3-20" data-line-number="20">  out</a>
+<a class="sourceLine" id="cb3-21" data-line-number="21">}</a>
+<a class="sourceLine" id="cb3-22" data-line-number="22"></a>
+<a class="sourceLine" id="cb3-23" data-line-number="23"><span class="co"># check the log integrand at true global parameters and the random effects</span></a>
+<a class="sourceLine" id="cb3-24" data-line-number="24"><span class="kw">eval_integrand</span>(true_params)</a>
+<a class="sourceLine" id="cb3-25" data-line-number="25"><span class="co">#&gt; [1] 3511</span></a></code></pre></div>
+<p>We will use this function to compare with our C++ implementation.</p>
+<div id="r-implementation" class="section level3">
+<h3>R Implementation</h3>
+<p>TODO: write this section.</p>
+</div>
+<div id="c-implementation" class="section level3">
+<h3>C++ Implementation</h3>
+<p>We provide a C++ implementation with the package as example of how to use this package. The location of the implementation can be found by calling <code>system.file(&quot;mlogit-ex.cpp&quot;, package = &quot;psqn&quot;)</code>. The most important part of the implementation is the problem specific <code>m_logit_func</code> class, the <code>get_mlogit_optimizer</code> function and the <code>optim_mlogit</code> function which are needed to perform the optimization. The content of the file is:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="co">// we use RcppArmadillo to simplify the code</span></a>
+<a class="sourceLine" id="cb4-2" data-line-number="2"><span class="co">// [[Rcpp::depends(RcppArmadillo)]]</span></a>
+<a class="sourceLine" id="cb4-3" data-line-number="3"><span class="pp">#include </span><span class="im">&lt;RcppArmadillo.h&gt;</span></a>
+<a class="sourceLine" id="cb4-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb4-5" data-line-number="5"><span class="co">// [[Rcpp::depends(psqn)]]</span></a>
+<a class="sourceLine" id="cb4-6" data-line-number="6"><span class="pp">#include </span><span class="im">&quot;psqn.h&quot;</span></a>
+<a class="sourceLine" id="cb4-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb4-8" data-line-number="8"><span class="kw">using</span> <span class="kw">namespace</span> Rcpp;</a>
+<a class="sourceLine" id="cb4-9" data-line-number="9"></a>
+<a class="sourceLine" id="cb4-10" data-line-number="10"><span class="co">/// simple function to avoid copying a vector. You can ignore this.</span></a>
+<a class="sourceLine" id="cb4-11" data-line-number="11"><span class="kw">inline</span> arma::vec vec_no_cp(<span class="dt">double</span> <span class="at">const</span> * x, <span class="dt">size_t</span> <span class="at">const</span> n_ele){</a>
+<a class="sourceLine" id="cb4-12" data-line-number="12">  <span class="cf">return</span> arma::vec(<span class="kw">const_cast</span>&lt;<span class="dt">double</span> *&gt;(x), n_ele, <span class="kw">false</span>);</a>
+<a class="sourceLine" id="cb4-13" data-line-number="13">}</a>
+<a class="sourceLine" id="cb4-14" data-line-number="14"></a>
+<a class="sourceLine" id="cb4-15" data-line-number="15"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-16" data-line-number="16"><span class="co"> implements the element function for a given cluster. The class must provide</span></a>
+<a class="sourceLine" id="cb4-17" data-line-number="17"><span class="co"> the member functions which we provide here.</span></a>
+<a class="sourceLine" id="cb4-18" data-line-number="18"></a>
+<a class="sourceLine" id="cb4-19" data-line-number="19"><span class="co"> We do not need to inherit from the element_function class but we can do it</span></a>
+<a class="sourceLine" id="cb4-20" data-line-number="20"><span class="co"> to ensure that we have implemented all the member functions.</span></a>
+<a class="sourceLine" id="cb4-21" data-line-number="21"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-22" data-line-number="22"><span class="kw">class</span> <span class="va">m_logit_func</span> <span class="kw">final</span> : <span class="kw">public</span> PSQN::element_function {</a>
+<a class="sourceLine" id="cb4-23" data-line-number="23">  <span class="co">/// design matrices</span></a>
+<a class="sourceLine" id="cb4-24" data-line-number="24">  arma::mat <span class="at">const</span> X, Z;</a>
+<a class="sourceLine" id="cb4-25" data-line-number="25">  <span class="co">/// outcomes</span></a>
+<a class="sourceLine" id="cb4-26" data-line-number="26">  arma::vec <span class="at">const</span> y;</a>
+<a class="sourceLine" id="cb4-27" data-line-number="27">  <span class="co">/// inverse covariance matrix</span></a>
+<a class="sourceLine" id="cb4-28" data-line-number="28">  arma::mat <span class="at">const</span> Sigma_inv;</a>
+<a class="sourceLine" id="cb4-29" data-line-number="29"></a>
+<a class="sourceLine" id="cb4-30" data-line-number="30"><span class="kw">public</span>:</a>
+<a class="sourceLine" id="cb4-31" data-line-number="31">  <span class="va">m_logit_func</span>(List data):</a>
+<a class="sourceLine" id="cb4-32" data-line-number="32">  X        (as&lt;arma::mat&gt;(data[<span class="st">&quot;X&quot;</span>        ])),</a>
+<a class="sourceLine" id="cb4-33" data-line-number="33">  Z        (as&lt;arma::mat&gt;(data[<span class="st">&quot;Z&quot;</span>        ])),</a>
+<a class="sourceLine" id="cb4-34" data-line-number="34">  y        (as&lt;arma::vec&gt;(data[<span class="st">&quot;y&quot;</span>        ])),</a>
+<a class="sourceLine" id="cb4-35" data-line-number="35">  Sigma_inv(as&lt;arma::mat&gt;(data[<span class="st">&quot;Sigma_inv&quot;</span>])) { }</a>
+<a class="sourceLine" id="cb4-36" data-line-number="36"></a>
+<a class="sourceLine" id="cb4-37" data-line-number="37">  <span class="co">/// dimension of the global parameters</span></a>
+<a class="sourceLine" id="cb4-38" data-line-number="38">  <span class="dt">size_t</span> global_dim() <span class="at">const</span> {</a>
+<a class="sourceLine" id="cb4-39" data-line-number="39">    <span class="cf">return</span> X.n_rows;</a>
+<a class="sourceLine" id="cb4-40" data-line-number="40">  }</a>
+<a class="sourceLine" id="cb4-41" data-line-number="41">  <span class="co">/// dimension of the private parameters</span></a>
+<a class="sourceLine" id="cb4-42" data-line-number="42">  <span class="dt">size_t</span> private_dim() <span class="at">const</span> {</a>
+<a class="sourceLine" id="cb4-43" data-line-number="43">    <span class="cf">return</span> Z.n_rows;</a>
+<a class="sourceLine" id="cb4-44" data-line-number="44">  }</a>
+<a class="sourceLine" id="cb4-45" data-line-number="45"></a>
+<a class="sourceLine" id="cb4-46" data-line-number="46">  <span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-47" data-line-number="47"><span class="co">   computes the element function.</span></a>
+<a class="sourceLine" id="cb4-48" data-line-number="48"><span class="co">   @param point point to compute function at.</span></a>
+<a class="sourceLine" id="cb4-49" data-line-number="49"><span class="co">   */</span></a>
+<a class="sourceLine" id="cb4-50" data-line-number="50">  <span class="dt">double</span> func(<span class="dt">double</span> <span class="at">const</span> *point) <span class="at">const</span> {</a>
+<a class="sourceLine" id="cb4-51" data-line-number="51">    arma::vec <span class="at">const</span> beta = vec_no_cp(point           , X.n_rows),</a>
+<a class="sourceLine" id="cb4-52" data-line-number="52">                       u = vec_no_cp(point + X.n_rows, Z.n_rows),</a>
+<a class="sourceLine" id="cb4-53" data-line-number="53">                     eta = X.t() * beta + Z.t() * u;</a>
+<a class="sourceLine" id="cb4-54" data-line-number="54"></a>
+<a class="sourceLine" id="cb4-55" data-line-number="55">    <span class="dt">double</span> out(<span class="dv">0</span>);</a>
+<a class="sourceLine" id="cb4-56" data-line-number="56">    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; y.n_elem; ++i)</a>
+<a class="sourceLine" id="cb4-57" data-line-number="57">      out -= y[i] * eta[i] - log(<span class="dv">1</span> + exp(eta[i]));</a>
+<a class="sourceLine" id="cb4-58" data-line-number="58"></a>
+<a class="sourceLine" id="cb4-59" data-line-number="59">    out += arma::as_scalar(u.t() * Sigma_inv * u) * <span class="fl">.5</span>;</a>
+<a class="sourceLine" id="cb4-60" data-line-number="60"></a>
+<a class="sourceLine" id="cb4-61" data-line-number="61">    <span class="cf">return</span> out;</a>
+<a class="sourceLine" id="cb4-62" data-line-number="62">  }</a>
+<a class="sourceLine" id="cb4-63" data-line-number="63"></a>
+<a class="sourceLine" id="cb4-64" data-line-number="64">  <span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-65" data-line-number="65"><span class="co">   computes the element function and its gradient.</span></a>
+<a class="sourceLine" id="cb4-66" data-line-number="66"><span class="co">   @param point point to compute function at.</span></a>
+<a class="sourceLine" id="cb4-67" data-line-number="67"><span class="co">   @param gr gradient vector with respect to global and private parameters.</span></a>
+<a class="sourceLine" id="cb4-68" data-line-number="68"><span class="co">   */</span></a>
+<a class="sourceLine" id="cb4-69" data-line-number="69">  <span class="dt">double</span> grad</a>
+<a class="sourceLine" id="cb4-70" data-line-number="70">    (<span class="dt">double</span> <span class="at">const</span> * <span class="ex">__restrict__</span> point, <span class="dt">double</span> * <span class="ex">__restrict__</span> gr) <span class="at">const</span> {</a>
+<a class="sourceLine" id="cb4-71" data-line-number="71">    arma::vec <span class="at">const</span> beta = vec_no_cp(point           , X.n_rows),</a>
+<a class="sourceLine" id="cb4-72" data-line-number="72">                       u = vec_no_cp(point + X.n_rows, Z.n_rows),</a>
+<a class="sourceLine" id="cb4-73" data-line-number="73">                     eta = X.t() * beta + Z.t() * u;</a>
+<a class="sourceLine" id="cb4-74" data-line-number="74"></a>
+<a class="sourceLine" id="cb4-75" data-line-number="75">    <span class="co">// create objects to write to for the gradient</span></a>
+<a class="sourceLine" id="cb4-76" data-line-number="76">    <span class="bu">std::</span>fill(gr, gr + beta.n_elem + u.n_elem, <span class="fl">0.</span>);</a>
+<a class="sourceLine" id="cb4-77" data-line-number="77">    arma::vec dbeta(gr              , beta.n_elem, <span class="kw">false</span>),</a>
+<a class="sourceLine" id="cb4-78" data-line-number="78">              du   (gr + beta.n_elem, u.n_elem   , <span class="kw">false</span>);</a>
+<a class="sourceLine" id="cb4-79" data-line-number="79"></a>
+<a class="sourceLine" id="cb4-80" data-line-number="80">    <span class="dt">double</span> out(<span class="dv">0</span>);</a>
+<a class="sourceLine" id="cb4-81" data-line-number="81">    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; y.n_elem; ++i){</a>
+<a class="sourceLine" id="cb4-82" data-line-number="82">      <span class="dt">double</span> <span class="at">const</span> exp_eta = exp(eta[i]),</a>
+<a class="sourceLine" id="cb4-83" data-line-number="83">                   d_eta   = y[i] - exp_eta / (<span class="dv">1</span> + exp_eta);</a>
+<a class="sourceLine" id="cb4-84" data-line-number="84">      out -= y[i] * eta[i] - log(<span class="dv">1</span> + exp_eta);</a>
+<a class="sourceLine" id="cb4-85" data-line-number="85">      dbeta -= d_eta * X.col(i);</a>
+<a class="sourceLine" id="cb4-86" data-line-number="86">      du    -= d_eta * Z.col(i);</a>
+<a class="sourceLine" id="cb4-87" data-line-number="87">    }</a>
+<a class="sourceLine" id="cb4-88" data-line-number="88"></a>
+<a class="sourceLine" id="cb4-89" data-line-number="89">    out += arma::as_scalar(u.t() * Sigma_inv * u) * <span class="fl">.5</span>;</a>
+<a class="sourceLine" id="cb4-90" data-line-number="90">    du += Sigma_inv * u;</a>
+<a class="sourceLine" id="cb4-91" data-line-number="91"></a>
+<a class="sourceLine" id="cb4-92" data-line-number="92">    <span class="cf">return</span> out;</a>
+<a class="sourceLine" id="cb4-93" data-line-number="93">  }</a>
+<a class="sourceLine" id="cb4-94" data-line-number="94">};</a>
+<a class="sourceLine" id="cb4-95" data-line-number="95"></a>
+<a class="sourceLine" id="cb4-96" data-line-number="96"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-97" data-line-number="97"><span class="co"> creates a pointer to an object which is needed in the optim_mlogit</span></a>
+<a class="sourceLine" id="cb4-98" data-line-number="98"><span class="co"> function.</span></a>
+<a class="sourceLine" id="cb4-99" data-line-number="99"><span class="co"> @param data list with data for each element function.</span></a>
+<a class="sourceLine" id="cb4-100" data-line-number="100"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-101" data-line-number="101"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-102" data-line-number="102">SEXP get_mlogit_optimizer(List data){</a>
+<a class="sourceLine" id="cb4-103" data-line-number="103">  <span class="dt">size_t</span> <span class="at">const</span> n_elem_funcs = data.size();</a>
+<a class="sourceLine" id="cb4-104" data-line-number="104">  <span class="bu">std::</span>vector&lt;<span class="va">m_logit_func</span>&gt; funcs;</a>
+<a class="sourceLine" id="cb4-105" data-line-number="105">  funcs.reserve(n_elem_funcs);</a>
+<a class="sourceLine" id="cb4-106" data-line-number="106">  <span class="cf">for</span>(<span class="kw">auto</span> dat : data)</a>
+<a class="sourceLine" id="cb4-107" data-line-number="107">    funcs.emplace_back(List(dat));</a>
+<a class="sourceLine" id="cb4-108" data-line-number="108"></a>
+<a class="sourceLine" id="cb4-109" data-line-number="109">  <span class="co">// create an XPtr to the pointer object we will need</span></a>
+<a class="sourceLine" id="cb4-110" data-line-number="110">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt;</a>
+<a class="sourceLine" id="cb4-111" data-line-number="111">    ptr(<span class="kw">new</span> PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt;(funcs));</a>
+<a class="sourceLine" id="cb4-112" data-line-number="112"></a>
+<a class="sourceLine" id="cb4-113" data-line-number="113">  <span class="co">// return the pointer to be used later</span></a>
+<a class="sourceLine" id="cb4-114" data-line-number="114">  <span class="cf">return</span> ptr;</a>
+<a class="sourceLine" id="cb4-115" data-line-number="115">}</a>
+<a class="sourceLine" id="cb4-116" data-line-number="116"></a>
+<a class="sourceLine" id="cb4-117" data-line-number="117"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-118" data-line-number="118"><span class="co"> performs the optimization.</span></a>
+<a class="sourceLine" id="cb4-119" data-line-number="119"><span class="co"> @param val vector with starting value for the global and private</span></a>
+<a class="sourceLine" id="cb4-120" data-line-number="120"><span class="co"> parameters.</span></a>
+<a class="sourceLine" id="cb4-121" data-line-number="121"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-122" data-line-number="122"><span class="co"> @param rel_eps relative convergence threshold.</span></a>
+<a class="sourceLine" id="cb4-123" data-line-number="123"><span class="co"> @param max_it maximum number iterations.</span></a>
+<a class="sourceLine" id="cb4-124" data-line-number="124"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-125" data-line-number="125"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-126" data-line-number="126">List optim_mlogit(NumericVector val, SEXP ptr, <span class="dt">double</span> <span class="at">const</span> rel_eps,</a>
+<a class="sourceLine" id="cb4-127" data-line-number="127">                  <span class="dt">unsigned</span> <span class="at">const</span> max_it){</a>
+<a class="sourceLine" id="cb4-128" data-line-number="128">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-129" data-line-number="129"></a>
+<a class="sourceLine" id="cb4-130" data-line-number="130">  <span class="co">// check that we pass a parameter value of the right length</span></a>
+<a class="sourceLine" id="cb4-131" data-line-number="131">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
+<a class="sourceLine" id="cb4-132" data-line-number="132">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-133" data-line-number="133"></a>
+<a class="sourceLine" id="cb4-134" data-line-number="134">  NumericVector par = clone(val);</a>
+<a class="sourceLine" id="cb4-135" data-line-number="135">  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it);</a>
+<a class="sourceLine" id="cb4-136" data-line-number="136">  NumericVector counts = NumericVector::create(</a>
+<a class="sourceLine" id="cb4-137" data-line-number="137">    res.n_eval, res.n_grad,  res.n_cg);</a>
+<a class="sourceLine" id="cb4-138" data-line-number="138">  counts.names() = CharacterVector::create(<span class="st">&quot;function&quot;</span>, <span class="st">&quot;gradient&quot;</span>, <span class="st">&quot;n_cg&quot;</span>);</a>
+<a class="sourceLine" id="cb4-139" data-line-number="139"></a>
+<a class="sourceLine" id="cb4-140" data-line-number="140">  <span class="cf">return</span> List::create(</a>
+<a class="sourceLine" id="cb4-141" data-line-number="141">    _[<span class="st">&quot;par&quot;</span>] = par, _[<span class="st">&quot;value&quot;</span>] = res.value, _[<span class="st">&quot;info&quot;</span>] = res.info,</a>
+<a class="sourceLine" id="cb4-142" data-line-number="142">    _[<span class="st">&quot;counts&quot;</span>] = counts, _[<span class="st">&quot;convergence&quot;</span>] = res.info == <span class="dv">0L</span>);</a>
+<a class="sourceLine" id="cb4-143" data-line-number="143">}</a>
+<a class="sourceLine" id="cb4-144" data-line-number="144"></a>
+<a class="sourceLine" id="cb4-145" data-line-number="145"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-146" data-line-number="146"><span class="co"> evaluates the partially separable function.</span></a>
+<a class="sourceLine" id="cb4-147" data-line-number="147"><span class="co"> @param val vector with global and private parameters to evaluate the</span></a>
+<a class="sourceLine" id="cb4-148" data-line-number="148"><span class="co"> function at.</span></a>
+<a class="sourceLine" id="cb4-149" data-line-number="149"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-150" data-line-number="150"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-151" data-line-number="151"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-152" data-line-number="152"><span class="dt">double</span> eval_mlogit(NumericVector val, SEXP ptr){</a>
+<a class="sourceLine" id="cb4-153" data-line-number="153">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-154" data-line-number="154"></a>
+<a class="sourceLine" id="cb4-155" data-line-number="155">  <span class="co">// check that we pass a parameter value of the right length</span></a>
+<a class="sourceLine" id="cb4-156" data-line-number="156">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
+<a class="sourceLine" id="cb4-157" data-line-number="157">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-158" data-line-number="158"></a>
+<a class="sourceLine" id="cb4-159" data-line-number="159">  <span class="cf">return</span> optim-&gt;eval(&amp;val[<span class="dv">0</span>], <span class="kw">nullptr</span>, <span class="kw">false</span>);</a>
+<a class="sourceLine" id="cb4-160" data-line-number="160">}</a>
+<a class="sourceLine" id="cb4-161" data-line-number="161"></a>
+<a class="sourceLine" id="cb4-162" data-line-number="162"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-163" data-line-number="163"><span class="co"> evaluates the gradient of a partially separable function.</span></a>
+<a class="sourceLine" id="cb4-164" data-line-number="164"><span class="co"> @param val vector with global and private parameters to evaluate the</span></a>
+<a class="sourceLine" id="cb4-165" data-line-number="165"><span class="co"> function at.</span></a>
+<a class="sourceLine" id="cb4-166" data-line-number="166"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-167" data-line-number="167"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-168" data-line-number="168"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-169" data-line-number="169">NumericVector grad_mlogit(NumericVector val, SEXP ptr){</a>
+<a class="sourceLine" id="cb4-170" data-line-number="170">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-171" data-line-number="171"></a>
+<a class="sourceLine" id="cb4-172" data-line-number="172">  <span class="co">// check that we pass a parameter value of the right length</span></a>
+<a class="sourceLine" id="cb4-173" data-line-number="173">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
+<a class="sourceLine" id="cb4-174" data-line-number="174">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-175" data-line-number="175"></a>
+<a class="sourceLine" id="cb4-176" data-line-number="176">  NumericVector grad(val.size());</a>
+<a class="sourceLine" id="cb4-177" data-line-number="177">  grad.attr(<span class="st">&quot;value&quot;</span>) = optim-&gt;eval(&amp;val[<span class="dv">0</span>], &amp;grad[<span class="dv">0</span>], <span class="kw">true</span>);</a>
+<a class="sourceLine" id="cb4-178" data-line-number="178"></a>
+<a class="sourceLine" id="cb4-179" data-line-number="179">  <span class="cf">return</span> grad;</a>
+<a class="sourceLine" id="cb4-180" data-line-number="180">}</a>
+<a class="sourceLine" id="cb4-181" data-line-number="181"></a>
+<a class="sourceLine" id="cb4-182" data-line-number="182"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-183" data-line-number="183"><span class="co"> returns the current Hessian approximation.</span></a>
+<a class="sourceLine" id="cb4-184" data-line-number="184"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-185" data-line-number="185"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-186" data-line-number="186"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-187" data-line-number="187">NumericMatrix get_Hess_approx_mlogit(SEXP ptr){</a>
+<a class="sourceLine" id="cb4-188" data-line-number="188">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-189" data-line-number="189"></a>
+<a class="sourceLine" id="cb4-190" data-line-number="190">  NumericMatrix out(optim-&gt;n_par, optim-&gt;n_par);</a>
+<a class="sourceLine" id="cb4-191" data-line-number="191">  optim-&gt;get_hess(&amp;out[<span class="dv">0</span>]);</a>
+<a class="sourceLine" id="cb4-192" data-line-number="192"></a>
+<a class="sourceLine" id="cb4-193" data-line-number="193">  <span class="cf">return</span> out;</a>
+<a class="sourceLine" id="cb4-194" data-line-number="194">}</a></code></pre></div>
+<p>We can use the code by calling <code>Rcpp::sourceCpp</code> to compile the code:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">library</span>(Rcpp)</a>
+<a class="sourceLine" id="cb5-2" data-line-number="2"><span class="kw">sourceCpp</span>(<span class="kw">system.file</span>(<span class="st">&quot;mlogit-ex.cpp&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;psqn&quot;</span>))</a></code></pre></div>
+<p>Then we can create a pointer to an optimizer and check that it yields the correct value and gradient like this:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb6-1" data-line-number="1">optimizer &lt;-<span class="st"> </span><span class="kw">get_mlogit_optimizer</span>(sim_dat)</a>
+<a class="sourceLine" id="cb6-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb6-3" data-line-number="3"><span class="kw">stopifnot</span>(<span class="kw">all.equal</span>(</a>
+<a class="sourceLine" id="cb6-4" data-line-number="4">  <span class="kw">eval_integrand</span>(true_params), </a>
+<a class="sourceLine" id="cb6-5" data-line-number="5">  <span class="kw">eval_mlogit</span>(<span class="dt">val =</span> true_params, <span class="dt">ptr =</span> optimizer)))</a>
+<a class="sourceLine" id="cb6-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb6-7" data-line-number="7"><span class="kw">library</span>(numDeriv)</a>
+<a class="sourceLine" id="cb6-8" data-line-number="8">gr_num &lt;-<span class="st"> </span><span class="kw">grad</span>(<span class="cf">function</span>(par) <span class="kw">eval_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer), </a>
+<a class="sourceLine" id="cb6-9" data-line-number="9">               true_params)</a>
+<a class="sourceLine" id="cb6-10" data-line-number="10">gr_opt &lt;-<span class="st"> </span><span class="kw">grad_mlogit</span>(<span class="dt">val =</span> true_params, <span class="dt">ptr =</span> optimizer)</a>
+<a class="sourceLine" id="cb6-11" data-line-number="11"></a>
+<a class="sourceLine" id="cb6-12" data-line-number="12"><span class="kw">stopifnot</span>(<span class="kw">all.equal</span>(gr_num, gr_opt, <span class="dt">tolerance =</span> <span class="fl">1e-5</span>, </a>
+<a class="sourceLine" id="cb6-13" data-line-number="13">                    <span class="dt">check.attributes =</span> <span class="ot">FALSE</span>),</a>
+<a class="sourceLine" id="cb6-14" data-line-number="14">          <span class="co"># also check the function value!</span></a>
+<a class="sourceLine" id="cb6-15" data-line-number="15">          <span class="kw">all.equal</span>(<span class="kw">attr</span>(gr_opt, <span class="st">&quot;value&quot;</span>), </a>
+<a class="sourceLine" id="cb6-16" data-line-number="16">                    <span class="kw">eval_mlogit</span>(<span class="dt">val =</span> true_params, <span class="dt">ptr =</span> optimizer)))</a></code></pre></div>
+<p>We can now use the BFGS implementation in the <code>optim</code> function to compare with like this:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb7-1" data-line-number="1">start_val &lt;-<span class="st"> </span>true_params</a>
+<a class="sourceLine" id="cb7-2" data-line-number="2">start_val[<span class="op">-</span>(<span class="dv">1</span><span class="op">:</span>p)] &lt;-<span class="st"> </span><span class="dv">0</span></a>
+<a class="sourceLine" id="cb7-3" data-line-number="3">optim_func &lt;-<span class="st"> </span><span class="cf">function</span>(par)</a>
+<a class="sourceLine" id="cb7-4" data-line-number="4">  <span class="kw">optim</span>(par, <span class="cf">function</span>(par) <span class="kw">eval_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer), </a>
+<a class="sourceLine" id="cb7-5" data-line-number="5">        <span class="cf">function</span>(par) <span class="kw">grad_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer), </a>
+<a class="sourceLine" id="cb7-6" data-line-number="6">        <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="dt">control =</span> <span class="kw">list</span>(<span class="dt">reltol =</span> <span class="fl">1e-8</span>))</a>
+<a class="sourceLine" id="cb7-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb7-8" data-line-number="8">bfgs_res &lt;-<span class="st"> </span><span class="kw">optim_func</span>(start_val)</a></code></pre></div>
+<p>We then use the quasi-Newton method like this:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb8-1" data-line-number="1">psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par)</a>
+<a class="sourceLine" id="cb8-2" data-line-number="2">  <span class="kw">optim_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L)</a>
+<a class="sourceLine" id="cb8-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">psqn_res &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val)</a></code></pre></div>
+<p>The <code>counts</code> element contains the number number of function evaluations, gradient evaluations, and the total number of conjugate gradient iterations:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb9-1" data-line-number="1">psqn_res<span class="op">$</span>counts</a>
+<a class="sourceLine" id="cb9-2" data-line-number="2"><span class="co">#&gt; function gradient     n_cg </span></a>
+<a class="sourceLine" id="cb9-3" data-line-number="3"><span class="co">#&gt;       10        9      181</span></a>
+<a class="sourceLine" id="cb9-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb9-5" data-line-number="5"><span class="co"># compare with optim</span></a>
+<a class="sourceLine" id="cb9-6" data-line-number="6">bfgs_res<span class="op">$</span>counts</a>
+<a class="sourceLine" id="cb9-7" data-line-number="7"><span class="co">#&gt; function gradient </span></a>
+<a class="sourceLine" id="cb9-8" data-line-number="8"><span class="co">#&gt;       54       18</span></a></code></pre></div>
+<p>We can compare the solution with <code>optim</code>:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="kw">all.equal</span>(bfgs_res<span class="op">$</span>par, psqn_res<span class="op">$</span>par)</a>
+<a class="sourceLine" id="cb10-2" data-line-number="2"><span class="co">#&gt; [1] &quot;Mean relative difference: 0.000168&quot;</span></a>
+<a class="sourceLine" id="cb10-3" data-line-number="3"><span class="kw">all.equal</span>(psqn_res<span class="op">$</span>value, bfgs_res<span class="op">$</span>value, <span class="dt">tolerance =</span> <span class="fl">1e-8</span>)</a>
+<a class="sourceLine" id="cb10-4" data-line-number="4"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb10-5" data-line-number="5">psqn_res<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>bfgs_res<span class="op">$</span>value</a>
+<a class="sourceLine" id="cb10-6" data-line-number="6"><span class="co">#&gt; [1] -1.91e-05</span></a></code></pre></div>
+<p>The <code>optim_mlogit</code> takes fewer iterations possibly because we quicker get a good approximation of the Hessian. Furthermore, we only take <code>psqn_res$counts[&quot;n_cg&quot;]</code>, 181, conjugate gradient iterations. This in contrast to the worst case scenario where we make <code>length(start_val)</code>, 1605, iterations for just one iteration of the quasi-Newton method!</p>
+<p>We can get the Hessian approximation by calling the <code>get_Hess_approx_mlogit</code> function we declared after calling the optimizer:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1">aprox_hes &lt;-<span class="st"> </span><span class="kw">get_Hess_approx_mlogit</span>(<span class="dt">ptr =</span> optimizer)</a>
+<a class="sourceLine" id="cb11-2" data-line-number="2"><span class="kw">dim</span>(aprox_hes) <span class="co"># quite large; requires a lot of memory</span></a>
+<a class="sourceLine" id="cb11-3" data-line-number="3"><span class="co">#&gt; [1] 1605 1605</span></a>
+<a class="sourceLine" id="cb11-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb11-5" data-line-number="5"><span class="co"># create a plot like before. Black entries are non-zero</span></a>
+<a class="sourceLine" id="cb11-6" data-line-number="6"><span class="kw">par</span>(<span class="dt">mar =</span> <span class="kw">c</span>(.<span class="dv">5</span>, <span class="fl">.5</span>, <span class="fl">.5</span>, <span class="fl">.5</span>))</a>
+<a class="sourceLine" id="cb11-7" data-line-number="7"><span class="kw">image</span>(<span class="kw">abs</span>(aprox_hes[, <span class="kw">NCOL</span>(aprox_hes)<span class="op">:</span><span class="dv">1</span>]) <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>, <span class="dt">xaxt =</span> <span class="st">&quot;n&quot;</span>, <span class="dt">yaxt =</span> <span class="st">&quot;n&quot;</span>,</a>
+<a class="sourceLine" id="cb11-8" data-line-number="8">      <span class="dt">col =</span> <span class="kw">gray.colors</span>(2L, <span class="dv">1</span>, <span class="dv">0</span>))</a></code></pre></div>
+<p><img src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb12-1" data-line-number="1"></a>
+<a class="sourceLine" id="cb12-2" data-line-number="2"><span class="cf">if</span>(<span class="ot">FALSE</span>){</a>
+<a class="sourceLine" id="cb12-3" data-line-number="3">  <span class="co"># only feasible for smaller problem</span></a>
+<a class="sourceLine" id="cb12-4" data-line-number="4">  hess_true &lt;-<span class="st"> </span><span class="kw">jacobian</span>(</a>
+<a class="sourceLine" id="cb12-5" data-line-number="5">    <span class="cf">function</span>(par) <span class="kw">grad_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer), </a>
+<a class="sourceLine" id="cb12-6" data-line-number="6">    psqn_res<span class="op">$</span>par)</a>
+<a class="sourceLine" id="cb12-7" data-line-number="7">  </a>
+<a class="sourceLine" id="cb12-8" data-line-number="8">  <span class="co"># should not hold exactly! Might not be that good of an approximation.</span></a>
+<a class="sourceLine" id="cb12-9" data-line-number="9">  <span class="kw">all.equal</span>(aprox_hes, hess_true) </a>
+<a class="sourceLine" id="cb12-10" data-line-number="10">}</a></code></pre></div>
+<p>The true Hessian is very sparse. Finally, here is a benchmark to compare the computation time:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb13-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(<span class="dt">BFGS =</span> <span class="kw">optim_func</span>(start_val), <span class="dt">psqn =</span> <span class="kw">psqn_func</span>(start_val), </a>
+<a class="sourceLine" id="cb13-2" data-line-number="2">            <span class="dt">check =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb13-3" data-line-number="3"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb13-4" data-line-number="4"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb13-5" data-line-number="5"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb13-6" data-line-number="6"><span class="co">#&gt; 1 BFGS        212.3ms  223.6ms      4.45    11.4MB        0</span></a>
+<a class="sourceLine" id="cb13-7" data-line-number="7"><span class="co">#&gt; 2 psqn         11.7ms   12.1ms     82.7     25.6KB        0</span></a></code></pre></div>
+<p>We see a large reduction.</p>
+</div>
+</div>
+<div id="details" class="section level2">
+<h2>Details</h2>
+<div id="using-the-code-in-a-package" class="section level3">
+<h3>Using the Code in a Package</h3>
+<p>TODO: write this section.</p>
+</div>
+<div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
+<h3>BFGS and Partially Separable Quasi-Newton</h3>
+<p>Ratio for flops required in the matrix-vector product in BFGS relative to the flops required in the matrix-vector product for the conjugate gradient method for the quasi-Newton method:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1">vals &lt;-<span class="st"> </span><span class="kw">expand.grid</span>(<span class="dt">n =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">8</span><span class="op">:</span><span class="dv">13</span>), <span class="dt">p =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">2</span><span class="op">:</span><span class="dv">4</span>), <span class="dt">q =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">2</span><span class="op">:</span><span class="dv">8</span>))</a>
+<a class="sourceLine" id="cb14-2" data-line-number="2">vals &lt;-<span class="st"> </span><span class="kw">within</span>(vals, {</a>
+<a class="sourceLine" id="cb14-3" data-line-number="3">  flops_qsn &lt;-<span class="st"> </span>n <span class="op">*</span><span class="st"> </span>(p <span class="op">+</span><span class="st"> </span>q) <span class="op">*</span><span class="st"> </span>(p <span class="op">+</span><span class="st"> </span>q <span class="op">+</span><span class="st"> </span>1L)</a>
+<a class="sourceLine" id="cb14-4" data-line-number="4">  flops_bfgs &lt;-<span class="st"> </span>(q <span class="op">*</span><span class="st"> </span>n <span class="op">+</span><span class="st"> </span>p)<span class="op">^</span><span class="dv">2</span></a>
+<a class="sourceLine" id="cb14-5" data-line-number="5">  ratio &lt;-<span class="st"> </span>flops_bfgs <span class="op">/</span><span class="st"> </span>flops_qsn</a>
+<a class="sourceLine" id="cb14-6" data-line-number="6">})</a>
+<a class="sourceLine" id="cb14-7" data-line-number="7">nq &lt;-<span class="st"> </span><span class="kw">length</span>(<span class="kw">unique</span>(vals<span class="op">$</span>q))</a>
+<a class="sourceLine" id="cb14-8" data-line-number="8">tvals &lt;-<span class="st"> </span><span class="kw">c</span>(vals<span class="op">$</span>n[<span class="kw">seq_len</span>(<span class="kw">NROW</span>(vals) <span class="op">/</span><span class="st"> </span>nq)], </a>
+<a class="sourceLine" id="cb14-9" data-line-number="9">           vals<span class="op">$</span>p[<span class="kw">seq_len</span>(<span class="kw">NROW</span>(vals) <span class="op">/</span><span class="st"> </span>nq)], <span class="kw">floor</span>(vals[, <span class="st">&quot;ratio&quot;</span>]))</a>
+<a class="sourceLine" id="cb14-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb14-11" data-line-number="11">vals &lt;-<span class="st"> </span><span class="kw">matrix</span>(</a>
+<a class="sourceLine" id="cb14-12" data-line-number="12">  tvals, <span class="dt">ncol =</span> nq <span class="op">+</span><span class="st"> </span>2L, <span class="dt">dimnames =</span> <span class="kw">list</span>(</a>
+<a class="sourceLine" id="cb14-13" data-line-number="13">    <span class="ot">NULL</span>, <span class="kw">c</span>(<span class="st">&quot;n&quot;</span>, <span class="st">&quot;p/q&quot;</span>, <span class="kw">unique</span>(vals<span class="op">$</span>q))))</a>
+<a class="sourceLine" id="cb14-14" data-line-number="14">knitr<span class="op">::</span><span class="kw">kable</span>(vals)</a></code></pre></div>
+<table>
+<thead>
+<tr class="header">
+<th align="right">n</th>
+<th align="right">p/q</th>
+<th align="right">4</th>
+<th align="right">8</th>
+<th align="right">16</th>
+<th align="right">32</th>
+<th align="right">64</th>
+<th align="right">128</th>
+<th align="right">256</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">256</td>
+<td align="right">4</td>
+<td align="right">57</td>
+<td align="right">105</td>
+<td align="right">156</td>
+<td align="right">196</td>
+<td align="right">223</td>
+<td align="right">238</td>
+<td align="right">247</td>
+</tr>
+<tr class="even">
+<td align="right">512</td>
+<td align="right">4</td>
+<td align="right">114</td>
+<td align="right">210</td>
+<td align="right">312</td>
+<td align="right">393</td>
+<td align="right">447</td>
+<td align="right">477</td>
+<td align="right">494</td>
+</tr>
+<tr class="odd">
+<td align="right">1024</td>
+<td align="right">4</td>
+<td align="right">228</td>
+<td align="right">420</td>
+<td align="right">624</td>
+<td align="right">787</td>
+<td align="right">894</td>
+<td align="right">955</td>
+<td align="right">988</td>
+</tr>
+<tr class="even">
+<td align="right">2048</td>
+<td align="right">4</td>
+<td align="right">455</td>
+<td align="right">840</td>
+<td align="right">1248</td>
+<td align="right">1574</td>
+<td align="right">1787</td>
+<td align="right">1911</td>
+<td align="right">1977</td>
+</tr>
+<tr class="odd">
+<td align="right">4096</td>
+<td align="right">4</td>
+<td align="right">910</td>
+<td align="right">1680</td>
+<td align="right">2496</td>
+<td align="right">3149</td>
+<td align="right">3575</td>
+<td align="right">3822</td>
+<td align="right">3955</td>
+</tr>
+<tr class="even">
+<td align="right">8192</td>
+<td align="right">4</td>
+<td align="right">1820</td>
+<td align="right">3361</td>
+<td align="right">4993</td>
+<td align="right">6297</td>
+<td align="right">7151</td>
+<td align="right">7645</td>
+<td align="right">7911</td>
+</tr>
+<tr class="odd">
+<td align="right">256</td>
+<td align="right">8</td>
+<td align="right">26</td>
+<td align="right">60</td>
+<td align="right">109</td>
+<td align="right">160</td>
+<td align="right">199</td>
+<td align="right">225</td>
+<td align="right">239</td>
+</tr>
+<tr class="even">
+<td align="right">512</td>
+<td align="right">8</td>
+<td align="right">52</td>
+<td align="right">120</td>
+<td align="right">218</td>
+<td align="right">320</td>
+<td align="right">399</td>
+<td align="right">450</td>
+<td align="right">479</td>
+</tr>
+<tr class="odd">
+<td align="right">1024</td>
+<td align="right">8</td>
+<td align="right">105</td>
+<td align="right">241</td>
+<td align="right">437</td>
+<td align="right">639</td>
+<td align="right">798</td>
+<td align="right">900</td>
+<td align="right">959</td>
+</tr>
+<tr class="even">
+<td align="right">2048</td>
+<td align="right">8</td>
+<td align="right">210</td>
+<td align="right">482</td>
+<td align="right">874</td>
+<td align="right">1279</td>
+<td align="right">1596</td>
+<td align="right">1801</td>
+<td align="right">1918</td>
+</tr>
+<tr class="odd">
+<td align="right">4096</td>
+<td align="right">8</td>
+<td align="right">420</td>
+<td align="right">964</td>
+<td align="right">1748</td>
+<td align="right">2557</td>
+<td align="right">3192</td>
+<td align="right">3601</td>
+<td align="right">3837</td>
+</tr>
+<tr class="even">
+<td align="right">8192</td>
+<td align="right">8</td>
+<td align="right">840</td>
+<td align="right">1928</td>
+<td align="right">3495</td>
+<td align="right">5115</td>
+<td align="right">6384</td>
+<td align="right">7203</td>
+<td align="right">7674</td>
+</tr>
+<tr class="odd">
+<td align="right">256</td>
+<td align="right">16</td>
+<td align="right">10</td>
+<td align="right">27</td>
+<td align="right">62</td>
+<td align="right">111</td>
+<td align="right">162</td>
+<td align="right">201</td>
+<td align="right">226</td>
+</tr>
+<tr class="even">
+<td align="right">512</td>
+<td align="right">16</td>
+<td align="right">19</td>
+<td align="right">55</td>
+<td align="right">124</td>
+<td align="right">223</td>
+<td align="right">323</td>
+<td align="right">401</td>
+<td align="right">451</td>
+</tr>
+<tr class="odd">
+<td align="right">1024</td>
+<td align="right">16</td>
+<td align="right">39</td>
+<td align="right">109</td>
+<td align="right">248</td>
+<td align="right">446</td>
+<td align="right">647</td>
+<td align="right">803</td>
+<td align="right">903</td>
+</tr>
+<tr class="even">
+<td align="right">2048</td>
+<td align="right">16</td>
+<td align="right">78</td>
+<td align="right">218</td>
+<td align="right">496</td>
+<td align="right">892</td>
+<td align="right">1294</td>
+<td align="right">1607</td>
+<td align="right">1807</td>
+</tr>
+<tr class="odd">
+<td align="right">4096</td>
+<td align="right">16</td>
+<td align="right">156</td>
+<td align="right">437</td>
+<td align="right">993</td>
+<td align="right">1783</td>
+<td align="right">2589</td>
+<td align="right">3214</td>
+<td align="right">3615</td>
+</tr>
+<tr class="even">
+<td align="right">8192</td>
+<td align="right">16</td>
+<td align="right">312</td>
+<td align="right">874</td>
+<td align="right">1986</td>
+<td align="right">3567</td>
+<td align="right">5178</td>
+<td align="right">6428</td>
+<td align="right">7230</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
