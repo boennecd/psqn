@@ -459,8 +459,10 @@ The true Hessian is very sparse. Finally, here is a benchmark to compare the
 computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
-bench::mark(BFGS = optim_func(start_val), psqn = psqn_func(start_val), 
-            check = FALSE)
+bench::mark(
+  BFGS = optim_func(start_val), 
+  psqn = psqn_func(start_val),
+  check = FALSE)
 ```
 
 We see a large reduction.

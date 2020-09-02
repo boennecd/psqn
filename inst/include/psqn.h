@@ -103,6 +103,8 @@ class optimizer {
     double * const __restrict__ x_new = x_old + n_ele;
     /// indices of first set of private parameters
     size_t const par_start;
+    /// bool for whether to use BFGS or SR1 updates
+    bool use_bfgs = true;
 
   private:
     /***
@@ -172,29 +174,57 @@ class optimizer {
      */
     void update_Hes(double * const wmem){
       // differences in parameters and gradient
-      double * const s   = wmem,
-             * const y   = s + n_ele,
-             * const wrk = y + n_ele;
+      double * const __restrict__ s   = wmem,
+             * const __restrict__ y   = s + n_ele,
+             * const __restrict__ wrk = y + n_ele;
 
       lp::vec_diff(x_new, x_old , s, n_ele);
       lp::vec_diff(gr   , gr_old, y, n_ele);
 
-      double const s_y = lp::vec_dot(y, s, n_ele);
-      if(first_call){
-        first_call = false;
-        // make update on page 143
-        double const scal = lp::vec_dot(y, n_ele) / s_y;
-        double *b = B;
-        for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
-          *b = scal;
-      }
+      if(use_bfgs){
+        double const s_y = lp::vec_dot(y, s, n_ele);
+        if(first_call){
+          first_call = false;
+          // make update on page 143
+          double const scal = lp::vec_dot(y, n_ele) / s_y;
+          double *b = B;
+          for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
+            *b = scal;
+        }
 
-      // perform BFGS update
-      std::fill(wrk, wrk + n_ele, 0.);
-      lp::mat_vec_dot(B, s, wrk, n_ele);
-      double const scal = lp::vec_dot(s, wrk, n_ele);
-      lp::rank_one_update(B, wrk, -1. / scal, n_ele);
-      lp::rank_one_update(B, y, 1. / s_y, n_ele);
+        // perform BFGS update
+        std::fill(wrk, wrk + n_ele, 0.);
+        lp::mat_vec_dot(B, s, wrk, n_ele);
+        double const scal = lp::vec_dot(s, wrk, n_ele);
+        lp::rank_one_update(B, wrk, -1. / scal, n_ele);
+        lp::rank_one_update(B, y, 1. / s_y, n_ele);
+
+      } else {
+        if(first_call){
+          first_call = false;
+          // make update on page 143
+          double const scal =
+            lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
+          double *b = B;
+          for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
+            *b = scal;
+        }
+
+        /// maybe perform SR1
+        std::fill(wrk, wrk + n_ele, 0.);
+        lp::mat_vec_dot(B, s, wrk, n_ele);
+        for(size_t i = 0; i < n_ele; ++i){
+          *(wrk + i) *= -1;
+          *(wrk + i) += *(y + i);
+        }
+        double const s_w = lp::vec_dot(s, wrk, n_ele),
+                  s_norm = std::sqrt(std::abs(lp::vec_dot(s, n_ele))),
+                wrk_norm = std::sqrt(std::abs(lp::vec_dot(wrk, n_ele)));
+        constexpr double const r = 1e-8;
+        if(std::abs(s_w) > r * s_norm * wrk_norm)
+          lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
+
+      }
 
       record();
     }
@@ -498,12 +528,16 @@ public:
    end.
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
+   @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
    */
   optim_info optim
-    (double * val, double const rel_eps, size_t const max_it){
+    (double * val, double const rel_eps, size_t const max_it,
+     bool const use_bfgs = true){
     reset_counters();
-    for(auto &f : funcs)
+    for(auto &f : funcs){
       f.reset();
+      f.use_bfgs = use_bfgs;
+    }
 
     std::unique_ptr<double[]> gr(new double[n_par]),
                              dir(new double[n_par]);

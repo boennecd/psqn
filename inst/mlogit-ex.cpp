@@ -124,7 +124,7 @@ SEXP get_mlogit_optimizer(List data){
  */
 // [[Rcpp::export]]
 List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
-                  unsigned const max_it){
+                  unsigned const max_it, bool const use_bfgs = true){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -132,7 +132,7 @@ List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
     throw std::invalid_argument("eval_mlogit: invalid parameter size");
 
   NumericVector par = clone(val);
-  auto res = optim->optim(&par[0], rel_eps, max_it);
+  auto res = optim->optim(&par[0], rel_eps, max_it, use_bfgs);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
