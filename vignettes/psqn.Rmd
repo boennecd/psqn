@@ -462,7 +462,7 @@ computation time:
 bench::mark(
   BFGS = optim_func(start_val), 
   psqn = psqn_func(start_val),
-  check = FALSE)
+  check = FALSE, min_iterations = 20)
 ```
 
 We see a large reduction.

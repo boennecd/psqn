@@ -94,7 +94,7 @@ class optimizer {
     /// memory for the Hessian approximation
     double * const __restrict__ B;
     /// memory for the gradient
-    double * const __restrict__ gr = B + n_ele * n_ele;
+    double * const __restrict__ gr = B + (n_ele * (n_ele + 1)) / 2L;
     /// memory for the old gradient
     double * const __restrict__ gr_old = gr + n_ele;
     /// memory for the old value
@@ -127,7 +127,7 @@ class optimizer {
       std::fill(B, B + n_ele * n_ele, 0.);
       // set diagonal entries to one
       double *b = B;
-      for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
+      for(size_t i = 0; i < n_ele; ++i, b += i + 1)
         *b = 1.;
     }
 
@@ -188,7 +188,7 @@ class optimizer {
           // make update on page 143
           double const scal = lp::vec_dot(y, n_ele) / s_y;
           double *b = B;
-          for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
+          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
             *b = scal;
         }
 
@@ -206,7 +206,7 @@ class optimizer {
           double const scal =
             lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
           double *b = B;
-          for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
+          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
             *b = scal;
         }
 
@@ -289,8 +289,9 @@ public:
       if(f.global_dim() != global_dim)
         throw std::invalid_argument(
             "optimizer<EFunc>::optimizer: global_dim differs");
-      size_t const private_dim = f.private_dim();
-      out += (private_dim + global_dim) * (4L + (private_dim + global_dim));
+      size_t const private_dim = f.private_dim(),
+                   n_ele       = private_dim + global_dim;
+      out += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
     }
     std::array<size_t, 2L> ret = { out, 3L * n_par };
     return ret;
@@ -305,7 +306,8 @@ public:
     for(size_t i = 0; i < n_ele; ++i){
       worker new_func(std::move(funcs_in[i]), mem_ptr, i_start);
       out.emplace_back(std::move(new_func));
-      mem_ptr += out.back().n_ele * (4L + out.back().n_ele);
+      size_t const n_ele = out.back().n_ele;
+      mem_ptr += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
       i_start += out.back().func.private_dim();
     }
 
@@ -584,16 +586,23 @@ public:
     for(auto &f : funcs){
       size_t const iprivate = f.func.private_dim();
 
-      double const * b = f.B;
+      auto get_i = [&](size_t const i, size_t const j){
+        size_t const ii = std::min(i, j),
+                     jj = std::max(j, i);
+
+        return ii + (jj * (jj + 1L)) / 2L;
+      };
+
+      double const * const b = f.B;
       {
         double *h1 = hess,
                *h2 = hess + private_offset;
         for(size_t j = 0; j < global_dim;
             ++j, h1 += n_par, h2 += n_par){
-          for(size_t i = 0; i < global_dim; ++i, ++b)
-            *(h1 + i) += *b;
-          for(size_t i = 0; i < iprivate; ++i, ++b)
-            *(h2 + i) += *b;
+          for(size_t i = 0; i < global_dim; ++i)
+            *(h1 + i) += *(b + get_i(i             , j));
+          for(size_t i = 0; i < iprivate; ++i)
+            *(h2 + i) += *(b + get_i(i + global_dim, j));
         }
       }
 
@@ -601,10 +610,10 @@ public:
              *h2 = h1 + private_offset;
       for(size_t j = 0; j < iprivate;
           ++j, h1 += n_par, h2 += n_par){
-        for(size_t i = 0; i < global_dim; ++i, ++b)
-          *(h1 + i) += *b;
-        for(size_t i = 0; i < iprivate; ++i, ++b)
-          *(h2 + i) += *b;
+        for(size_t i = 0; i < global_dim; ++i)
+          *(h1 + i) += *(b + get_i(i             , j + global_dim));
+        for(size_t i = 0; i < iprivate; ++i)
+          *(h2 + i) += *(b + get_i(i + global_dim, j + global_dim));
       }
 
       private_offset += iprivate;

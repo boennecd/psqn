@@ -626,7 +626,7 @@ img {
 <a class="sourceLine" id="cb4-124" data-line-number="124"><span class="co"> */</span></a>
 <a class="sourceLine" id="cb4-125" data-line-number="125"><span class="co">// [[Rcpp::export]]</span></a>
 <a class="sourceLine" id="cb4-126" data-line-number="126">List optim_mlogit(NumericVector val, SEXP ptr, <span class="dt">double</span> <span class="at">const</span> rel_eps,</a>
-<a class="sourceLine" id="cb4-127" data-line-number="127">                  <span class="dt">unsigned</span> <span class="at">const</span> max_it){</a>
+<a class="sourceLine" id="cb4-127" data-line-number="127">                  <span class="dt">unsigned</span> <span class="at">const</span> max_it, <span class="dt">bool</span> <span class="at">const</span> use_bfgs = <span class="kw">true</span>){</a>
 <a class="sourceLine" id="cb4-128" data-line-number="128">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
 <a class="sourceLine" id="cb4-129" data-line-number="129"></a>
 <a class="sourceLine" id="cb4-130" data-line-number="130">  <span class="co">// check that we pass a parameter value of the right length</span></a>
@@ -634,7 +634,7 @@ img {
 <a class="sourceLine" id="cb4-132" data-line-number="132">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
 <a class="sourceLine" id="cb4-133" data-line-number="133"></a>
 <a class="sourceLine" id="cb4-134" data-line-number="134">  NumericVector par = clone(val);</a>
-<a class="sourceLine" id="cb4-135" data-line-number="135">  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it);</a>
+<a class="sourceLine" id="cb4-135" data-line-number="135">  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it, use_bfgs);</a>
 <a class="sourceLine" id="cb4-136" data-line-number="136">  NumericVector counts = NumericVector::create(</a>
 <a class="sourceLine" id="cb4-137" data-line-number="137">    res.n_eval, res.n_grad,  res.n_cg);</a>
 <a class="sourceLine" id="cb4-138" data-line-number="138">  counts.names() = CharacterVector::create(<span class="st">&quot;function&quot;</span>, <span class="st">&quot;gradient&quot;</span>, <span class="st">&quot;n_cg&quot;</span>);</a>
@@ -766,13 +766,15 @@ img {
 <a class="sourceLine" id="cb12-9" data-line-number="9">  <span class="kw">all.equal</span>(aprox_hes, hess_true) </a>
 <a class="sourceLine" id="cb12-10" data-line-number="10">}</a></code></pre></div>
 <p>The true Hessian is very sparse. Finally, here is a benchmark to compare the computation time:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb13-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(<span class="dt">BFGS =</span> <span class="kw">optim_func</span>(start_val), <span class="dt">psqn =</span> <span class="kw">psqn_func</span>(start_val), </a>
-<a class="sourceLine" id="cb13-2" data-line-number="2">            <span class="dt">check =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb13-3" data-line-number="3"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
-<a class="sourceLine" id="cb13-4" data-line-number="4"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
-<a class="sourceLine" id="cb13-5" data-line-number="5"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb13-6" data-line-number="6"><span class="co">#&gt; 1 BFGS        220.1ms  232.9ms      4.32    11.4MB        0</span></a>
-<a class="sourceLine" id="cb13-7" data-line-number="7"><span class="co">#&gt; 2 psqn         11.7ms   11.9ms     83.7     25.6KB        0</span></a></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb13-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb13-2" data-line-number="2">  <span class="dt">BFGS =</span> <span class="kw">optim_func</span>(start_val), </a>
+<a class="sourceLine" id="cb13-3" data-line-number="3">  <span class="dt">psqn =</span> <span class="kw">psqn_func</span>(start_val),</a>
+<a class="sourceLine" id="cb13-4" data-line-number="4">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">min_iterations =</span> <span class="dv">20</span>)</a>
+<a class="sourceLine" id="cb13-5" data-line-number="5"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb13-6" data-line-number="6"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb13-7" data-line-number="7"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb13-8" data-line-number="8"><span class="co">#&gt; 1 BFGS        193.1ms  204.4ms      4.89    11.4MB    0.863</span></a>
+<a class="sourceLine" id="cb13-9" data-line-number="9"><span class="co">#&gt; 2 psqn         11.8ms   12.3ms     81.4     25.6KB    0</span></a></code></pre></div>
 <p>We see a large reduction.</p>
 </div>
 </div>
