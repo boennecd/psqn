@@ -17,7 +17,7 @@ img {
 knitr::opts_chunk$set(
   collapse = TRUE, fig.align = "center", error = FALSE,
   comment = "#>", fig.width = 7, fig.height = 4)
-options(digits = 3)
+options(digits = 3, width = 80)
 ```
 
 $$\renewcommand\vec{\boldsymbol}   \def\bigO#1{\mathcal{O}(#1)}   \def\Cond#1#2{\left(#1\,\middle|\, #2\right)}   \def\mat#1{\boldsymbol{#1}}   \def\der{{\mathop{}\!\mathrm{d}}}   \def\argmax{\text{arg}\,\text{max}}  \def\Prob{\text{P}}  \def\diag{\text{diag}}$$
@@ -49,8 +49,8 @@ for each element function, $f_i$. For implementation reason, we let
 
 $$\begin{align*}   \overleftarrow q_i &=    \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\   \mathcal J_i &=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}$$
 
-such that the element function's private parameters lies in consecutive 
-part. 
+such that the element functions' private parameters lies in a consecutive 
+part for $\vec x$. 
 
 ## Example
 We are going to consider a Taylor approximation for a generalized linear 
@@ -64,7 +64,7 @@ and $\text{Bin}(p, k)$ means a binomial distribution probability $p$ and
 size $k$. $\vec U_i$ is an unknown random effect with an unknown covariance 
 $\mat\Sigma$ and $\vec\beta\in\mathbb{R}^p$ is an unknown fixed effect vector. $\mat X_i$ 
 and $\mat Z_i$ are known design matrices each with $t_i$ rows for each of 
-the $t_i$ observed outcomes. 
+the $t_i$ observed outcomes, the $y_{ij}$s.
 
 As part of a Taylor approximation, we find a mode of 
 $\vec x = (\vec\beta^\top, \widehat{\vec u}_1^\top, \dots, \widehat{\vec u}_n^\top)$
@@ -75,7 +75,8 @@ $$\begin{align*}   f(\vec x) &= -\sum_{i = 1}^n \left(     \sum_{k = 1}^{t_i}(y_
 
 In this problem, $\vec\beta$ is the shared parameters and the 
 $\widehat{\vec u}_i$'s are the private parameters. Thus, 
-$l = p + nr$. 
+$l = p + nr$. We will later return to this example with an implementation 
+which uses this package.
 
 ### Variational Approximation
 TODO: write about variational approximations.
@@ -100,7 +101,7 @@ approximation instead. Here we start with some Hessian approximation
 $\mat B_0$ and 
 
  1. compute a direction $\vec p_k$ given by $$\mat B_{k - 1}\vec p_k = - \nabla f(\vec x_{k -1}),$$
- 2. find a step size $\alpha$ such that $\vec x_{k - 1} + \vec\alpha\vec p_k$ satisfy 
+ 2. find a step size $\alpha$ such that $\vec x_{k - 1} + \alpha\vec p_k$ satisfy 
  the [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions), 
  3. set $\vec x_k = \vec x_{k - 1} + \alpha\vec p_k$, 
  $\vec s_k = \alpha\vec p_k = \vec x_k - \vec x_{k - 1}$, 
@@ -118,7 +119,7 @@ $\mat B_k^{-1}$ will still be large and dense when $l$ is large.
 As an alternative, we can exploit the structure of the problem we are 
 solving. Let 
 
-$$\mat H_i = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)$$
+$$\mat H_i = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top).$$
 
 The true Hessian in our case is sparse and given by 
 
@@ -178,7 +179,7 @@ $\nabla^2f_i(\vec x_{\mathcal I_i})$ at iteration $k$. Then the method
 we have implemented starts with $\mat B_{k1},\dots,\mat B_{kn}$ and 
  
   1. computes a direction $\vec p_k$ given by $$\left(\sum_{i = 1}^n\mat H_i^\top\mat B_{k - 1,i}\mat H_i\right)\vec p_k = - \nabla f(\vec x_{k -1}),$$
- 2. finds a step size $\alpha$ such that $\vec x_{k - 1} + \vec\alpha\vec p_k$ satisfy 
+ 2. finds a step size $\alpha$ such that $\vec x_{k - 1} + \alpha\vec p_k$ satisfy 
  the [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions), 
  3. sets $\vec x_k = \vec x_{k - 1} + \alpha\vec p_k$,
  4. performs BFGS updates for each $\mat B_{k1},\dots,\mat B_{kn}$, and 
@@ -216,13 +217,14 @@ More formerly, the former is
 $\mathcal O(n(p + q_{\text max})^2)$ where 
 $q_{\text max} = \text{max}_{i = 1,\dots, n} q_i$ whereas the matrix-vector product 
 in the BFGS method is $\mathcal O((p + \sum_{i = 1}^n q_i)^2)$. Further,
-the rank-two BFGS updates are cheaper. However, we should keep in mind that 
+the rank-two BFGS updates are cheaper and may converge faster to a good 
+approximation. However, we should keep in mind that 
 the original BFGS method yields an approximation of $\mat B_k^{-1}$. Thus, 
 we do not need to solve a linear system.
 
 ## Conjugate Gradient Method
 
-The conjugate gradient method we use solve 
+The conjugate gradient method we use solves
 
 $$\mat A\vec b = \vec v$$
 
@@ -236,15 +238,20 @@ $\vec r_0 = \mat A\vec x_0 - \vec v$, $\vec p_0 = -\vec r_0$, and:
 1. find the step length $$\alpha_k = \frac{\vec r_k^\top\vec r_k}{\vec p_k^\top\mat A\vec p_k},$$ 
 2. find the new value $$\vec x_{k + 1} = \vec x_k + \alpha_k\vec p_k,$$ 
 3. find the new residual $$\vec r_{k + 1} = \vec r_k + \alpha_k\mat A\vec p_k,$$
-4. set $\vec\beta_{k + 1} = (\vec r_k^\top\vec r_k)^{-1}\vec r_{k + 1}^\top\vec r_{k + 1}$, 
+4. set $\beta_{k + 1} = (\vec r_k^\top\vec r_k)^{-1}\vec r_{k + 1}^\top\vec r_{k + 1}$, 
 5. set the new search direction to 
-  $$\vec p_{k + 1} = - \vec r_{k + 1} + \vec \beta_{k + 1}\vec p_k,$$
+  $$\vec p_{k + 1} = - \vec r_{k + 1} + \beta_{k + 1}\vec p_k,$$
   and
 6. stop if $\vec r_{k + 1}^\top\vec r_{k + 1}$ is smaller. Otherwise set $k\leftarrow k + 1$ and repeat.
 
 The main issue is the matrix-vector product $\mat A\vec p_k$ but as we 
 argued in the previous section that this can be computed in 
-$\mathcal O(n(p + q_{\text max})^2)$ time.
+$\mathcal O(n(p + q_{\text max})^2)$ time. The conjugate gradient method
+will at most take $h$ iterations where $h$ is the number of rows and columns
+of $\mat A$. Moreover, if $\mat A$ only has $r < h$ distinct eigenvalues 
+then we will at most make $r$ conjugate gradient iterations. Lastly, if 
+$\mat A$ has clusters of eigenvalues then we may expect to perform only 
+a number of iterations close to the number of distinct clusters.
 
 ## Line Search and Wolfe Condition
 TODO: write this section.
@@ -253,6 +260,8 @@ TODO: write this section.
 TODO: write this section.
 
 ## Example Using the Implementation
+
+We simulate a data set below from the mixed logit model we showed earlier.
 
 ```{r sim_dat}
 # assign model parameters and number of random effects and fixed effects
@@ -327,13 +336,19 @@ eval_integrand <- function(par){
 eval_integrand(true_params)
 ```
 
+We will use this function to compare with our C++ implementation.
+
 ### R Implementation
 TODO: write this section.
 
 ### C++ Implementation
-We provide a C++ implementation with the package. This can be found by 
-calling `system.file("mlogit-ex.cpp", package = "psqn")`. The content of 
-the file is:
+We provide a C++ implementation with the package as example of how to use 
+this package. The location of the implementation can be found by 
+calling `system.file("mlogit-ex.cpp", package = "psqn")`. 
+The most important part of the implementation is the problem specific 
+`m_logit_func` class, 
+the `get_mlogit_optimizer` function and the `optim_mlogit` function which 
+are needed to perform the optimization. The content of the file is:
 
 ```{cpp, code = readLines(system.file("mlogit-ex.cpp", package = "psqn"))}
 ```
@@ -351,14 +366,20 @@ correct value and gradient like this:
 ```{r get_optimizer, cache = 1, dependson = "create_ptr"}
 optimizer <- get_mlogit_optimizer(sim_dat)
 
-all.equal(eval_integrand(true_params), 
-          eval_mlogit(val = true_params, ptr = optimizer))
+stopifnot(all.equal(
+  eval_integrand(true_params), 
+  eval_mlogit(val = true_params, ptr = optimizer)))
 
 library(numDeriv)
 gr_num <- grad(function(par) eval_mlogit(val = par, ptr = optimizer), 
                true_params)
 gr_opt <- grad_mlogit(val = true_params, ptr = optimizer)
-all.equal(gr_num, gr_opt, tolerance = 1e-5)
+
+stopifnot(all.equal(gr_num, gr_opt, tolerance = 1e-5, 
+                    check.attributes = FALSE),
+          # also check the function value!
+          all.equal(attr(gr_opt, "value"), 
+                    eval_mlogit(val = true_params, ptr = optimizer)))
 ```
 
 We can now use the BFGS implementation in the `optim` function to 
@@ -370,16 +391,79 @@ start_val[-(1:p)] <- 0
 optim_func <- function(par)
   optim(par, function(par) eval_mlogit(val = par, ptr = optimizer), 
         function(par) grad_mlogit(val = par, ptr = optimizer), 
-        method = "BFGS")
+        method = "BFGS", control = list(reltol = 1e-8))
 
 bfgs_res <- optim_func(start_val)
 ```
 
-Finally, here is a benchmark for comparison
+We then use the quasi-Newton method like this:
+
+```{r use_qn, cache = 1, dependson = "create_ptr"}
+psqn_func <- function(par)
+  optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L)
+
+psqn_res <- psqn_func(start_val)
+```
+
+The `counts` element contains the number number of function evaluations, 
+gradient evaluations, and the total number of conjugate gradient 
+iterations:
+
+```{r show_counts}
+psqn_res$counts
+
+# compare with optim
+bfgs_res$counts
+```
+
+We can compare the solution with `optim`:
+
+```{r comp_solution}
+all.equal(bfgs_res$par, psqn_res$par)
+all.equal(psqn_res$value, bfgs_res$value, tolerance = 1e-8)
+psqn_res$value - bfgs_res$value
+```
+
+The `optim_mlogit` takes fewer iterations possibly because we quicker get
+a good approximation of the Hessian. Furthermore, we only take 
+`psqn_res$counts["n_cg"]`, `r psqn_res$counts["n_cg"]`, 
+ conjugate gradient iterations. This in contrast to the worst 
+case scenario where we make `length(start_val)`, 
+`r length(start_val)`, iterations for just
+one iteration of the quasi-Newton method!
+
+We can get the Hessian approximation by calling the `get_Hess_approx_mlogit`
+function we declared after calling the optimizer: 
+
+```{r get_hess_ex, cache = 1, dependson = "get_optimizer"}
+aprox_hes <- get_Hess_approx_mlogit(ptr = optimizer)
+dim(aprox_hes) # quite large; requires a lot of memory
+
+# create a plot like before. Black entries are non-zero
+par(mar = c(.5, .5, .5, .5))
+image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
+      col = gray.colors(2L, 1, 0))
+
+if(FALSE){
+  # only feasible for smaller problem
+  hess_true <- jacobian(
+    function(par) grad_mlogit(val = par, ptr = optimizer), 
+    psqn_res$par)
+  
+  # should not hold exactly! Might not be that good of an approximation.
+  all.equal(aprox_hes, hess_true) 
+}
+```
+
+The true Hessian is very sparse. Finally, here is a benchmark to compare the
+computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
-bench::mark(BFGS = optim_func(start_val))
+bench::mark(BFGS = optim_func(start_val), psqn = psqn_func(start_val), 
+            check = FALSE, relative = TRUE)
 ```
+
+We see a large reduction.
 
 ## Details
 ### Using the Code in a Package

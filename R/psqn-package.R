@@ -1,5 +1,4 @@
 #' @importFrom Rcpp sourceCpp
+#' @useDynLib psqn, .registration = TRUE
 NULL
 
-
-#' @useDynLib psqn, .registration = TRUE

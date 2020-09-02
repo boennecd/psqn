@@ -1,9 +1,9 @@
-// [[Rcpp::depends(psqn)]]
-#include "psqn.h"
-
 // we use RcppArmadillo to simplify the code
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
+
+// [[Rcpp::depends(psqn)]]
+#include "psqn.h"
 
 using namespace Rcpp;
 
@@ -35,11 +35,11 @@ public:
   Sigma_inv(as<arma::mat>(data["Sigma_inv"])) { }
 
   /// dimension of the global parameters
-  size_t shared_dim() const {
+  size_t global_dim() const {
     return X.n_rows;
   }
   /// dimension of the private parameters
-  size_t own_dim() const {
+  size_t private_dim() const {
     return Z.n_rows;
   }
 
@@ -85,6 +85,8 @@ public:
       dbeta -= d_eta * X.col(i);
       du    -= d_eta * Z.col(i);
     }
+
+    out += arma::as_scalar(u.t() * Sigma_inv * u) * .5;
     du += Sigma_inv * u;
 
     return out;
@@ -92,7 +94,8 @@ public:
 };
 
 /***
- creates a pointer to an object which can.
+ creates a pointer to an object which is needed in the optim_mlogit
+ function.
  @param data list with data for each element function.
  */
 // [[Rcpp::export]]
@@ -112,6 +115,34 @@ SEXP get_mlogit_optimizer(List data){
 }
 
 /***
+ performs the optimization.
+ @param val vector with starting value for the global and private
+ parameters.
+ @param ptr returned object from get_mlogit_optimizer.
+ @param rel_eps relative convergence threshold.
+ @param max_it maximum number iterations.
+ */
+// [[Rcpp::export]]
+List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
+                  unsigned const max_it){
+  XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
+
+  // check that we pass a parameter value of the right length
+  if(optim->n_par != static_cast<size_t>(val.size()))
+    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+
+  NumericVector par = clone(val);
+  auto res = optim->optim(&par[0], rel_eps, max_it);
+  NumericVector counts = NumericVector::create(
+    res.n_eval, res.n_grad,  res.n_cg);
+  counts.names() = CharacterVector::create("function", "gradient", "n_cg");
+
+  return List::create(
+    _["par"] = par, _["value"] = res.value, _["info"] = res.info,
+    _["counts"] = counts, _["convergence"] = res.info == 0L);
+}
+
+/***
  evaluates the partially separable function.
  @param val vector with global and private parameters to evaluate the
  function at.
@@ -121,7 +152,7 @@ SEXP get_mlogit_optimizer(List data){
 double eval_mlogit(NumericVector val, SEXP ptr){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
-  // check that we pass a parameter value of the right length.
+  // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
     throw std::invalid_argument("eval_mlogit: invalid parameter size");
 
@@ -138,11 +169,26 @@ double eval_mlogit(NumericVector val, SEXP ptr){
 NumericVector grad_mlogit(NumericVector val, SEXP ptr){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
-  // check that we pass a parameter value of the right length.
+  // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
     throw std::invalid_argument("eval_mlogit: invalid parameter size");
 
   NumericVector grad(val.size());
-  optim->eval(&val[0], &grad[0], true);
+  grad.attr("value") = optim->eval(&val[0], &grad[0], true);
+
   return grad;
+}
+
+/***
+ returns the current Hessian approximation.
+ @param ptr returned object from get_mlogit_optimizer.
+ */
+// [[Rcpp::export]]
+NumericMatrix get_Hess_approx_mlogit(SEXP ptr){
+  XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
+
+  NumericMatrix out(optim->n_par, optim->n_par);
+  optim->get_hess(&out[0]);
+
+  return out;
 }
