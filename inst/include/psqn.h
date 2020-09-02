@@ -1,6 +1,7 @@
 #ifndef PSQN_H
 #define PSQN_H
 #include <vector>
+#include <array>
 #include <memory>
 #include "lp.h"
 #include <algorithm>
@@ -167,33 +168,33 @@ class optimizer {
     /***
      updates the Hessian approximation. Assumes that the () operator have
      been called at-least twice at different values.
+     @param wmem working memory to use.
      */
-    void update_Hes(){
+    void update_Hes(double * const wmem){
       // differences in parameters and gradient
-      // TODO: avoid the memory allocation
-      std::unique_ptr<double[]> s(new double[n_ele]),
-                                y(new double[n_ele]),
-                              wrk(new double[n_ele]);
+      double * const s   = wmem,
+             * const y   = s + n_ele,
+             * const wrk = y + n_ele;
 
-      lp::vec_diff(x_new, x_old , s.get(), n_ele);
-      lp::vec_diff(gr   , gr_old, y.get(), n_ele);
+      lp::vec_diff(x_new, x_old , s, n_ele);
+      lp::vec_diff(gr   , gr_old, y, n_ele);
 
-      double const s_y = lp::vec_dot(y.get(), s.get(), n_ele);
+      double const s_y = lp::vec_dot(y, s, n_ele);
       if(first_call){
         first_call = false;
         // make update on page 143
-        double const scal = lp::vec_dot(y.get(), n_ele) / s_y;
+        double const scal = lp::vec_dot(y, n_ele) / s_y;
         double *b = B;
         for(size_t i = 0; i < n_ele; ++i, b += n_ele + 1)
           *b = scal;
       }
 
       // perform BFGS update
-      std::fill(wrk.get(), wrk.get() + n_ele, 0.);
-      lp::mat_vec_dot(B, s.get(), wrk.get(), n_ele);
-      double const scal = lp::vec_dot(s.get(), wrk.get(), n_ele);
-      lp::rank_one_update(B, wrk.get(), -1. / scal, n_ele);
-      lp::rank_one_update(B, y.get(), 1. / s_y, n_ele);
+      std::fill(wrk, wrk + n_ele, 0.);
+      lp::mat_vec_dot(B, s, wrk, n_ele);
+      double const scal = lp::vec_dot(s, wrk, n_ele);
+      lp::rank_one_update(B, wrk, -1. / scal, n_ele);
+      lp::rank_one_update(B, y, 1. / s_y, n_ele);
 
       record();
     }
@@ -206,11 +207,16 @@ public:
   size_t const n_par;
 
 private:
-  /// size of the allocated working memory
-  size_t const n_mem;
+  /***
+   size of the allocated working memory. The first element is needed for
+   the worker. The second element is needed during the computation
+  */
+  std::array<size_t, 2L> const n_mem;
   /// working memory
   std::unique_ptr<double[]> mem =
-    std::unique_ptr<double[]>(new double[n_mem]);
+    std::unique_ptr<double[]>(new double[n_mem[0] + n_mem[1]]);
+  /// pointer to temporary memory to use
+  double * const temp_mem = mem.get() + n_mem[0];
   /// element functions
   std::vector<worker> funcs;
   /// number of function evaluations
@@ -256,7 +262,8 @@ public:
       size_t const private_dim = f.private_dim();
       out += (private_dim + global_dim) * (4L + (private_dim + global_dim));
     }
-    return out;
+    std::array<size_t, 2L> ret = { out, 3L * n_par };
+    return ret;
   })()),
   funcs(([&](){
     std::vector<worker> out;
@@ -333,9 +340,7 @@ public:
     approximation.
    */
   bool conj_grad(double const * __restrict__ x, double * __restrict__ y){
-    // TODO: avoid memory allocation
-    std::unique_ptr<double[]> cg_mem(new double[3L * n_par]);
-    double * __restrict__ r   = cg_mem.get(),
+    double * __restrict__ r   = temp_mem,
            * __restrict__ p   = r + n_par,
            * __restrict__ B_p = p + n_par;
 
@@ -393,16 +398,14 @@ public:
   bool line_search(
       double const f0, double * __restrict__ x0, double * __restrict__ gr0,
       double const * __restrict__ dir, double &fnew){
-    // TODO: avoid the allocation
-    std::unique_ptr<double[]> wk_mem(new double[n_par]);
-    double * const  x_mem = wk_mem.get();
+    double * const x_mem = temp_mem;
 
     // declare 1D functions
     auto psi = [&](double const alpha){
       for(size_t i = 0; i < n_par; ++i)
         *(x_mem + i) = *(x0 + i) + alpha * *(dir + i);
 
-      return eval(wk_mem.get(), nullptr, false);
+      return eval(x_mem, nullptr, false);
     };
 
     // returns the function value and the gradient
@@ -410,7 +413,7 @@ public:
       for(size_t i = 0; i < n_par; ++i)
         *(x_mem + i) = *(x0 + i) + alpha * *(dir + i);
 
-      fnew = eval(wk_mem.get(), gr0, true);
+      fnew = eval(x_mem, gr0, true);
       return lp::vec_dot(gr0, dir, n_par);
     };
 
@@ -458,20 +461,20 @@ public:
       if(fi > f0 + c1 * ai * dpsi_zero or (i > 0 and fi > fold)){
         intrapolate inter(f0, dpsi_zero, ai, fi);
         bool const out = zoom(a_prev, ai, inter);
-        lp::copy(x0, wk_mem.get(), n_par);
+        lp::copy(x0, x_mem, n_par);
         return out;
       }
 
       double const dpsi_i = dpsi(ai);
       if(std::abs(dpsi_i) <= -c2 * dpsi_zero){
-        lp::copy(x0, wk_mem.get(), n_par);
+        lp::copy(x0, x_mem, n_par);
         return true;
       }
 
       if(dpsi_i >= 0){
         intrapolate inter(f0, dpsi_zero, ai, fi);
         bool const out = zoom(ai, a_prev, inter);
-        lp::copy(x0, wk_mem.get(), n_par);
+        lp::copy(x0, x_mem, n_par);
         return out;
       }
 
@@ -530,7 +533,7 @@ public:
 
       // update the Hessian and take another iteation
       for(auto &f : funcs)
-        f.update_Hes();
+        f.update_Hes(temp_mem);
     }
 
     return { fval, info, n_eval, n_grad, n_cg };
