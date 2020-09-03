@@ -410,7 +410,7 @@ img {
 <a class="sourceLine" id="cb1-5" data-line-number="5">Sigma &lt;-<span class="st"> </span><span class="kw">diag</span>(q)</a>
 <a class="sourceLine" id="cb1-6" data-line-number="6"></a>
 <a class="sourceLine" id="cb1-7" data-line-number="7"><span class="co"># simulate data set</span></a>
-<a class="sourceLine" id="cb1-8" data-line-number="8">n_clusters &lt;-<span class="st"> </span>400L</a>
+<a class="sourceLine" id="cb1-8" data-line-number="8">n_clusters &lt;-<span class="st"> </span>800L</a>
 <a class="sourceLine" id="cb1-9" data-line-number="9"><span class="kw">set.seed</span>(<span class="dv">66608927</span>)</a>
 <a class="sourceLine" id="cb1-10" data-line-number="10"></a>
 <a class="sourceLine" id="cb1-11" data-line-number="11">sim_dat &lt;-<span class="st"> </span><span class="kw">replicate</span>(n_clusters, {</a>
@@ -491,7 +491,7 @@ img {
 <a class="sourceLine" id="cb3-22" data-line-number="22"></a>
 <a class="sourceLine" id="cb3-23" data-line-number="23"><span class="co"># check the log integrand at true global parameters and the random effects</span></a>
 <a class="sourceLine" id="cb3-24" data-line-number="24"><span class="kw">eval_integrand</span>(true_params)</a>
-<a class="sourceLine" id="cb3-25" data-line-number="25"><span class="co">#&gt; [1] 3511</span></a></code></pre></div>
+<a class="sourceLine" id="cb3-25" data-line-number="25"><span class="co">#&gt; [1] 6898</span></a></code></pre></div>
 <p>We will use this function to compare with our C++ implementation.</p>
 <div id="r-implementation" class="section level3">
 <h3>R Implementation</h3>
@@ -757,54 +757,95 @@ img {
 <p>The <code>counts</code> element contains the number number of function evaluations, gradient evaluations, and the total number of conjugate gradient iterations:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb9-1" data-line-number="1">psqn_res<span class="op">$</span>counts</a>
 <a class="sourceLine" id="cb9-2" data-line-number="2"><span class="co">#&gt; function gradient     n_cg </span></a>
-<a class="sourceLine" id="cb9-3" data-line-number="3"><span class="co">#&gt;       10        9      182</span></a>
+<a class="sourceLine" id="cb9-3" data-line-number="3"><span class="co">#&gt;       10        9      191</span></a>
 <a class="sourceLine" id="cb9-4" data-line-number="4"></a>
 <a class="sourceLine" id="cb9-5" data-line-number="5"><span class="co"># compare with optim</span></a>
 <a class="sourceLine" id="cb9-6" data-line-number="6">bfgs_res<span class="op">$</span>counts</a>
 <a class="sourceLine" id="cb9-7" data-line-number="7"><span class="co">#&gt; function gradient </span></a>
-<a class="sourceLine" id="cb9-8" data-line-number="8"><span class="co">#&gt;       55       18</span></a></code></pre></div>
+<a class="sourceLine" id="cb9-8" data-line-number="8"><span class="co">#&gt;       62       20</span></a></code></pre></div>
 <p>We can compare the solution with <code>optim</code>:</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb10-1" data-line-number="1"><span class="kw">all.equal</span>(bfgs_res<span class="op">$</span>par, psqn_res<span class="op">$</span>par)</a>
-<a class="sourceLine" id="cb10-2" data-line-number="2"><span class="co">#&gt; [1] &quot;Mean relative difference: 0.000168&quot;</span></a>
+<a class="sourceLine" id="cb10-2" data-line-number="2"><span class="co">#&gt; [1] &quot;Mean relative difference: 5.58e-05&quot;</span></a>
 <a class="sourceLine" id="cb10-3" data-line-number="3"><span class="kw">all.equal</span>(psqn_res<span class="op">$</span>value, bfgs_res<span class="op">$</span>value, <span class="dt">tolerance =</span> <span class="fl">1e-8</span>)</a>
 <a class="sourceLine" id="cb10-4" data-line-number="4"><span class="co">#&gt; [1] TRUE</span></a>
 <a class="sourceLine" id="cb10-5" data-line-number="5">psqn_res<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>bfgs_res<span class="op">$</span>value</a>
-<a class="sourceLine" id="cb10-6" data-line-number="6"><span class="co">#&gt; [1] -1.91e-05</span></a></code></pre></div>
-<p>The <code>optim_mlogit</code> takes fewer iterations possibly because we quicker get a good approximation of the Hessian. Furthermore, we only take <code>psqn_res$counts[&quot;n_cg&quot;]</code>, 182, conjugate gradient iterations. This in contrast to the worst case scenario where we make <code>length(start_val)</code>, 1605, iterations for just one iteration of the quasi-Newton method!</p>
+<a class="sourceLine" id="cb10-6" data-line-number="6"><span class="co">#&gt; [1] -1.5e-05</span></a></code></pre></div>
+<p>The <code>optim_mlogit</code> takes fewer iterations possibly because we quicker get a good approximation of the Hessian. Furthermore, we only take <code>psqn_res$counts[&quot;n_cg&quot;]</code>, 191, conjugate gradient iterations. This in contrast to the worst case scenario where we make <code>length(start_val)</code>, 3205, iterations for just one iteration of the quasi-Newton method! We can also compare with limited memory BFGS minimizer from the <code>lbfgsb3c</code> package:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="kw">library</span>(lbfgsb3c)</a>
+<a class="sourceLine" id="cb11-2" data-line-number="2">lbfgsb3c_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 2L)</a>
+<a class="sourceLine" id="cb11-3" data-line-number="3">  <span class="kw">lbfgsb3c</span>(<span class="dt">par =</span> par, <span class="cf">function</span>(par) </a>
+<a class="sourceLine" id="cb11-4" data-line-number="4">      <span class="kw">eval_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">n_threads =</span> n_threads), </a>
+<a class="sourceLine" id="cb11-5" data-line-number="5">    <span class="cf">function</span>(par) </a>
+<a class="sourceLine" id="cb11-6" data-line-number="6">      <span class="kw">grad_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">n_threads =</span> n_threads), </a>
+<a class="sourceLine" id="cb11-7" data-line-number="7">    <span class="dt">control =</span> <span class="kw">list</span>(<span class="dt">factr =</span> <span class="fl">1e-8</span> <span class="op">*</span><span class="st"> </span><span class="dv">10</span>, <span class="dt">maxit =</span> 1000L))</a>
+<a class="sourceLine" id="cb11-8" data-line-number="8"></a>
+<a class="sourceLine" id="cb11-9" data-line-number="9">lbfgsb3c_res &lt;-<span class="st"> </span><span class="kw">lbfgsb3c_func</span>(start_val)</a>
+<a class="sourceLine" id="cb11-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb11-11" data-line-number="11"><span class="kw">all.equal</span>(lbfgsb3c_res<span class="op">$</span>par, psqn_res<span class="op">$</span>par)</a>
+<a class="sourceLine" id="cb11-12" data-line-number="12"><span class="co">#&gt; [1] &quot;Mean relative difference: 1.58e-05&quot;</span></a>
+<a class="sourceLine" id="cb11-13" data-line-number="13"><span class="kw">all.equal</span>(lbfgsb3c_res<span class="op">$</span>value, bfgs_res<span class="op">$</span>value, <span class="dt">tolerance =</span> <span class="fl">1e-8</span>)</a>
+<a class="sourceLine" id="cb11-14" data-line-number="14"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb11-15" data-line-number="15">psqn_res<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>lbfgsb3c_res<span class="op">$</span>value</a>
+<a class="sourceLine" id="cb11-16" data-line-number="16"><span class="co">#&gt; [1] 1.83e-06</span></a></code></pre></div>
+<p>We can also compare with the limited memory BFGS minimizer from the <code>lbfgs</code> package:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb12-1" data-line-number="1"><span class="kw">library</span>(lbfgs)</a>
+<a class="sourceLine" id="cb12-2" data-line-number="2">lbfgs_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 2L)</a>
+<a class="sourceLine" id="cb12-3" data-line-number="3">  <span class="kw">lbfgs</span>(<span class="dt">vars =</span> par, <span class="cf">function</span>(par) </a>
+<a class="sourceLine" id="cb12-4" data-line-number="4">      <span class="kw">eval_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">n_threads =</span> n_threads), </a>
+<a class="sourceLine" id="cb12-5" data-line-number="5">    <span class="cf">function</span>(par) </a>
+<a class="sourceLine" id="cb12-6" data-line-number="6">      <span class="kw">grad_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">n_threads =</span> n_threads), </a>
+<a class="sourceLine" id="cb12-7" data-line-number="7">    <span class="dt">invisible =</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb12-8" data-line-number="8"></a>
+<a class="sourceLine" id="cb12-9" data-line-number="9">lbfgs_res &lt;-<span class="st"> </span><span class="kw">lbfgs_func</span>(start_val)</a>
+<a class="sourceLine" id="cb12-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb12-11" data-line-number="11"><span class="kw">all.equal</span>(lbfgs_res<span class="op">$</span>par, psqn_res<span class="op">$</span>par)</a>
+<a class="sourceLine" id="cb12-12" data-line-number="12"><span class="co">#&gt; [1] &quot;Mean relative difference: 1.61e-05&quot;</span></a>
+<a class="sourceLine" id="cb12-13" data-line-number="13"><span class="kw">all.equal</span>(lbfgs_res<span class="op">$</span>value, bfgs_res<span class="op">$</span>value, <span class="dt">tolerance =</span> <span class="fl">1e-8</span>)</a>
+<a class="sourceLine" id="cb12-14" data-line-number="14"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb12-15" data-line-number="15">psqn_res<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>lbfgs_res<span class="op">$</span>value</a>
+<a class="sourceLine" id="cb12-16" data-line-number="16"><span class="co">#&gt; [1] 1.83e-06</span></a></code></pre></div>
 <p>We can get the Hessian approximation by calling the <code>get_Hess_approx_mlogit</code> function we declared after calling the optimizer:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1">aprox_hes &lt;-<span class="st"> </span><span class="kw">get_Hess_approx_mlogit</span>(<span class="dt">ptr =</span> optimizer)</a>
-<a class="sourceLine" id="cb11-2" data-line-number="2"><span class="kw">dim</span>(aprox_hes) <span class="co"># quite large; requires a lot of memory</span></a>
-<a class="sourceLine" id="cb11-3" data-line-number="3"><span class="co">#&gt; [1] 1605 1605</span></a>
-<a class="sourceLine" id="cb11-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb11-5" data-line-number="5"><span class="co"># create a plot like before. Black entries are non-zero</span></a>
-<a class="sourceLine" id="cb11-6" data-line-number="6"><span class="kw">par</span>(<span class="dt">mar =</span> <span class="kw">c</span>(.<span class="dv">5</span>, <span class="fl">.5</span>, <span class="fl">.5</span>, <span class="fl">.5</span>))</a>
-<a class="sourceLine" id="cb11-7" data-line-number="7"><span class="kw">image</span>(<span class="kw">abs</span>(aprox_hes[, <span class="kw">NCOL</span>(aprox_hes)<span class="op">:</span><span class="dv">1</span>]) <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>, <span class="dt">xaxt =</span> <span class="st">&quot;n&quot;</span>, <span class="dt">yaxt =</span> <span class="st">&quot;n&quot;</span>,</a>
-<a class="sourceLine" id="cb11-8" data-line-number="8">      <span class="dt">col =</span> <span class="kw">gray.colors</span>(2L, <span class="dv">1</span>, <span class="dv">0</span>))</a></code></pre></div>
-<p><img src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb12-1" data-line-number="1"></a>
-<a class="sourceLine" id="cb12-2" data-line-number="2"><span class="cf">if</span>(<span class="ot">FALSE</span>){</a>
-<a class="sourceLine" id="cb12-3" data-line-number="3">  <span class="co"># only feasible for smaller problem</span></a>
-<a class="sourceLine" id="cb12-4" data-line-number="4">  hess_true &lt;-<span class="st"> </span><span class="kw">jacobian</span>(</a>
-<a class="sourceLine" id="cb12-5" data-line-number="5">    <span class="cf">function</span>(par) <span class="kw">grad_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer), </a>
-<a class="sourceLine" id="cb12-6" data-line-number="6">    psqn_res<span class="op">$</span>par)</a>
-<a class="sourceLine" id="cb12-7" data-line-number="7">  </a>
-<a class="sourceLine" id="cb12-8" data-line-number="8">  <span class="co"># should not hold exactly! Might not be that good of an approximation.</span></a>
-<a class="sourceLine" id="cb12-9" data-line-number="9">  <span class="kw">all.equal</span>(aprox_hes, hess_true) </a>
-<a class="sourceLine" id="cb12-10" data-line-number="10">}</a></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb13-1" data-line-number="1">aprox_hes &lt;-<span class="st"> </span><span class="kw">get_Hess_approx_mlogit</span>(<span class="dt">ptr =</span> optimizer)</a>
+<a class="sourceLine" id="cb13-2" data-line-number="2"><span class="kw">dim</span>(aprox_hes) <span class="co"># quite large; requires a lot of memory</span></a>
+<a class="sourceLine" id="cb13-3" data-line-number="3"><span class="co">#&gt; [1] 3205 3205</span></a>
+<a class="sourceLine" id="cb13-4" data-line-number="4"></a>
+<a class="sourceLine" id="cb13-5" data-line-number="5"><span class="co"># create a plot like before. Black entries are non-zero</span></a>
+<a class="sourceLine" id="cb13-6" data-line-number="6"><span class="kw">par</span>(<span class="dt">mar =</span> <span class="kw">c</span>(.<span class="dv">5</span>, <span class="fl">.5</span>, <span class="fl">.5</span>, <span class="fl">.5</span>))</a>
+<a class="sourceLine" id="cb13-7" data-line-number="7">idx &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">:</span><span class="kw">min</span>(<span class="dv">1000</span>, <span class="kw">NROW</span>(aprox_hes))</a>
+<a class="sourceLine" id="cb13-8" data-line-number="8">aprox_hes &lt;-<span class="st"> </span>aprox_hes[idx, idx] <span class="co"># reduce dimension to plot quickly</span></a>
+<a class="sourceLine" id="cb13-9" data-line-number="9"><span class="kw">image</span>(<span class="kw">abs</span>(aprox_hes[, <span class="kw">NCOL</span>(aprox_hes)<span class="op">:</span><span class="dv">1</span>]) <span class="op">&gt;</span><span class="st"> </span><span class="dv">0</span>, <span class="dt">xaxt =</span> <span class="st">&quot;n&quot;</span>, <span class="dt">yaxt =</span> <span class="st">&quot;n&quot;</span>,</a>
+<a class="sourceLine" id="cb13-10" data-line-number="10">      <span class="dt">col =</span> <span class="kw">gray.colors</span>(2L, <span class="dv">1</span>, <span class="dv">0</span>))</a></code></pre></div>
+<p><img src="data:image/png;base64,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" style="display: block; margin: auto;" /></p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1"></a>
+<a class="sourceLine" id="cb14-2" data-line-number="2"><span class="cf">if</span>(<span class="ot">FALSE</span>){</a>
+<a class="sourceLine" id="cb14-3" data-line-number="3">  <span class="co"># only feasible for smaller problem</span></a>
+<a class="sourceLine" id="cb14-4" data-line-number="4">  hess_true &lt;-<span class="st"> </span><span class="kw">jacobian</span>(</a>
+<a class="sourceLine" id="cb14-5" data-line-number="5">    <span class="cf">function</span>(par) <span class="kw">grad_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer), </a>
+<a class="sourceLine" id="cb14-6" data-line-number="6">    psqn_res<span class="op">$</span>par)</a>
+<a class="sourceLine" id="cb14-7" data-line-number="7">  </a>
+<a class="sourceLine" id="cb14-8" data-line-number="8">  <span class="co"># should not hold exactly! Might not be that good of an approximation.</span></a>
+<a class="sourceLine" id="cb14-9" data-line-number="9">  <span class="kw">all.equal</span>(aprox_hes, hess_true) </a>
+<a class="sourceLine" id="cb14-10" data-line-number="10">}</a></code></pre></div>
 <p>The true Hessian is very sparse. Finally, here is a benchmark to compare the computation time:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb13-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
-<a class="sourceLine" id="cb13-2" data-line-number="2">  <span class="st">`</span><span class="dt">optim BFGS (1 thread)</span><span class="st">`</span>  =<span class="st"> </span><span class="kw">optim_func</span>(start_val, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb13-3" data-line-number="3">  <span class="st">`</span><span class="dt">optim BFGS (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb13-4" data-line-number="4">  <span class="st">`</span><span class="dt">psqn (1 thread)</span><span class="st">`</span>        =<span class="st"> </span><span class="kw">psqn_func</span> (start_val, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb13-5" data-line-number="5">  <span class="st">`</span><span class="dt">psqn (2 threads)</span><span class="st">`</span>       =<span class="st"> </span><span class="kw">psqn_func</span> (start_val, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb13-6" data-line-number="6">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">min_iterations =</span> <span class="dv">20</span>)</a>
-<a class="sourceLine" id="cb13-7" data-line-number="7"><span class="co">#&gt; # A tibble: 4 x 6</span></a>
-<a class="sourceLine" id="cb13-8" data-line-number="8"><span class="co">#&gt;   expression                  min   median `itr/sec` mem_alloc `gc/sec`</span></a>
-<a class="sourceLine" id="cb13-9" data-line-number="9"><span class="co">#&gt;   &lt;bch:expr&gt;             &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb13-10" data-line-number="10"><span class="co">#&gt; 1 optim BFGS (1 thread)   207.3ms 218.87ms      4.59    11.4MB    0.810</span></a>
-<a class="sourceLine" id="cb13-11" data-line-number="11"><span class="co">#&gt; 2 optim BFGS (2 threads)  197.6ms 207.69ms      4.73    11.4MB    1.58 </span></a>
-<a class="sourceLine" id="cb13-12" data-line-number="12"><span class="co">#&gt; 3 psqn (1 thread)          12.8ms  13.03ms     76.2     25.7KB    0    </span></a>
-<a class="sourceLine" id="cb13-13" data-line-number="13"><span class="co">#&gt; 4 psqn (2 threads)          7.2ms   7.37ms    135.      15.1KB    0</span></a></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb15-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb15-2" data-line-number="2">  <span class="st">`</span><span class="dt">optim BFGS (2 thread) </span><span class="st">`</span>  =<span class="st"> </span><span class="kw">optim_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-3" data-line-number="3">  <span class="st">`</span><span class="dt">     lbfgs (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgs_func</span>(start_val, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb15-4" data-line-number="4">  <span class="st">`</span><span class="dt">     lbfgs (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgs_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-5" data-line-number="5">  <span class="st">`</span><span class="dt">  lbfgsb3c (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgsb3c_func</span>(start_val, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb15-6" data-line-number="6">  <span class="st">`</span><span class="dt">  lbfgsb3c (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgsb3c_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-7" data-line-number="7">  <span class="st">`</span><span class="dt">      psqn (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span> (start_val, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb15-8" data-line-number="8">  <span class="st">`</span><span class="dt">      psqn (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span> (start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-9" data-line-number="9">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">min_iterations =</span> <span class="dv">2</span>)</a>
+<a class="sourceLine" id="cb15-10" data-line-number="10"><span class="co">#&gt; # A tibble: 7 x 6</span></a>
+<a class="sourceLine" id="cb15-11" data-line-number="11"><span class="co">#&gt;   expression                  min   median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb15-12" data-line-number="12"><span class="co">#&gt;   &lt;bch:expr&gt;             &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb15-13" data-line-number="13"><span class="co">#&gt; 1 optim BFGS (2 thread)     1.26s    1.35s     0.738    42.4MB     0   </span></a>
+<a class="sourceLine" id="cb15-14" data-line-number="14"><span class="co">#&gt; 2      lbfgs (1 thread)   299.8ms  299.8ms     3.34       11MB     3.34</span></a>
+<a class="sourceLine" id="cb15-15" data-line-number="15"><span class="co">#&gt; 3      lbfgs (2 threads) 154.21ms 155.56ms     6.35     10.5MB     0   </span></a>
+<a class="sourceLine" id="cb15-16" data-line-number="16"><span class="co">#&gt; 4   lbfgsb3c (1 thread)  312.92ms 312.92ms     3.20       22MB     3.20</span></a>
+<a class="sourceLine" id="cb15-17" data-line-number="17"><span class="co">#&gt; 5   lbfgsb3c (2 threads) 180.12ms 181.89ms     5.44     23.3MB     0   </span></a>
+<a class="sourceLine" id="cb15-18" data-line-number="18"><span class="co">#&gt; 6       psqn (1 thread)   26.84ms  27.02ms    36.7      38.9KB     0   </span></a>
+<a class="sourceLine" id="cb15-19" data-line-number="19"><span class="co">#&gt; 7       psqn (2 threads)  14.75ms  14.92ms    67.0      27.6KB     0</span></a></code></pre></div>
 <p>We see a large reduction.</p>
 </div>
 </div>
@@ -817,20 +858,20 @@ img {
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>
 <p>Ratio for flops required in the matrix-vector product in BFGS relative to the flops required in the matrix-vector product for the conjugate gradient method for the quasi-Newton method:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb14-1" data-line-number="1">vals &lt;-<span class="st"> </span><span class="kw">expand.grid</span>(<span class="dt">n =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">8</span><span class="op">:</span><span class="dv">13</span>), <span class="dt">p =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">2</span><span class="op">:</span><span class="dv">4</span>), <span class="dt">q =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">2</span><span class="op">:</span><span class="dv">8</span>))</a>
-<a class="sourceLine" id="cb14-2" data-line-number="2">vals &lt;-<span class="st"> </span><span class="kw">within</span>(vals, {</a>
-<a class="sourceLine" id="cb14-3" data-line-number="3">  flops_qsn &lt;-<span class="st"> </span>2L <span class="op">*</span><span class="st"> </span>n <span class="op">*</span><span class="st"> </span>(p <span class="op">+</span><span class="st"> </span>q) <span class="op">*</span><span class="st"> </span>(p <span class="op">+</span><span class="st"> </span>q <span class="op">+</span><span class="st"> </span>1L)</a>
-<a class="sourceLine" id="cb14-4" data-line-number="4">  flops_bfgs &lt;-<span class="st"> </span>2L <span class="op">*</span><span class="st"> </span>(q <span class="op">*</span><span class="st"> </span>n <span class="op">+</span><span class="st"> </span>p)<span class="op">^</span><span class="dv">2</span></a>
-<a class="sourceLine" id="cb14-5" data-line-number="5">  ratio &lt;-<span class="st"> </span>flops_bfgs <span class="op">/</span><span class="st"> </span>flops_qsn</a>
-<a class="sourceLine" id="cb14-6" data-line-number="6">})</a>
-<a class="sourceLine" id="cb14-7" data-line-number="7">nq &lt;-<span class="st"> </span><span class="kw">length</span>(<span class="kw">unique</span>(vals<span class="op">$</span>q))</a>
-<a class="sourceLine" id="cb14-8" data-line-number="8">tvals &lt;-<span class="st"> </span><span class="kw">c</span>(vals<span class="op">$</span>n[<span class="kw">seq_len</span>(<span class="kw">NROW</span>(vals) <span class="op">/</span><span class="st"> </span>nq)], </a>
-<a class="sourceLine" id="cb14-9" data-line-number="9">           vals<span class="op">$</span>p[<span class="kw">seq_len</span>(<span class="kw">NROW</span>(vals) <span class="op">/</span><span class="st"> </span>nq)], <span class="kw">floor</span>(vals[, <span class="st">&quot;ratio&quot;</span>]))</a>
-<a class="sourceLine" id="cb14-10" data-line-number="10"></a>
-<a class="sourceLine" id="cb14-11" data-line-number="11">vals &lt;-<span class="st"> </span><span class="kw">matrix</span>(</a>
-<a class="sourceLine" id="cb14-12" data-line-number="12">  tvals, <span class="dt">ncol =</span> nq <span class="op">+</span><span class="st"> </span>2L, <span class="dt">dimnames =</span> <span class="kw">list</span>(</a>
-<a class="sourceLine" id="cb14-13" data-line-number="13">    <span class="ot">NULL</span>, <span class="kw">c</span>(<span class="st">&quot;n&quot;</span>, <span class="st">&quot;p/q&quot;</span>, <span class="kw">unique</span>(vals<span class="op">$</span>q))))</a>
-<a class="sourceLine" id="cb14-14" data-line-number="14">knitr<span class="op">::</span><span class="kw">kable</span>(vals)</a></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb16-1" data-line-number="1">vals &lt;-<span class="st"> </span><span class="kw">expand.grid</span>(<span class="dt">n =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">8</span><span class="op">:</span><span class="dv">13</span>), <span class="dt">p =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">2</span><span class="op">:</span><span class="dv">4</span>), <span class="dt">q =</span> <span class="dv">2</span><span class="op">^</span>(<span class="dv">2</span><span class="op">:</span><span class="dv">8</span>))</a>
+<a class="sourceLine" id="cb16-2" data-line-number="2">vals &lt;-<span class="st"> </span><span class="kw">within</span>(vals, {</a>
+<a class="sourceLine" id="cb16-3" data-line-number="3">  flops_qsn &lt;-<span class="st"> </span>2L <span class="op">*</span><span class="st"> </span>n <span class="op">*</span><span class="st"> </span>(p <span class="op">+</span><span class="st"> </span>q) <span class="op">*</span><span class="st"> </span>(p <span class="op">+</span><span class="st"> </span>q <span class="op">+</span><span class="st"> </span>1L)</a>
+<a class="sourceLine" id="cb16-4" data-line-number="4">  flops_bfgs &lt;-<span class="st"> </span>2L <span class="op">*</span><span class="st"> </span>(q <span class="op">*</span><span class="st"> </span>n <span class="op">+</span><span class="st"> </span>p)<span class="op">^</span><span class="dv">2</span></a>
+<a class="sourceLine" id="cb16-5" data-line-number="5">  ratio &lt;-<span class="st"> </span>flops_bfgs <span class="op">/</span><span class="st"> </span>flops_qsn</a>
+<a class="sourceLine" id="cb16-6" data-line-number="6">})</a>
+<a class="sourceLine" id="cb16-7" data-line-number="7">nq &lt;-<span class="st"> </span><span class="kw">length</span>(<span class="kw">unique</span>(vals<span class="op">$</span>q))</a>
+<a class="sourceLine" id="cb16-8" data-line-number="8">tvals &lt;-<span class="st"> </span><span class="kw">c</span>(vals<span class="op">$</span>n[<span class="kw">seq_len</span>(<span class="kw">NROW</span>(vals) <span class="op">/</span><span class="st"> </span>nq)], </a>
+<a class="sourceLine" id="cb16-9" data-line-number="9">           vals<span class="op">$</span>p[<span class="kw">seq_len</span>(<span class="kw">NROW</span>(vals) <span class="op">/</span><span class="st"> </span>nq)], <span class="kw">floor</span>(vals[, <span class="st">&quot;ratio&quot;</span>]))</a>
+<a class="sourceLine" id="cb16-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb16-11" data-line-number="11">vals &lt;-<span class="st"> </span><span class="kw">matrix</span>(</a>
+<a class="sourceLine" id="cb16-12" data-line-number="12">  tvals, <span class="dt">ncol =</span> nq <span class="op">+</span><span class="st"> </span>2L, <span class="dt">dimnames =</span> <span class="kw">list</span>(</a>
+<a class="sourceLine" id="cb16-13" data-line-number="13">    <span class="ot">NULL</span>, <span class="kw">c</span>(<span class="st">&quot;n&quot;</span>, <span class="st">&quot;p/q&quot;</span>, <span class="kw">unique</span>(vals<span class="op">$</span>q))))</a>
+<a class="sourceLine" id="cb16-14" data-line-number="14">knitr<span class="op">::</span><span class="kw">kable</span>(vals)</a></code></pre></div>
 <table>
 <thead>
 <tr class="header">

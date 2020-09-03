@@ -271,7 +271,7 @@ beta <- sqrt((1:p) / sum(1:p))
 Sigma <- diag(q)
 
 # simulate data set
-n_clusters <- 400L
+n_clusters <- 800L
 set.seed(66608927)
 
 sim_dat <- replicate(n_clusters, {
@@ -436,7 +436,43 @@ a good approximation of the Hessian. Furthermore, we only take
  conjugate gradient iterations. This in contrast to the worst 
 case scenario where we make `length(start_val)`, 
 `r length(start_val)`, iterations for just
-one iteration of the quasi-Newton method!
+one iteration of the quasi-Newton method! We can also compare with 
+limited memory BFGS minimizer from the `lbfgsb3c` package:
+
+```{r comp_with_lbfgsb3c, cache = 1, dependson = "create_ptr"}
+library(lbfgsb3c)
+lbfgsb3c_func <- function(par, n_threads = 2L)
+  lbfgsb3c(par = par, function(par) 
+      eval_mlogit(val = par, ptr = optimizer, n_threads = n_threads), 
+    function(par) 
+      grad_mlogit(val = par, ptr = optimizer, n_threads = n_threads), 
+    control = list(factr = 1e-8 * 10, maxit = 1000L))
+
+lbfgsb3c_res <- lbfgsb3c_func(start_val)
+
+all.equal(lbfgsb3c_res$par, psqn_res$par)
+all.equal(lbfgsb3c_res$value, bfgs_res$value, tolerance = 1e-8)
+psqn_res$value - lbfgsb3c_res$value
+```
+
+We can also compare with the limited memory BFGS minimizer from the 
+`lbfgs` package:
+
+```{r comp_with_liblbfgs, cache = 1, dependson = "create_ptr"}
+library(lbfgs)
+lbfgs_func <- function(par, n_threads = 2L)
+  lbfgs(vars = par, function(par) 
+      eval_mlogit(val = par, ptr = optimizer, n_threads = n_threads), 
+    function(par) 
+      grad_mlogit(val = par, ptr = optimizer, n_threads = n_threads), 
+    invisible = 1)
+
+lbfgs_res <- lbfgs_func(start_val)
+
+all.equal(lbfgs_res$par, psqn_res$par)
+all.equal(lbfgs_res$value, bfgs_res$value, tolerance = 1e-8)
+psqn_res$value - lbfgs_res$value
+```
 
 We can get the Hessian approximation by calling the `get_Hess_approx_mlogit`
 function we declared after calling the optimizer: 
@@ -447,6 +483,8 @@ dim(aprox_hes) # quite large; requires a lot of memory
 
 # create a plot like before. Black entries are non-zero
 par(mar = c(.5, .5, .5, .5))
+idx <- 1:min(1000, NROW(aprox_hes))
+aprox_hes <- aprox_hes[idx, idx] # reduce dimension to plot quickly
 image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
       col = gray.colors(2L, 1, 0))
 
@@ -466,11 +504,14 @@ computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(
-  `optim BFGS (1 thread)`  = optim_func(start_val, n_threads = 1L),
-  `optim BFGS (2 threads)` = optim_func(start_val, n_threads = 2L),
-  `psqn (1 thread)`        = psqn_func (start_val, n_threads = 1L),
-  `psqn (2 threads)`       = psqn_func (start_val, n_threads = 2L),
-  check = FALSE, min_iterations = 20)
+  `optim BFGS (2 thread) `  = optim_func(start_val, n_threads = 2L),
+  `     lbfgs (1 thread) ` = lbfgs_func(start_val, n_threads = 1L),
+  `     lbfgs (2 threads)` = lbfgs_func(start_val, n_threads = 2L),
+  `  lbfgsb3c (1 thread) ` = lbfgsb3c_func(start_val, n_threads = 1L),
+  `  lbfgsb3c (2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
+  `      psqn (1 thread) ` = psqn_func (start_val, n_threads = 1L),
+  `      psqn (2 threads)` = psqn_func (start_val, n_threads = 2L),
+  check = FALSE, min_iterations = 2)
 ```
 
 We see a large reduction.
