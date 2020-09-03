@@ -216,13 +216,19 @@ That is 521 times more flops. Similar ratios are shown in the
 section.
 
 More formerly, the former is 
-$\mathcal O(n(p + q_{\text max})^2)$ where 
-$q_{\text max} = \text{max}_{i = 1,\dots, n} q_i$ whereas the matrix-vector product 
-in the BFGS method is $\mathcal O((p + \sum_{i = 1}^n q_i)^2)$. Further,
+$\mathcal O(\sum_{i = 1}^n(p + q_{i})^2) = \mathcal O(np^2 + np\bar q + \sum_{i = 1}^nq_i^2)$ where 
+$\bar q = \sum_{i = 1}^n q_i / n$ whereas the matrix-vector product 
+in the BFGS method is 
+$\mathcal O((p + n\bar q)^2) = \mathcal O(p^2 + pn\bar q + (n\bar q)^2)$. 
+Thus, the former is favorable as long as $np^2 + \sum_{i = 1}^nq_i^2$ is 
+small compared with $(n\bar q)^2$. 
+Furthermore,
 the rank-two BFGS updates are cheaper and may converge faster to a good 
 approximation. However, we should keep in mind that 
 the original BFGS method yields an approximation of $\mat B_k^{-1}$. Thus, 
-we do not need to solve a linear system.
+we do not need to solve a linear system. However, we may not need to take 
+many conjugate gradient iterations to get a good approximation with the 
+implemented quasi-Newton method.
 
 ## Conjugate Gradient Method
 
@@ -248,7 +254,7 @@ $\vec r_0 = \mat A\vec x_0 - \vec v$, $\vec p_0 = -\vec r_0$, and:
 
 The main issue is the matrix-vector product $\mat A\vec p_k$ but as we 
 argued in the previous section that this can be computed in 
-$\mathcal O(n(p + q_{\text max})^2)$ time. The conjugate gradient method
+$\mathcal O(\sum_{i = 1}^n(p + q_{i})^2)$ time. The conjugate gradient method
 will at most take $h$ iterations where $h$ is the number of rows and columns
 of $\mat A$. Moreover, if $\mat A$ only has $r < h$ distinct eigenvalues 
 then we will at most make $r$ conjugate gradient iterations. Lastly, if 
