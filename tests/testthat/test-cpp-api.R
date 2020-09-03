@@ -33,46 +33,57 @@ test_that("mixed logit model gives the same", {
   skip_if_not_installed("RcppArmadillo")
 
   Rcpp::sourceCpp(system.file("mlogit-ex.cpp", package = "psqn"))
-  optimizer <- get_mlogit_optimizer(sim_dat)
+  optimizer <- get_mlogit_optimizer(sim_dat, max_threads = 2L)
 
   val <- c(beta, sapply(sim_dat, function(x) x$u))
-  fv <- eval_mlogit(val = val, ptr = optimizer)
+  fv <- eval_mlogit(val = val, ptr = optimizer, n_threads = 1L)
+  expect_equal(fv, 35.248256794375)
+  fv <- eval_mlogit(val = val, ptr = optimizer, n_threads = 2L)
   expect_equal(fv, 35.248256794375)
 
-  gr <- grad_mlogit(val = val, ptr = optimizer)
-  expect_equal(
-    gr,
-    structure(c(-3.09880891801443, -3.11919456739973, -1.26969269606313,
-                5.50412085634227, -5.07396341960751, 0.407174373086653, 0.590879440022872,
-                0.122784612825495, 0.222039129397368, -0.335740954704027, 0.967036607234169,
-                -2.05362226641706, -0.517311694420387, -2.33859175587387, 0.911175257815629,
-                -1.80538928384093, -0.81631781729293, 3.14749812772018, -0.894143195465396,
-                0.647354085121652, 0.344172484580979), value = 35.248256794375))
 
-  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = 1e-8,
-                      max_it = 100L)
+  gr_res <- structure(
+    c(-3.09880891801443, -3.11919456739973, -1.26969269606313,
+      5.50412085634227, -5.07396341960751, 0.407174373086653, 0.590879440022872,
+      0.122784612825495, 0.222039129397368, -0.335740954704027, 0.967036607234169,
+      -2.05362226641706, -0.517311694420387, -2.33859175587387, 0.911175257815629,
+      -1.80538928384093, -0.81631781729293, 3.14749812772018, -0.894143195465396,
+      0.647354085121652, 0.344172484580979), value = 35.248256794375)
+  gr <- grad_mlogit(val = val, ptr = optimizer, n_threads = 1L)
+  expect_equal(gr, gr_res)
+  gr <- grad_mlogit(val = val, ptr = optimizer, n_threads = 2L)
+  expect_equal(gr, gr_res)
 
-  expect_equal(
-    opt,
-    list(par = c(0.64728530110947, 0.773194017021601, 0.657000534901989,
-                 0.119680984770149, 0.855866285979022, -0.484305536586791, 0.412501613805294,
-                 0.766995560437863, 0.422857367872878, 0.605158943583224, -0.783730421012958,
-                 0.0961764408437856, -0.922959439713509, -0.483522109084062, 0.438228261355513,
-                 -0.493282831674971, 0.0274308256734968, 0.426837683845752, 0.0282555513891497,
-                 -0.180702023732985, -0.150661553719773), value = 25.121501499614,
-         info = 0L, counts = c(`function` = 12, gradient = 11, n_cg = 132
-         ), convergence = TRUE))
+  rel_eps <- sqrt(.Machine$double.eps)
+  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
+                      max_it = 100L, n_threads = 1L)
+  opt_res <- list(par = c(0.64728530110947, 0.773194017021601, 0.657000534901989,
+                          0.119680984770149, 0.855866285979022, -0.484305536586791, 0.412501613805294,
+                          0.766995560437863, 0.422857367872878, 0.605158943583224, -0.783730421012958,
+                          0.0961764408437856, -0.922959439713509, -0.483522109084062, 0.438228261355513,
+                          -0.493282831674971, 0.0274308256734968, 0.426837683845752, 0.0282555513891497,
+                          -0.180702023732985, -0.150661553719773), value = 25.121501499614,
+                  info = 0L, counts = c(`function` = 12, gradient = 11, n_cg = 132
+                  ), convergence = TRUE)
+  tol <- .Machine$double.eps^(1/3)
+  do_check <- !names(opt) %in% "counts"
+  expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
+  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
+                      max_it = 100L, n_threads = 2L)
+  expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
-  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = 1e-8,
-                      max_it = 100L, use_bfgs = FALSE)
-  expect_equal(
-    opt,
-    list(par = c(0.654546361485906, 0.807315927689098, 0.655667959361049,
-                 0.109247519774489, 0.874280737451578, -0.495840509349291, 0.411671125244145,
-                 0.762530816195864, 0.419406025756571, 0.642643402064927, -0.774118417890458,
-                 0.0366165947282846, -0.89813125648357, -0.487288424143804, 0.443203441432212,
-                 -0.495589282401564, 0.0218529073377864, 0.439444076748412, 0.0231348769746207,
-                 -0.193179986269103, -0.151309846093391), value = 25.1324130119829,
-         info = -3L, counts = c(`function` = 113, gradient = 10, n_cg = 128
-         ), convergence = FALSE))
+  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
+                      max_it = 100L, use_bfgs = FALSE, n_threads = 1L)
+  opt_res <- list(par = c(0.654546361485906, 0.807315927689098, 0.655667959361049,
+                          0.109247519774489, 0.874280737451578, -0.495840509349291, 0.411671125244145,
+                          0.762530816195864, 0.419406025756571, 0.642643402064927, -0.774118417890458,
+                          0.0366165947282846, -0.89813125648357, -0.487288424143804, 0.443203441432212,
+                          -0.495589282401564, 0.0218529073377864, 0.439444076748412, 0.0231348769746207,
+                          -0.193179986269103, -0.151309846093391), value = 25.1324130119829,
+                  info = -3L, counts = c(`function` = 113, gradient = 10, n_cg = 128
+                  ), convergence = FALSE)
+  expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
+  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
+                      max_it = 100L, use_bfgs = FALSE, n_threads = 2L)
+  expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 })

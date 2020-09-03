@@ -197,18 +197,18 @@ To elaborate on this,
 each $\mat H_i^\top\mat B_{k - 1,i}\mat H_i\vec z$ consists 
 of matrix-vector product with a $o_i \times o_i$ symmetric 
 matrix and a vector where $o_i = (p + q_i)$. This can be done in 
-$o_i(o_i + 1)$ flops. Thus, the total cost is 
-$\sum_{i = 1}^n o_i(o_i + 1)$ flops. This is in contrast to the 
-original $l(l + 1)$ flops with the BFGS method. 
+$2o_i(o_i + 1)$ flops. Thus, the total cost is 
+$2\sum_{i = 1}^n o_i(o_i + 1)$ flops. This is in contrast to the 
+original $2l(l + 1)$ flops with the BFGS method. 
 
 As an example suppose that 
 $q_i = 5$ for all $n$ element functions, 
 $n = 5000$, and $p = 10$. Then $o_i = 15$ and the 
-matrix-vector product above requires $5000 \cdot 15(15 + 1) = 1200000$ 
+matrix-vector product above requires $2\cdot 5000 \cdot 15(15 + 1) = 2400000$ 
 flops. In 
 contrast $l = 5000 \cdot 5 + 10 = 25010$ and 
 the matrix-vector product in the BFGS method 
-requires $25010 (25010 + 1) =  625525110$ flops. 
+requires $2\cdot 25010 (25010 + 1) =  1251050220$ flops. 
 That is 521 times more flops. Similar ratios are shown in the
 [BFGS and Partially Separable Quasi-Newton](#bfgs-and-partially-separable-quasi-newton)
 section.
@@ -364,22 +364,24 @@ Then we can create a pointer to an optimizer and check that it yields the
 correct value and gradient like this:
 
 ```{r get_optimizer, cache = 1, dependson = "create_ptr"}
-optimizer <- get_mlogit_optimizer(sim_dat)
+optimizer <- get_mlogit_optimizer(sim_dat, max_threads = 2L)
 
 stopifnot(all.equal(
   eval_integrand(true_params), 
-  eval_mlogit(val = true_params, ptr = optimizer)))
+  eval_mlogit(val = true_params, ptr = optimizer, n_threads = 2L)))
 
 library(numDeriv)
-gr_num <- grad(function(par) eval_mlogit(val = par, ptr = optimizer), 
-               true_params)
-gr_opt <- grad_mlogit(val = true_params, ptr = optimizer)
+gr_num <- grad(
+  function(par) eval_mlogit(val = par, ptr = optimizer, n_threads = 2L), 
+  true_params)
+gr_opt <- grad_mlogit(val = true_params, ptr = optimizer, n_threads = 2L)
 
 stopifnot(all.equal(gr_num, gr_opt, tolerance = 1e-5, 
                     check.attributes = FALSE),
           # also check the function value!
           all.equal(attr(gr_opt, "value"), 
-                    eval_mlogit(val = true_params, ptr = optimizer)))
+                    eval_mlogit(val = true_params, ptr = optimizer, 
+                                n_threads = 2L)))
 ```
 
 We can now use the BFGS implementation in the `optim` function to 
@@ -388,10 +390,13 @@ compare with like this:
 ```{r comp_optim, cache = 1, dependson = "create_ptr"}
 start_val <- true_params
 start_val[-(1:p)] <- 0
-optim_func <- function(par)
-  optim(par, function(par) eval_mlogit(val = par, ptr = optimizer), 
-        function(par) grad_mlogit(val = par, ptr = optimizer), 
-        method = "BFGS", control = list(reltol = 1e-8))
+optim_func <- function(par, n_threads = 2L)
+  optim(
+    par, function(par) 
+      eval_mlogit(val = par, ptr = optimizer, n_threads = n_threads), 
+    function(par) 
+      grad_mlogit(val = par, ptr = optimizer, n_threads = n_threads), 
+    method = "BFGS", control = list(reltol = 1e-8))
 
 bfgs_res <- optim_func(start_val)
 ```
@@ -399,8 +404,9 @@ bfgs_res <- optim_func(start_val)
 We then use the quasi-Newton method like this:
 
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
-psqn_func <- function(par)
-  optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L)
+psqn_func <- function(par, n_threads = 2L)
+  optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
+               n_threads = n_threads)
 
 psqn_res <- psqn_func(start_val)
 ```
@@ -460,8 +466,10 @@ computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(
-  BFGS = optim_func(start_val), 
-  psqn = psqn_func(start_val),
+  `optim BFGS (1 thread)`  = optim_func(start_val, n_threads = 1L),
+  `optim BFGS (2 threads)` = optim_func(start_val, n_threads = 2L),
+  `psqn (1 thread)`        = psqn_func (start_val, n_threads = 1L),
+  `psqn (2 threads)`       = psqn_func (start_val, n_threads = 2L),
   check = FALSE, min_iterations = 20)
 ```
 
@@ -480,8 +488,8 @@ gradient method for the quasi-Newton method:
 ```{r compare_flops}
 vals <- expand.grid(n = 2^(8:13), p = 2^(2:4), q = 2^(2:8))
 vals <- within(vals, {
-  flops_qsn <- n * (p + q) * (p + q + 1L)
-  flops_bfgs <- (q * n + p)^2
+  flops_qsn <- 2L * n * (p + q) * (p + q + 1L)
+  flops_bfgs <- 2L * (q * n + p)^2
   ratio <- flops_bfgs / flops_qsn
 })
 nq <- length(unique(vals$q))

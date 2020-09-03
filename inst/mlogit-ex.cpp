@@ -1,9 +1,12 @@
-// we use RcppArmadillo to simplify the code
-// [[Rcpp::depends(RcppArmadillo)]]
-#include <RcppArmadillo.h>
+// we will use openMP to perform the comptutation in parallel
+// [[Rcpp::plugins(openmp)]]
 
 // [[Rcpp::depends(psqn)]]
 #include "psqn.h"
+
+// we use RcppArmadillo to simplify the code
+// [[Rcpp::depends(RcppArmadillo)]]
+#include <RcppArmadillo.h>
 
 using namespace Rcpp;
 
@@ -91,15 +94,23 @@ public:
 
     return out;
   }
+
+  /***
+   returns true if the member functions are thread-safe.
+   */
+  bool thread_safe() const {
+    return true;
+  }
 };
 
 /***
  creates a pointer to an object which is needed in the optim_mlogit
  function.
  @param data list with data for each element function.
+ @param max_threads maximum number of threads to use.
  */
 // [[Rcpp::export]]
-SEXP get_mlogit_optimizer(List data){
+SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
   size_t const n_elem_funcs = data.size();
   std::vector<m_logit_func> funcs;
   funcs.reserve(n_elem_funcs);
@@ -108,7 +119,7 @@ SEXP get_mlogit_optimizer(List data){
 
   // create an XPtr to the pointer object we will need
   XPtr<PSQN::optimizer<m_logit_func> >
-    ptr(new PSQN::optimizer<m_logit_func>(funcs));
+    ptr(new PSQN::optimizer<m_logit_func>(funcs, max_threads));
 
   // return the pointer to be used later
   return ptr;
@@ -121,10 +132,13 @@ SEXP get_mlogit_optimizer(List data){
  @param ptr returned object from get_mlogit_optimizer.
  @param rel_eps relative convergence threshold.
  @param max_it maximum number iterations.
+ @param n_threads number of threads to use.
+ @param use_bfgs boolean for whether to use SR1 or BFGS updates.
  */
 // [[Rcpp::export]]
 List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
-                  unsigned const max_it, bool const use_bfgs = true){
+                  unsigned const max_it, unsigned const n_threads,
+                  bool const use_bfgs = true){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -132,6 +146,7 @@ List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
     throw std::invalid_argument("eval_mlogit: invalid parameter size");
 
   NumericVector par = clone(val);
+  optim->set_n_threads(n_threads);
   auto res = optim->optim(&par[0], rel_eps, max_it, use_bfgs);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
@@ -147,15 +162,17 @@ List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
  @param val vector with global and private parameters to evaluate the
  function at.
  @param ptr returned object from get_mlogit_optimizer.
+ @param n_threads number of threads to use.
  */
 // [[Rcpp::export]]
-double eval_mlogit(NumericVector val, SEXP ptr){
+double eval_mlogit(NumericVector val, SEXP ptr, unsigned const n_threads){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
     throw std::invalid_argument("eval_mlogit: invalid parameter size");
 
+  optim->set_n_threads(n_threads);
   return optim->eval(&val[0], nullptr, false);
 }
 
@@ -164,9 +181,11 @@ double eval_mlogit(NumericVector val, SEXP ptr){
  @param val vector with global and private parameters to evaluate the
  function at.
  @param ptr returned object from get_mlogit_optimizer.
+ @param n_threads number of threads to use.
  */
 // [[Rcpp::export]]
-NumericVector grad_mlogit(NumericVector val, SEXP ptr){
+NumericVector grad_mlogit(NumericVector val, SEXP ptr,
+                          unsigned const n_threads){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -174,6 +193,7 @@ NumericVector grad_mlogit(NumericVector val, SEXP ptr){
     throw std::invalid_argument("eval_mlogit: invalid parameter size");
 
   NumericVector grad(val.size());
+  optim->set_n_threads(n_threads);
   grad.attr("value") = optim->eval(&val[0], &grad[0], true);
 
   return grad;

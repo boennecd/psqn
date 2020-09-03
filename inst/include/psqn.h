@@ -6,6 +6,12 @@
 #include "lp.h"
 #include <algorithm>
 #include <limits>
+#include "constant.h"
+#include <cmath>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace PSQN {
 /***
@@ -70,6 +76,11 @@ public:
   virtual double grad
     (double const * __restrict__ point, double * __restrict__ gr)
     const = 0;
+
+  /***
+   returns true if the member functions are thread-safe.
+   */
+  virtual bool thread_safe() const = 0;
 
   virtual ~element_function() = default;
 };
@@ -233,20 +244,28 @@ class optimizer {
 public:
   /// dimension of the global parameters
   size_t const global_dim;
+  /// true if the element functions are thread-safe
+  bool const is_ele_func_thread_safe;
   /// total number of parameters
   size_t const n_par;
 
 private:
   /***
    size of the allocated working memory. The first element is needed for
-   the worker. The second element is needed during the computation
+   the worker. The second element is needed during the computation for the
+   master thread. The third element is number required per thread.
   */
-  std::array<size_t, 2L> const n_mem;
+  std::array<size_t, 3L> const n_mem;
+  /// maximum number of threads to use
+  size_t const max_threads;
   /// working memory
   std::unique_ptr<double[]> mem =
-    std::unique_ptr<double[]>(new double[n_mem[0] + n_mem[1]]);
-  /// pointer to temporary memory to use
+    std::unique_ptr<double[]>(
+        new double[n_mem[0] + n_mem[1] + max_threads * n_mem[2]]);
+  /// pointer to temporary memory to use on the master thread
   double * const temp_mem = mem.get() + n_mem[0];
+  /// pointer to temporray memory to be used by the threads
+  double * const temp_thread_mem = temp_mem + n_mem[1];
   /// element functions
   std::vector<worker> funcs;
   /// number of function evaluations
@@ -265,18 +284,48 @@ private:
     n_cg = 0L;
   }
 
+  /// returns the thread number.
+  int get_thread_num() const noexcept {
+#ifdef _OPENMP
+    return omp_get_thread_num();
+#else
+    return 1L;
+#endif
+  }
+
+  /// returns working memory for this thread
+  double * get_thread_mem() const noexcept {
+    return temp_thread_mem + get_thread_num() * n_mem[2];
+  }
+
+  /// number of threads to use
+  int n_threads = 1L;
+
 public:
+  /// set the number of threads to use
+  void set_n_threads(size_t const n_threads_new) noexcept {
+#ifdef _OPENMP
+    n_threads = std::max(
+      static_cast<size_t>(1L), std::min(n_threads_new, max_threads));
+    omp_set_num_threads(n_threads);
+    omp_set_dynamic(0L);
+#endif
+  }
+
   /***
    takes in a vector with element functions and constructs the optimizer.
    The members are moved out of the vector.
+   @param funcs_in vector with element functions.
+   @param max_threads maximum number of threads to use.
    */
-  optimizer(std::vector<EFunc> &funcs_in):
+  optimizer(std::vector<EFunc> &funcs_in, size_t const max_threads):
   global_dim(([&](){
     if(funcs_in.size() < 1L)
       throw std::invalid_argument(
           "optimizer<EFunc>::optimizer: no functions supplied");
     return funcs_in[0].global_dim();
   })()),
+  is_ele_func_thread_safe(funcs_in[0].thread_safe()),
   n_par(([&](){
     size_t out(global_dim);
     for(auto &f : funcs_in)
@@ -284,18 +333,35 @@ public:
     return out;
   })()),
   n_mem(([&](){
-    size_t out(0L);
+    size_t out(0L),
+           max_priv(0L);
     for(auto &f : funcs_in){
       if(f.global_dim() != global_dim)
         throw std::invalid_argument(
             "optimizer<EFunc>::optimizer: global_dim differs");
+      if(f.thread_safe() != is_ele_func_thread_safe)
+        throw std::invalid_argument(
+            "optimizer<EFunc>::optimizer: thread_safe differs");
       size_t const private_dim = f.private_dim(),
                    n_ele       = private_dim + global_dim;
+      if(max_priv < private_dim)
+        max_priv = private_dim;
+
       out += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
     }
-    std::array<size_t, 2L> ret = { out, 3L * n_par };
+
+    constexpr size_t const mult = cacheline_size() / sizeof(double),
+                       min_size = 2L * mult;
+
+    size_t thread_mem = std::max(global_dim + max_priv, min_size);
+    thread_mem = std::max(thread_mem, 2L * global_dim);
+    thread_mem = (thread_mem + mult - 1L) / mult;
+    thread_mem *= mult;
+
+    std::array<size_t, 3L> ret = { out, 3L * n_par, thread_mem };
     return ret;
   })()),
+  max_threads(max_threads > 0 ? max_threads : 1L),
   funcs(([&](){
     std::vector<worker> out;
     size_t const n_ele(funcs_in.size());
@@ -327,26 +393,69 @@ public:
     else
       n_eval++;
 
-    double out(0.);
     size_t const n_funcs = funcs.size();
+    auto serial_version = [&](){
+      double out(0.);
+      for(size_t i = 0; i < n_funcs; ++i){
+        auto &f = funcs[i];
+        out += f(val, val + f.par_start, comp_grad);
+      }
+
+      if(comp_grad){
+        std::fill(gr, gr + global_dim, 0.);
+        for(size_t i = 0; i < n_funcs; ++i){
+          auto const &f = funcs[i];
+          for(size_t j = 0; j < global_dim; ++j)
+            *(gr + j) += *(f.gr + j);
+
+          size_t const iprivate = f.func.private_dim();
+          lp::copy(gr + f.par_start, f.gr + global_dim, iprivate);
+        }
+      }
+
+      return out;
+    };
+
+    if(n_threads < 2L or !is_ele_func_thread_safe)
+      return serial_version();
+
+#ifdef _OPENMP
+    double out(0.);
+#pragma omp parallel num_threads(n_threads)
+{
+    double * th_mem = get_thread_mem();
+    lp::copy(th_mem, val, global_dim);
+#pragma omp for schedule(static) reduction(+:out)
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      out += f(val, val + f.par_start, comp_grad);
+      out += f(th_mem, val + f.par_start, comp_grad);
     }
 
     if(comp_grad){
-      std::fill(gr, gr + global_dim, 0.);
+      std::fill(th_mem, th_mem + global_dim, 0.);
+#pragma omp for schedule(static)
       for(size_t i = 0; i < n_funcs; ++i){
         auto const &f = funcs[i];
         for(size_t j = 0; j < global_dim; ++j)
-          *(gr + j) += *(f.gr + j);
+          *(th_mem + j) += *(f.gr + j);
 
         size_t const iprivate = f.func.private_dim();
         lp::copy(gr + f.par_start, f.gr + global_dim, iprivate);
       }
-    }
 
+#pragma omp single
+      std::fill(gr, gr + global_dim, 0.);
+
+      // add to global parameters
+#pragma omp critical(eval)
+      for(size_t i = 0; i < global_dim; ++i)
+        *(gr + i) += *(th_mem + i);
+    }
+}
     return out;
+#else
+    return serial_version();
+#endif
   }
 
   /***
@@ -356,15 +465,52 @@ public:
    ***/
   void B_vec(double const * const __restrict__ val,
              double * const __restrict__ res) const noexcept {
-    size_t private_offset(global_dim);
-    for(auto &f : funcs){
-      size_t const iprivate = f.func.private_dim();
+    size_t const n_funcs = funcs.size();
 
-      lp::mat_vec_dot(f.B, val, val + private_offset, res,
-                      res + private_offset, global_dim, iprivate);
+    // the serial version
+    auto serial_version = [&](){
+      for(size_t i = 0; i < n_funcs; ++i){
+        auto &f = funcs[i];
+        size_t const iprivate = f.func.private_dim(),
+          private_offset = f.par_start;
 
-      private_offset += iprivate;
+        lp::mat_vec_dot(f.B, val, val + private_offset, res,
+                        res + private_offset, global_dim, iprivate);
+      }
+    };
+
+    if(n_threads < 2L){
+      serial_version();
+      return;
     }
+
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+    {
+    double * val_mem = get_thread_mem(),
+           * r_mem   = val_mem + global_dim;
+    lp::copy(val_mem, val, global_dim);
+    std::fill(r_mem, r_mem + global_dim, 0.);
+
+#pragma omp for schedule(static)
+    for(size_t i = 0; i < n_funcs; ++i){
+      auto &f = funcs[i];
+      size_t const iprivate = f.func.private_dim(),
+             private_offset = f.par_start;
+
+      lp::mat_vec_dot(f.B, val_mem, val + private_offset, r_mem,
+                      res + private_offset, global_dim, iprivate);
+    }
+
+    // add to global parameters
+#pragma omp critical(cg)
+    for(size_t i = 0; i < global_dim; ++i)
+      *(res + i) += *(r_mem + i);
+
+    }
+#else
+    serial_version();
+#endif
   }
 
   /***
