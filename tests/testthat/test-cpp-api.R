@@ -55,8 +55,9 @@ test_that("mixed logit model gives the same", {
   expect_equal(gr, gr_res)
 
   rel_eps <- sqrt(.Machine$double.eps)
-  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
-                      max_it = 100L, n_threads = 1L)
+  opt <- optim_mlogit(
+    val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 1L)
   opt_res <- list(par = c(0.64728530110947, 0.773194017021601, 0.657000534901989,
                           0.119680984770149, 0.855866285979022, -0.484305536586791, 0.412501613805294,
                           0.766995560437863, 0.422857367872878, 0.605158943583224, -0.783730421012958,
@@ -68,12 +69,15 @@ test_that("mixed logit model gives the same", {
   tol <- .Machine$double.eps^(1/3)
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
-  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
-                      max_it = 100L, n_threads = 2L)
+  opt <- optim_mlogit(
+    val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
-  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
-                      max_it = 100L, use_bfgs = FALSE, n_threads = 1L)
+  opt <- optim_mlogit(
+    val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, use_bfgs = FALSE,
+    n_threads = 1L)
   opt_res <- list(par = c(0.654546361485906, 0.807315927689098, 0.655667959361049,
                           0.109247519774489, 0.874280737451578, -0.495840509349291, 0.411671125244145,
                           0.762530816195864, 0.419406025756571, 0.642643402064927, -0.774118417890458,
@@ -83,7 +87,9 @@ test_that("mixed logit model gives the same", {
                   info = -3L, counts = c(`function` = 113, gradient = 10, n_cg = 128
                   ), convergence = FALSE)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
-  opt <- optim_mlogit(val = val, ptr = optimizer, rel_eps = rel_eps,
-                      max_it = 100L, use_bfgs = FALSE, n_threads = 2L)
+  opt <- optim_mlogit(
+    val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, use_bfgs = FALSE,
+    n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 })

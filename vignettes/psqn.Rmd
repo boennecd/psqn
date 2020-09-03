@@ -5,6 +5,7 @@ vignette: >
   %\VignetteIndexEntry{psqn: Partially Separable Quasi-Newton}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+bibliography: psqn.bib
 ---
 
 <style>
@@ -29,14 +30,15 @@ $$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
 
 where $\vec r\in \mathbb R^l$,
 
-$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots l\}^l,$$
+$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots, l\}^l,$$
 and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix. 
 Each function $f_i$ is called an _element function_ and only depends on 
 $m_i \ll l$ parameters. This allows for an efficient quasi-Newton 
 method when all the $m_i$'s are much smaller than the dimension of the 
 parameter vector $\vec x$, $l$. The framework can be extended to allow for 
 a linear combination of $m_i$ parameters but we do not cover such problems. 
-TODO: add reference.
+This vignette closely follows @nocedal06 who cover the methods and 
+alternatives in much greater detail.
 
 We only consider a more restricted form of the problem. Assume that each 
 index set $\mathcal I_i$ is of the form 
@@ -404,9 +406,11 @@ bfgs_res <- optim_func(start_val)
 We then use the quasi-Newton method like this:
 
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
-psqn_func <- function(par, n_threads = 2L)
+psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-3, c1 = 1e-4, 
+                      c2 = .9)
   optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
-               n_threads = n_threads)
+               n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, 
+               c2 = c2)
 
 psqn_res <- psqn_func(start_val)
 ```
@@ -437,7 +441,7 @@ a good approximation of the Hessian. Furthermore, we only take
 case scenario where we make `length(start_val)`, 
 `r length(start_val)`, iterations for just
 one iteration of the quasi-Newton method! We can also compare with 
-limited memory BFGS minimizer from the `lbfgsb3c` package:
+the limited memory BFGS minimizer from the `lbfgsb3c` package:
 
 ```{r comp_with_lbfgsb3c, cache = 1, dependson = "create_ptr"}
 library(lbfgsb3c)
@@ -504,21 +508,30 @@ computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(
-  `optim BFGS (2 thread) `  = optim_func(start_val, n_threads = 2L),
-  `     lbfgs (1 thread) ` = lbfgs_func(start_val, n_threads = 1L),
-  `     lbfgs (2 threads)` = lbfgs_func(start_val, n_threads = 2L),
+  `optim BFGS (2 thread) `  = optim_func  (start_val, n_threads = 2L),
+  `     lbfgs (1 thread) ` = lbfgs_func   (start_val, n_threads = 1L),
+  `     lbfgs (2 threads)` = lbfgs_func   (start_val, n_threads = 2L),
   `  lbfgsb3c (1 thread) ` = lbfgsb3c_func(start_val, n_threads = 1L),
   `  lbfgsb3c (2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
-  `      psqn (1 thread) ` = psqn_func (start_val, n_threads = 1L),
-  `      psqn (2 threads)` = psqn_func (start_val, n_threads = 2L),
+  `      psqn (1 thread) ` = psqn_func    (start_val, n_threads = 1L),
+  `      psqn (2 threads)` = psqn_func    (start_val, n_threads = 2L),
   check = FALSE, min_iterations = 2)
 ```
 
-We see a large reduction.
+We see a large reduction. To be fair, we can use the C interface 
+for the limited-memory BFGS methods to avoid re-allocating the gradient
+at very iteration. This will reduce their computation time.
 
 ## Details
 ### Using the Code in a Package
-TODO: write this section.
+The main part of this packages is a header-only library. Thus, the code can 
+be used within a R package by adding `psqn` to `LinkingTo` in the 
+DESCRIPTION file. This is an advantage as one can avoid repeated compilation
+of the code. 
+
+Moreover, since the main part of the code is a header-only 
+library, this package can easily be used within languages which can 
+easily call C++ code.
 
 ### BFGS and Partially Separable Quasi-Newton
 
@@ -542,3 +555,5 @@ vals <- matrix(
     NULL, c("n", "p/q", unique(vals$q))))
 knitr::kable(vals)
 ```
+
+## References

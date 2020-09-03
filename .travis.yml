@@ -1,0 +1,4 @@
+language: r
+cache: packages
+
+after_failure: "cat /home/travis/build/boennecd/psqn/psqn.Rcheck/00install.out"

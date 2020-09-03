@@ -313,7 +313,7 @@ img {
 <p>This package provides an optimization method for <em>partially separable</em> functions. Partially separable functions are of the following form:</p>
 <p><span class="math display">\[f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})\]</span></p>
 <p>where <span class="math inline">\(\vec r\in \mathbb R^l\)</span>,</p>
-<p><span class="math display">\[\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots l\}^l,\]</span> and <span class="math inline">\(\vec e_k\)</span> is the <span class="math inline">\(k\)</span>’th column of the <span class="math inline">\(l\)</span> dimensional identity matrix. Each function <span class="math inline">\(f_i\)</span> is called an <em>element function</em> and only depends on <span class="math inline">\(m_i \ll l\)</span> parameters. This allows for an efficient quasi-Newton method when all the <span class="math inline">\(m_i\)</span>’s are much smaller than the dimension of the parameter vector <span class="math inline">\(\vec x\)</span>, <span class="math inline">\(l\)</span>. The framework can be extended to allow for a linear combination of <span class="math inline">\(m_i\)</span> parameters but we do not cover such problems. TODO: add reference.</p>
+<p><span class="math display">\[\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots, l\}^l,\]</span> and <span class="math inline">\(\vec e_k\)</span> is the <span class="math inline">\(k\)</span>’th column of the <span class="math inline">\(l\)</span> dimensional identity matrix. Each function <span class="math inline">\(f_i\)</span> is called an <em>element function</em> and only depends on <span class="math inline">\(m_i \ll l\)</span> parameters. This allows for an efficient quasi-Newton method when all the <span class="math inline">\(m_i\)</span>’s are much smaller than the dimension of the parameter vector <span class="math inline">\(\vec x\)</span>, <span class="math inline">\(l\)</span>. The framework can be extended to allow for a linear combination of <span class="math inline">\(m_i\)</span> parameters but we do not cover such problems. This vignette closely follows <span class="citation">Nocedal and Wright (2006)</span> who cover the methods and alternatives in much greater detail.</p>
 <p>We only consider a more restricted form of the problem. Assume that each index set <span class="math inline">\(\mathcal I_i\)</span> is of the form</p>
 <p><span class="math display">\[\begin{align*}   \mathcal I_i &amp;= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_k &amp;= \emptyset \qquad k\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &amp;= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}\]</span></p>
 <p>That is, each index set contains <span class="math inline">\(p\)</span> <em>global parameters</em> and <span class="math inline">\(q_i = \lvert\mathcal J_i\rvert\)</span> <em>private parameters</em> which are particular for each element function, <span class="math inline">\(f_i\)</span>. For implementation reason, we let</p>
@@ -635,85 +635,90 @@ img {
 <a class="sourceLine" id="cb4-133" data-line-number="133"><span class="co"> @param rel_eps relative convergence threshold.</span></a>
 <a class="sourceLine" id="cb4-134" data-line-number="134"><span class="co"> @param max_it maximum number iterations.</span></a>
 <a class="sourceLine" id="cb4-135" data-line-number="135"><span class="co"> @param n_threads number of threads to use.</span></a>
-<a class="sourceLine" id="cb4-136" data-line-number="136"><span class="co"> @param use_bfgs boolean for whether to use SR1 or BFGS updates.</span></a>
-<a class="sourceLine" id="cb4-137" data-line-number="137"><span class="co"> */</span></a>
-<a class="sourceLine" id="cb4-138" data-line-number="138"><span class="co">// [[Rcpp::export]]</span></a>
-<a class="sourceLine" id="cb4-139" data-line-number="139">List optim_mlogit(NumericVector val, SEXP ptr, <span class="dt">double</span> <span class="at">const</span> rel_eps,</a>
-<a class="sourceLine" id="cb4-140" data-line-number="140">                  <span class="dt">unsigned</span> <span class="at">const</span> max_it, <span class="dt">unsigned</span> <span class="at">const</span> n_threads,</a>
-<a class="sourceLine" id="cb4-141" data-line-number="141">                  <span class="dt">bool</span> <span class="at">const</span> use_bfgs = <span class="kw">true</span>){</a>
-<a class="sourceLine" id="cb4-142" data-line-number="142">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
-<a class="sourceLine" id="cb4-143" data-line-number="143"></a>
-<a class="sourceLine" id="cb4-144" data-line-number="144">  <span class="co">// check that we pass a parameter value of the right length</span></a>
-<a class="sourceLine" id="cb4-145" data-line-number="145">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
-<a class="sourceLine" id="cb4-146" data-line-number="146">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-136" data-line-number="136"><span class="co"> @param cg_rel_eps relative convergence threshold for conjugate gradient</span></a>
+<a class="sourceLine" id="cb4-137" data-line-number="137"><span class="co"> method.</span></a>
+<a class="sourceLine" id="cb4-138" data-line-number="138"><span class="co"> @param c1,c2 tresholds for Wolfe condition.</span></a>
+<a class="sourceLine" id="cb4-139" data-line-number="139"><span class="co"> @param use_bfgs boolean for whether to use SR1 or BFGS updates.</span></a>
+<a class="sourceLine" id="cb4-140" data-line-number="140"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-141" data-line-number="141"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-142" data-line-number="142">List opti<span class="va">m_mlogit</span></a>
+<a class="sourceLine" id="cb4-143" data-line-number="143">  (NumericVector val, SEXP ptr, <span class="dt">double</span> <span class="at">const</span> rel_eps, <span class="dt">unsigned</span> <span class="at">const</span> max_it,</a>
+<a class="sourceLine" id="cb4-144" data-line-number="144">   <span class="dt">unsigned</span> <span class="at">const</span> n_threads, <span class="dt">double</span> <span class="at">const</span> cg_rel_eps, <span class="dt">double</span> <span class="at">const</span> c1,</a>
+<a class="sourceLine" id="cb4-145" data-line-number="145">   <span class="dt">double</span> <span class="at">const</span> c2, <span class="dt">bool</span> <span class="at">const</span> use_bfgs = <span class="kw">true</span>){</a>
+<a class="sourceLine" id="cb4-146" data-line-number="146">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
 <a class="sourceLine" id="cb4-147" data-line-number="147"></a>
-<a class="sourceLine" id="cb4-148" data-line-number="148">  NumericVector par = clone(val);</a>
-<a class="sourceLine" id="cb4-149" data-line-number="149">  optim-&gt;set_n_threads(n_threads);</a>
-<a class="sourceLine" id="cb4-150" data-line-number="150">  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it, use_bfgs);</a>
-<a class="sourceLine" id="cb4-151" data-line-number="151">  NumericVector counts = NumericVector::create(</a>
-<a class="sourceLine" id="cb4-152" data-line-number="152">    res.n_eval, res.n_grad,  res.n_cg);</a>
-<a class="sourceLine" id="cb4-153" data-line-number="153">  counts.names() = CharacterVector::create(<span class="st">&quot;function&quot;</span>, <span class="st">&quot;gradient&quot;</span>, <span class="st">&quot;n_cg&quot;</span>);</a>
-<a class="sourceLine" id="cb4-154" data-line-number="154"></a>
-<a class="sourceLine" id="cb4-155" data-line-number="155">  <span class="cf">return</span> List::create(</a>
-<a class="sourceLine" id="cb4-156" data-line-number="156">    _[<span class="st">&quot;par&quot;</span>] = par, _[<span class="st">&quot;value&quot;</span>] = res.value, _[<span class="st">&quot;info&quot;</span>] = res.info,</a>
-<a class="sourceLine" id="cb4-157" data-line-number="157">    _[<span class="st">&quot;counts&quot;</span>] = counts, _[<span class="st">&quot;convergence&quot;</span>] = res.info == <span class="dv">0L</span>);</a>
-<a class="sourceLine" id="cb4-158" data-line-number="158">}</a>
+<a class="sourceLine" id="cb4-148" data-line-number="148">  <span class="co">// check that we pass a parameter value of the right length</span></a>
+<a class="sourceLine" id="cb4-149" data-line-number="149">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
+<a class="sourceLine" id="cb4-150" data-line-number="150">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-151" data-line-number="151"></a>
+<a class="sourceLine" id="cb4-152" data-line-number="152">  NumericVector par = clone(val);</a>
+<a class="sourceLine" id="cb4-153" data-line-number="153">  optim-&gt;set_n_threads(n_threads);</a>
+<a class="sourceLine" id="cb4-154" data-line-number="154">  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it, cg_rel_eps, c1, c2,</a>
+<a class="sourceLine" id="cb4-155" data-line-number="155">                          use_bfgs);</a>
+<a class="sourceLine" id="cb4-156" data-line-number="156">  NumericVector counts = NumericVector::create(</a>
+<a class="sourceLine" id="cb4-157" data-line-number="157">    res.n_eval, res.n_grad,  res.n_cg);</a>
+<a class="sourceLine" id="cb4-158" data-line-number="158">  counts.names() = CharacterVector::create(<span class="st">&quot;function&quot;</span>, <span class="st">&quot;gradient&quot;</span>, <span class="st">&quot;n_cg&quot;</span>);</a>
 <a class="sourceLine" id="cb4-159" data-line-number="159"></a>
-<a class="sourceLine" id="cb4-160" data-line-number="160"><span class="co">/***</span></a>
-<a class="sourceLine" id="cb4-161" data-line-number="161"><span class="co"> evaluates the partially separable function.</span></a>
-<a class="sourceLine" id="cb4-162" data-line-number="162"><span class="co"> @param val vector with global and private parameters to evaluate the</span></a>
-<a class="sourceLine" id="cb4-163" data-line-number="163"><span class="co"> function at.</span></a>
-<a class="sourceLine" id="cb4-164" data-line-number="164"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
-<a class="sourceLine" id="cb4-165" data-line-number="165"><span class="co"> @param n_threads number of threads to use.</span></a>
-<a class="sourceLine" id="cb4-166" data-line-number="166"><span class="co"> */</span></a>
-<a class="sourceLine" id="cb4-167" data-line-number="167"><span class="co">// [[Rcpp::export]]</span></a>
-<a class="sourceLine" id="cb4-168" data-line-number="168"><span class="dt">double</span> eval_mlogit(NumericVector val, SEXP ptr, <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</a>
-<a class="sourceLine" id="cb4-169" data-line-number="169">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
-<a class="sourceLine" id="cb4-170" data-line-number="170"></a>
-<a class="sourceLine" id="cb4-171" data-line-number="171">  <span class="co">// check that we pass a parameter value of the right length</span></a>
-<a class="sourceLine" id="cb4-172" data-line-number="172">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
-<a class="sourceLine" id="cb4-173" data-line-number="173">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
-<a class="sourceLine" id="cb4-174" data-line-number="174"></a>
-<a class="sourceLine" id="cb4-175" data-line-number="175">  optim-&gt;set_n_threads(n_threads);</a>
-<a class="sourceLine" id="cb4-176" data-line-number="176">  <span class="cf">return</span> optim-&gt;eval(&amp;val[<span class="dv">0</span>], <span class="kw">nullptr</span>, <span class="kw">false</span>);</a>
-<a class="sourceLine" id="cb4-177" data-line-number="177">}</a>
-<a class="sourceLine" id="cb4-178" data-line-number="178"></a>
-<a class="sourceLine" id="cb4-179" data-line-number="179"><span class="co">/***</span></a>
-<a class="sourceLine" id="cb4-180" data-line-number="180"><span class="co"> evaluates the gradient of a partially separable function.</span></a>
-<a class="sourceLine" id="cb4-181" data-line-number="181"><span class="co"> @param val vector with global and private parameters to evaluate the</span></a>
-<a class="sourceLine" id="cb4-182" data-line-number="182"><span class="co"> function at.</span></a>
-<a class="sourceLine" id="cb4-183" data-line-number="183"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
-<a class="sourceLine" id="cb4-184" data-line-number="184"><span class="co"> @param n_threads number of threads to use.</span></a>
-<a class="sourceLine" id="cb4-185" data-line-number="185"><span class="co"> */</span></a>
-<a class="sourceLine" id="cb4-186" data-line-number="186"><span class="co">// [[Rcpp::export]]</span></a>
-<a class="sourceLine" id="cb4-187" data-line-number="187">NumericVector grad_mlogit(NumericVector val, SEXP ptr,</a>
-<a class="sourceLine" id="cb4-188" data-line-number="188">                          <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</a>
-<a class="sourceLine" id="cb4-189" data-line-number="189">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
-<a class="sourceLine" id="cb4-190" data-line-number="190"></a>
-<a class="sourceLine" id="cb4-191" data-line-number="191">  <span class="co">// check that we pass a parameter value of the right length</span></a>
-<a class="sourceLine" id="cb4-192" data-line-number="192">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
-<a class="sourceLine" id="cb4-193" data-line-number="193">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
-<a class="sourceLine" id="cb4-194" data-line-number="194"></a>
-<a class="sourceLine" id="cb4-195" data-line-number="195">  NumericVector grad(val.size());</a>
-<a class="sourceLine" id="cb4-196" data-line-number="196">  optim-&gt;set_n_threads(n_threads);</a>
-<a class="sourceLine" id="cb4-197" data-line-number="197">  grad.attr(<span class="st">&quot;value&quot;</span>) = optim-&gt;eval(&amp;val[<span class="dv">0</span>], &amp;grad[<span class="dv">0</span>], <span class="kw">true</span>);</a>
-<a class="sourceLine" id="cb4-198" data-line-number="198"></a>
-<a class="sourceLine" id="cb4-199" data-line-number="199">  <span class="cf">return</span> grad;</a>
-<a class="sourceLine" id="cb4-200" data-line-number="200">}</a>
-<a class="sourceLine" id="cb4-201" data-line-number="201"></a>
-<a class="sourceLine" id="cb4-202" data-line-number="202"><span class="co">/***</span></a>
-<a class="sourceLine" id="cb4-203" data-line-number="203"><span class="co"> returns the current Hessian approximation.</span></a>
-<a class="sourceLine" id="cb4-204" data-line-number="204"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
-<a class="sourceLine" id="cb4-205" data-line-number="205"><span class="co"> */</span></a>
-<a class="sourceLine" id="cb4-206" data-line-number="206"><span class="co">// [[Rcpp::export]]</span></a>
-<a class="sourceLine" id="cb4-207" data-line-number="207">NumericMatrix get_Hess_approx_mlogit(SEXP ptr){</a>
-<a class="sourceLine" id="cb4-208" data-line-number="208">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
-<a class="sourceLine" id="cb4-209" data-line-number="209"></a>
-<a class="sourceLine" id="cb4-210" data-line-number="210">  NumericMatrix out(optim-&gt;n_par, optim-&gt;n_par);</a>
-<a class="sourceLine" id="cb4-211" data-line-number="211">  optim-&gt;get_hess(&amp;out[<span class="dv">0</span>]);</a>
-<a class="sourceLine" id="cb4-212" data-line-number="212"></a>
-<a class="sourceLine" id="cb4-213" data-line-number="213">  <span class="cf">return</span> out;</a>
-<a class="sourceLine" id="cb4-214" data-line-number="214">}</a></code></pre></div>
+<a class="sourceLine" id="cb4-160" data-line-number="160">  <span class="cf">return</span> List::create(</a>
+<a class="sourceLine" id="cb4-161" data-line-number="161">    _[<span class="st">&quot;par&quot;</span>] = par, _[<span class="st">&quot;value&quot;</span>] = res.value, _[<span class="st">&quot;info&quot;</span>] = res.info,</a>
+<a class="sourceLine" id="cb4-162" data-line-number="162">    _[<span class="st">&quot;counts&quot;</span>] = counts, _[<span class="st">&quot;convergence&quot;</span>] = res.info == <span class="dv">0L</span>);</a>
+<a class="sourceLine" id="cb4-163" data-line-number="163">}</a>
+<a class="sourceLine" id="cb4-164" data-line-number="164"></a>
+<a class="sourceLine" id="cb4-165" data-line-number="165"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-166" data-line-number="166"><span class="co"> evaluates the partially separable function.</span></a>
+<a class="sourceLine" id="cb4-167" data-line-number="167"><span class="co"> @param val vector with global and private parameters to evaluate the</span></a>
+<a class="sourceLine" id="cb4-168" data-line-number="168"><span class="co"> function at.</span></a>
+<a class="sourceLine" id="cb4-169" data-line-number="169"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-170" data-line-number="170"><span class="co"> @param n_threads number of threads to use.</span></a>
+<a class="sourceLine" id="cb4-171" data-line-number="171"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-172" data-line-number="172"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-173" data-line-number="173"><span class="dt">double</span> eval_mlogit(NumericVector val, SEXP ptr, <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</a>
+<a class="sourceLine" id="cb4-174" data-line-number="174">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-175" data-line-number="175"></a>
+<a class="sourceLine" id="cb4-176" data-line-number="176">  <span class="co">// check that we pass a parameter value of the right length</span></a>
+<a class="sourceLine" id="cb4-177" data-line-number="177">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
+<a class="sourceLine" id="cb4-178" data-line-number="178">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-179" data-line-number="179"></a>
+<a class="sourceLine" id="cb4-180" data-line-number="180">  optim-&gt;set_n_threads(n_threads);</a>
+<a class="sourceLine" id="cb4-181" data-line-number="181">  <span class="cf">return</span> optim-&gt;eval(&amp;val[<span class="dv">0</span>], <span class="kw">nullptr</span>, <span class="kw">false</span>);</a>
+<a class="sourceLine" id="cb4-182" data-line-number="182">}</a>
+<a class="sourceLine" id="cb4-183" data-line-number="183"></a>
+<a class="sourceLine" id="cb4-184" data-line-number="184"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-185" data-line-number="185"><span class="co"> evaluates the gradient of a partially separable function.</span></a>
+<a class="sourceLine" id="cb4-186" data-line-number="186"><span class="co"> @param val vector with global and private parameters to evaluate the</span></a>
+<a class="sourceLine" id="cb4-187" data-line-number="187"><span class="co"> function at.</span></a>
+<a class="sourceLine" id="cb4-188" data-line-number="188"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-189" data-line-number="189"><span class="co"> @param n_threads number of threads to use.</span></a>
+<a class="sourceLine" id="cb4-190" data-line-number="190"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-191" data-line-number="191"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-192" data-line-number="192">NumericVector grad_mlogit(NumericVector val, SEXP ptr,</a>
+<a class="sourceLine" id="cb4-193" data-line-number="193">                          <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</a>
+<a class="sourceLine" id="cb4-194" data-line-number="194">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-195" data-line-number="195"></a>
+<a class="sourceLine" id="cb4-196" data-line-number="196">  <span class="co">// check that we pass a parameter value of the right length</span></a>
+<a class="sourceLine" id="cb4-197" data-line-number="197">  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</a>
+<a class="sourceLine" id="cb4-198" data-line-number="198">    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_mlogit: invalid parameter size&quot;</span>);</a>
+<a class="sourceLine" id="cb4-199" data-line-number="199"></a>
+<a class="sourceLine" id="cb4-200" data-line-number="200">  NumericVector grad(val.size());</a>
+<a class="sourceLine" id="cb4-201" data-line-number="201">  optim-&gt;set_n_threads(n_threads);</a>
+<a class="sourceLine" id="cb4-202" data-line-number="202">  grad.attr(<span class="st">&quot;value&quot;</span>) = optim-&gt;eval(&amp;val[<span class="dv">0</span>], &amp;grad[<span class="dv">0</span>], <span class="kw">true</span>);</a>
+<a class="sourceLine" id="cb4-203" data-line-number="203"></a>
+<a class="sourceLine" id="cb4-204" data-line-number="204">  <span class="cf">return</span> grad;</a>
+<a class="sourceLine" id="cb4-205" data-line-number="205">}</a>
+<a class="sourceLine" id="cb4-206" data-line-number="206"></a>
+<a class="sourceLine" id="cb4-207" data-line-number="207"><span class="co">/***</span></a>
+<a class="sourceLine" id="cb4-208" data-line-number="208"><span class="co"> returns the current Hessian approximation.</span></a>
+<a class="sourceLine" id="cb4-209" data-line-number="209"><span class="co"> @param ptr returned object from get_mlogit_optimizer.</span></a>
+<a class="sourceLine" id="cb4-210" data-line-number="210"><span class="co"> */</span></a>
+<a class="sourceLine" id="cb4-211" data-line-number="211"><span class="co">// [[Rcpp::export]]</span></a>
+<a class="sourceLine" id="cb4-212" data-line-number="212">NumericMatrix get_Hess_approx_mlogit(SEXP ptr){</a>
+<a class="sourceLine" id="cb4-213" data-line-number="213">  XPtr&lt;PSQN::optimizer&lt;<span class="va">m_logit_func</span>&gt; &gt; optim(ptr);</a>
+<a class="sourceLine" id="cb4-214" data-line-number="214"></a>
+<a class="sourceLine" id="cb4-215" data-line-number="215">  NumericMatrix out(optim-&gt;n_par, optim-&gt;n_par);</a>
+<a class="sourceLine" id="cb4-216" data-line-number="216">  optim-&gt;get_hess(&amp;out[<span class="dv">0</span>]);</a>
+<a class="sourceLine" id="cb4-217" data-line-number="217"></a>
+<a class="sourceLine" id="cb4-218" data-line-number="218">  <span class="cf">return</span> out;</a>
+<a class="sourceLine" id="cb4-219" data-line-number="219">}</a></code></pre></div>
 <p>We can use the code by calling <code>Rcpp::sourceCpp</code> to compile the code:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" data-line-number="1"><span class="kw">library</span>(Rcpp)</a>
 <a class="sourceLine" id="cb5-2" data-line-number="2"><span class="kw">sourceCpp</span>(<span class="kw">system.file</span>(<span class="st">&quot;mlogit-ex.cpp&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;psqn&quot;</span>))</a></code></pre></div>
@@ -749,15 +754,17 @@ img {
 <a class="sourceLine" id="cb7-10" data-line-number="10"></a>
 <a class="sourceLine" id="cb7-11" data-line-number="11">bfgs_res &lt;-<span class="st"> </span><span class="kw">optim_func</span>(start_val)</a></code></pre></div>
 <p>We then use the quasi-Newton method like this:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb8-1" data-line-number="1">psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 2L)</a>
-<a class="sourceLine" id="cb8-2" data-line-number="2">  <span class="kw">optim_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L, </a>
-<a class="sourceLine" id="cb8-3" data-line-number="3">               <span class="dt">n_threads =</span> n_threads)</a>
-<a class="sourceLine" id="cb8-4" data-line-number="4"></a>
-<a class="sourceLine" id="cb8-5" data-line-number="5">psqn_res &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val)</a></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb8-1" data-line-number="1">psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 2L, <span class="dt">cg_rel_eps =</span> <span class="fl">1e-3</span>, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, </a>
+<a class="sourceLine" id="cb8-2" data-line-number="2">                      <span class="dt">c2 =</span> <span class="fl">.9</span>)</a>
+<a class="sourceLine" id="cb8-3" data-line-number="3">  <span class="kw">optim_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L, </a>
+<a class="sourceLine" id="cb8-4" data-line-number="4">               <span class="dt">n_threads =</span> n_threads, <span class="dt">cg_rel_eps =</span> cg_rel_eps, <span class="dt">c1 =</span> c1, </a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">               <span class="dt">c2 =</span> c2)</a>
+<a class="sourceLine" id="cb8-6" data-line-number="6"></a>
+<a class="sourceLine" id="cb8-7" data-line-number="7">psqn_res &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val)</a></code></pre></div>
 <p>The <code>counts</code> element contains the number number of function evaluations, gradient evaluations, and the total number of conjugate gradient iterations:</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb9-1" data-line-number="1">psqn_res<span class="op">$</span>counts</a>
 <a class="sourceLine" id="cb9-2" data-line-number="2"><span class="co">#&gt; function gradient     n_cg </span></a>
-<a class="sourceLine" id="cb9-3" data-line-number="3"><span class="co">#&gt;       10        9      191</span></a>
+<a class="sourceLine" id="cb9-3" data-line-number="3"><span class="co">#&gt;       10        9      115</span></a>
 <a class="sourceLine" id="cb9-4" data-line-number="4"></a>
 <a class="sourceLine" id="cb9-5" data-line-number="5"><span class="co"># compare with optim</span></a>
 <a class="sourceLine" id="cb9-6" data-line-number="6">bfgs_res<span class="op">$</span>counts</a>
@@ -770,7 +777,7 @@ img {
 <a class="sourceLine" id="cb10-4" data-line-number="4"><span class="co">#&gt; [1] TRUE</span></a>
 <a class="sourceLine" id="cb10-5" data-line-number="5">psqn_res<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>bfgs_res<span class="op">$</span>value</a>
 <a class="sourceLine" id="cb10-6" data-line-number="6"><span class="co">#&gt; [1] -1.5e-05</span></a></code></pre></div>
-<p>The <code>optim_mlogit</code> takes fewer iterations possibly because we quicker get a good approximation of the Hessian. Furthermore, we only take <code>psqn_res$counts[&quot;n_cg&quot;]</code>, 191, conjugate gradient iterations. This in contrast to the worst case scenario where we make <code>length(start_val)</code>, 3205, iterations for just one iteration of the quasi-Newton method! We can also compare with limited memory BFGS minimizer from the <code>lbfgsb3c</code> package:</p>
+<p>The <code>optim_mlogit</code> takes fewer iterations possibly because we quicker get a good approximation of the Hessian. Furthermore, we only take <code>psqn_res$counts[&quot;n_cg&quot;]</code>, 115, conjugate gradient iterations. This in contrast to the worst case scenario where we make <code>length(start_val)</code>, 3205, iterations for just one iteration of the quasi-Newton method! We can also compare with the limited memory BFGS minimizer from the <code>lbfgsb3c</code> package:</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1"><span class="kw">library</span>(lbfgsb3c)</a>
 <a class="sourceLine" id="cb11-2" data-line-number="2">lbfgsb3c_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 2L)</a>
 <a class="sourceLine" id="cb11-3" data-line-number="3">  <span class="kw">lbfgsb3c</span>(<span class="dt">par =</span> par, <span class="cf">function</span>(par) </a>
@@ -828,32 +835,33 @@ img {
 <a class="sourceLine" id="cb14-10" data-line-number="10">}</a></code></pre></div>
 <p>The true Hessian is very sparse. Finally, here is a benchmark to compare the computation time:</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb15-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
-<a class="sourceLine" id="cb15-2" data-line-number="2">  <span class="st">`</span><span class="dt">optim BFGS (2 thread) </span><span class="st">`</span>  =<span class="st"> </span><span class="kw">optim_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb15-3" data-line-number="3">  <span class="st">`</span><span class="dt">     lbfgs (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgs_func</span>(start_val, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb15-4" data-line-number="4">  <span class="st">`</span><span class="dt">     lbfgs (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgs_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-2" data-line-number="2">  <span class="st">`</span><span class="dt">optim BFGS (2 thread) </span><span class="st">`</span>  =<span class="st"> </span><span class="kw">optim_func</span>  (start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-3" data-line-number="3">  <span class="st">`</span><span class="dt">     lbfgs (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgs_func</span>   (start_val, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb15-4" data-line-number="4">  <span class="st">`</span><span class="dt">     lbfgs (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgs_func</span>   (start_val, <span class="dt">n_threads =</span> 2L),</a>
 <a class="sourceLine" id="cb15-5" data-line-number="5">  <span class="st">`</span><span class="dt">  lbfgsb3c (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgsb3c_func</span>(start_val, <span class="dt">n_threads =</span> 1L),</a>
 <a class="sourceLine" id="cb15-6" data-line-number="6">  <span class="st">`</span><span class="dt">  lbfgsb3c (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgsb3c_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb15-7" data-line-number="7">  <span class="st">`</span><span class="dt">      psqn (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span> (start_val, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb15-8" data-line-number="8">  <span class="st">`</span><span class="dt">      psqn (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span> (start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb15-7" data-line-number="7">  <span class="st">`</span><span class="dt">      psqn (1 thread) </span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb15-8" data-line-number="8">  <span class="st">`</span><span class="dt">      psqn (2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 2L),</a>
 <a class="sourceLine" id="cb15-9" data-line-number="9">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">min_iterations =</span> <span class="dv">2</span>)</a>
 <a class="sourceLine" id="cb15-10" data-line-number="10"><span class="co">#&gt; # A tibble: 7 x 6</span></a>
 <a class="sourceLine" id="cb15-11" data-line-number="11"><span class="co">#&gt;   expression                  min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb15-12" data-line-number="12"><span class="co">#&gt;   &lt;bch:expr&gt;             &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb15-13" data-line-number="13"><span class="co">#&gt; 1 optim BFGS (2 thread)     1.26s    1.35s     0.738    42.4MB     0   </span></a>
-<a class="sourceLine" id="cb15-14" data-line-number="14"><span class="co">#&gt; 2      lbfgs (1 thread)   299.8ms  299.8ms     3.34       11MB     3.34</span></a>
-<a class="sourceLine" id="cb15-15" data-line-number="15"><span class="co">#&gt; 3      lbfgs (2 threads) 154.21ms 155.56ms     6.35     10.5MB     0   </span></a>
-<a class="sourceLine" id="cb15-16" data-line-number="16"><span class="co">#&gt; 4   lbfgsb3c (1 thread)  312.92ms 312.92ms     3.20       22MB     3.20</span></a>
-<a class="sourceLine" id="cb15-17" data-line-number="17"><span class="co">#&gt; 5   lbfgsb3c (2 threads) 180.12ms 181.89ms     5.44     23.3MB     0   </span></a>
-<a class="sourceLine" id="cb15-18" data-line-number="18"><span class="co">#&gt; 6       psqn (1 thread)   26.84ms  27.02ms    36.7      38.9KB     0   </span></a>
-<a class="sourceLine" id="cb15-19" data-line-number="19"><span class="co">#&gt; 7       psqn (2 threads)  14.75ms  14.92ms    67.0      27.6KB     0</span></a></code></pre></div>
-<p>We see a large reduction.</p>
+<a class="sourceLine" id="cb15-13" data-line-number="13"><span class="co">#&gt; 1 optim BFGS (2 thread)     1.35s    1.35s     0.738    42.4MB    0.738</span></a>
+<a class="sourceLine" id="cb15-14" data-line-number="14"><span class="co">#&gt; 2      lbfgs (1 thread)  316.51ms 325.25ms     3.07       11MB    0    </span></a>
+<a class="sourceLine" id="cb15-15" data-line-number="15"><span class="co">#&gt; 3      lbfgs (2 threads)    163ms 164.62ms     6.07     10.5MB    3.04 </span></a>
+<a class="sourceLine" id="cb15-16" data-line-number="16"><span class="co">#&gt; 4   lbfgsb3c (1 thread)  326.53ms 326.53ms     3.06       22MB    3.06 </span></a>
+<a class="sourceLine" id="cb15-17" data-line-number="17"><span class="co">#&gt; 5   lbfgsb3c (2 threads) 181.85ms 181.85ms     5.50     23.3MB   11.0  </span></a>
+<a class="sourceLine" id="cb15-18" data-line-number="18"><span class="co">#&gt; 6       psqn (1 thread)   22.07ms  22.32ms    44.4      41.6KB    0    </span></a>
+<a class="sourceLine" id="cb15-19" data-line-number="19"><span class="co">#&gt; 7       psqn (2 threads)  12.05ms  12.18ms    81.1      27.6KB    0</span></a></code></pre></div>
+<p>We see a large reduction. To be fair, we can use the C interface for the limited-memory BFGS methods to avoid re-allocating the gradient at very iteration. This will reduce their computation time.</p>
 </div>
 </div>
 <div id="details" class="section level2">
 <h2>Details</h2>
 <div id="using-the-code-in-a-package" class="section level3">
 <h3>Using the Code in a Package</h3>
-<p>TODO: write this section.</p>
+<p>The main part of this packages is a header-only library. Thus, the code can be used within a R package by adding <code>psqn</code> to <code>LinkingTo</code> in the DESCRIPTION file. This is an advantage as one can avoid repeated compilation of the code.</p>
+<p>Moreover, since the main part of the code is a header-only library, this package can easily be used within languages which can easily call C++ code.</p>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>
@@ -1087,6 +1095,14 @@ img {
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+<div id="references" class="section level2 unnumbered">
+<h2>References</h2>
+<div id="refs" class="references">
+<div id="ref-nocedal06">
+<p>Nocedal, Jorge, and Stephen Wright. 2006. <em>Numerical Optimization</em>. 2nd ed. Springer Science &amp; Business Media. <a href="https://doi.org/10.1007/978-0-387-40065-5">https://doi.org/10.1007/978-0-387-40065-5</a>.</p>
+</div>
 </div>
 </div>
 

@@ -516,13 +516,13 @@ public:
   /***
     conjugate gradient method. Solves B.y = x where B is the Hessian
     approximation.
+    @param rel_eps relative convergence threshold.
    */
-  bool conj_grad(double const * __restrict__ x, double * __restrict__ y){
+  bool conj_grad(double const * __restrict__ x, double * __restrict__ y,
+                 double const rel_eps){
     double * __restrict__ r   = temp_mem,
            * __restrict__ p   = r + n_par,
            * __restrict__ B_p = p + n_par;
-
-    double constexpr const rel_eps = 1e-5; // TODO: allow this to be changed
 
     // setup before first iteration
     std::fill(y, y + n_par, 0.);
@@ -569,13 +569,15 @@ public:
    @param gr0 value of the current gradient.
    @param dir direction to search in.
    @param fnew the function value at the found solution.
+   @param c1,c2 tresholds for Wolfe condition.
 
    x0 and gr0 contains the new value and gradient on return. The method
    returns false if the line search fails.
    */
   bool line_search(
       double const f0, double * __restrict__ x0, double * __restrict__ gr0,
-      double const * __restrict__ dir, double &fnew){
+      double const * __restrict__ dir, double &fnew, double const c1,
+      double const c2){
     double * const x_mem = temp_mem;
 
     // declare 1D functions
@@ -598,14 +600,9 @@ public:
     // the above at alpha = 0
     double const dpsi_zero = lp::vec_dot(gr0, dir, n_par);
 
-    // TODO: allow these to be changed
-    double constexpr const c1 = 1e-4,
-                           c2 = .9;
-
     auto zoom = [&](double a_low, double a_high, intrapolate &inter){
       double f_low = psi(a_low);
-      for(size_t i = 0; i < 100L; ++i){
-        // TODO: do something smarter
+      for(size_t i = 0; i < 25L; ++i){
         double const ai = inter.get_value(a_low, a_high),
                      fi = psi(ai);
         inter.update(ai, fi);
@@ -632,7 +629,7 @@ public:
     double fold(0.),
          a_prev(0.);
     constexpr double const a_max = 2.;
-    for(size_t i = 0; i < 100L; ++i){
+    for(size_t i = 0; i < 25L; ++i){
       double const ai = (a_max - a_prev) / 2.,
                    fi = psi(ai);
 
@@ -676,10 +673,14 @@ public:
    end.
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
+   @param cg_rel_eps relative convergence threshold for conjugate gradient
+   method.
+   @param c1,c2 tresholds for Wolfe condition.
    @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
    */
   optim_info optim
     (double * val, double const rel_eps, size_t const max_it,
+     double const cg_rel_eps, double const c1, double const c2,
      bool const use_bfgs = true){
     reset_counters();
     for(auto &f : funcs){
@@ -696,14 +697,14 @@ public:
     int info = -1L;
     for(size_t i = 0; i < max_it; ++i){
       double const fval_old = fval;
-      if(!conj_grad(gr.get(), dir.get())){
+      if(!conj_grad(gr.get(), dir.get(), cg_rel_eps)){
         info = -2L;
         break;
       }
       for(double * d = dir.get(); d != dir.get() + n_par; ++d)
         *d *= -1;
 
-      if(!line_search(fval_old, val, gr.get(), dir.get(), fval)){
+      if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2)){
         info = -3L;
         break;
       }

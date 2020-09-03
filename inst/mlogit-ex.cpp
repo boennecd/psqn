@@ -133,12 +133,16 @@ SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
  @param rel_eps relative convergence threshold.
  @param max_it maximum number iterations.
  @param n_threads number of threads to use.
+ @param cg_rel_eps relative convergence threshold for conjugate gradient
+ method.
+ @param c1,c2 tresholds for Wolfe condition.
  @param use_bfgs boolean for whether to use SR1 or BFGS updates.
  */
 // [[Rcpp::export]]
-List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
-                  unsigned const max_it, unsigned const n_threads,
-                  bool const use_bfgs = true){
+List optim_mlogit
+  (NumericVector val, SEXP ptr, double const rel_eps, unsigned const max_it,
+   unsigned const n_threads, double const cg_rel_eps, double const c1,
+   double const c2, bool const use_bfgs = true){
   XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -147,7 +151,8 @@ List optim_mlogit(NumericVector val, SEXP ptr, double const rel_eps,
 
   NumericVector par = clone(val);
   optim->set_n_threads(n_threads);
-  auto res = optim->optim(&par[0], rel_eps, max_it, use_bfgs);
+  auto res = optim->optim(&par[0], rel_eps, max_it, cg_rel_eps, c1, c2,
+                          use_bfgs);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
