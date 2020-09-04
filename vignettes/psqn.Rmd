@@ -347,7 +347,88 @@ eval_integrand(true_params)
 We will use this function to compare with our C++ implementation.
 
 ### R Implementation
-TODO: write this section.
+
+An R function which we need to pass to `psqn` to minimize the partially 
+separable function is given below:
+
+```{r assing_r_api}
+# evalutes the negative log integrand. 
+# 
+# Args:
+#   i cluster/element function index. 
+#   par the global and private parameter for this cluster. 
+#   comp_grad logical for whether to compute the gradient. 
+r_func <- function(i, par, comp_grad){
+  dat <- sim_dat[[i]]
+  X <- dat$X
+  Z <- dat$Z
+  y <- dat$y
+  Sigma_inv <- dat$Sigma_inv
+  
+  if(length(par) < 1)
+    # requested the dimension of the parameter
+    return(c(global_dim = NROW(dat$X), private_dim = NROW(dat$Z)))
+  
+  beta <- par[1:p]
+  uhat <- par[1:q + p]
+  eta <- drop(beta %*% X + uhat %*% Z)
+  exp_eta <- exp(eta)
+  
+  out <- -drop(y %*% eta) + sum(log(1 + exp_eta)) + 
+    drop(uhat %*% Sigma_inv %*% uhat) / 2
+  if(comp_grad){
+    d_eta <- -y + exp_eta / (1 + exp_eta)
+    grad <- c(rowSums(X * rep(d_eta, each = p)), 
+              rowSums(Z * rep(d_eta, each = q)) + Sigma_inv %*% uhat)
+    attr(out, "grad") <- grad
+  }
+  
+  out
+}
+```
+
+Here is a check that the above yields the same as the function we defined 
+before:
+
+```{r check_assing_r_api}
+# check the function
+r_func_val <- sum(sapply(1:n_clusters, function(i)
+  r_func(i, true_params[c(1:p, 1:q + (i - 1L) * q + p)], FALSE)))
+all.equal(eval_integrand(true_params), r_func_val)
+
+
+# we could check the gradient like this
+if(FALSE){
+  r_func_gr <- numeric(length(true_params))
+  for(i in seq_along(sim_dat)){
+    out_i <- r_func(i, true_params[c(1:p, 1:q + (i - 1L) * q + p)], TRUE)
+    r_func_gr[1:p] <- r_func_gr[1:p] + attr(out_i, "grad")[1:p]
+    r_func_gr[1:q + (i - 1L) * q + p] <- attr(out_i, "grad")[1:q + p]
+  }
+  
+  library(numDeriv)
+  gr_num <- grad(function(par) eval_integrand(par), true_params)
+  all.equal(r_func_gr, gr_num, tolerance = 1e-6)
+}
+```
+
+The partially separable can be minimized like this:
+
+```{r min_with_R, cache = 1}
+start_val <- true_params
+start_val[-(1:p)] <- 0
+
+library(psqn)
+r_psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-3, c1 = 1e-4, 
+                        c2 = .9)
+  psqn(par = par, fn = r_func, n_ele_func = n_clusters, 
+       n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, c2 = c2)
+
+R_res <- r_psqn_func(start_val)
+```
+
+We will later compare this with the result from the C++ implementation 
+which we provide in the next section.
 
 ### C++ Implementation
 We provide a C++ implementation with the package as example of how to use 
@@ -396,8 +477,6 @@ We can now use the BFGS implementation in the `optim` function to
 compare with like this:
 
 ```{r comp_optim, cache = 1, dependson = "create_ptr"}
-start_val <- true_params
-start_val[-(1:p)] <- 0
 optim_func <- function(par, n_threads = 2L)
   optim(
     par, function(par) 
@@ -427,6 +506,10 @@ iterations:
 
 ```{r show_counts}
 psqn_res$counts
+
+# it is the same as we got from R
+all.equal(psqn_res$par, R_res$par)
+all.equal(psqn_res$value, R_res$value)
 
 # compare with optim
 bfgs_res$counts
@@ -514,19 +597,36 @@ computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(
-  `optim BFGS (2 thread) `  = optim_func  (start_val, n_threads = 2L),
-  `     lbfgs (1 thread) ` = lbfgs_func   (start_val, n_threads = 1L),
-  `     lbfgs (2 threads)` = lbfgs_func   (start_val, n_threads = 2L),
-  `  lbfgsb3c (1 thread) ` = lbfgsb3c_func(start_val, n_threads = 1L),
-  `  lbfgsb3c (2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
-  `      psqn (1 thread) ` = psqn_func    (start_val, n_threads = 1L),
-  `      psqn (2 threads)` = psqn_func    (start_val, n_threads = 2L),
+  `optim BFGS (2 threads)`  = optim_func  (start_val, n_threads = 2L),
+  `      lbfgs (1 thread)` = lbfgs_func   (start_val, n_threads = 1L),
+  `      lbfgs(2 threads)` = lbfgs_func   (start_val, n_threads = 2L),
+  `   lbfgsb3c (1 thread)` = lbfgsb3c_func(start_val, n_threads = 1L),
+  `   lbfgsb3c(2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
+  `    psqn (R; 1 thread)` = r_psqn_func  (start_val, n_threads = 1L),
+  `    psqn(R; 2 threads)` = r_psqn_func  (start_val, n_threads = 2L),
+  `       psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
+  `       psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
   check = FALSE, min_iterations = 2)
 ```
 
 We see a large reduction. To be fair, we can use the C interface 
 for the limited-memory BFGS methods to avoid re-allocating the gradient
-at very iteration. This will reduce their computation time.
+at very iteration. This will reduce their computation time. The R version of
+the quasi-Newton method is slower mainly as the R version to evaluate the 
+log of the integrand and its derivative is slower than the version used by 
+all the other methods. We can illustrate this by comparing with the 
+computation time with the `eval_integrand`:
+
+```{r integrand_time, cache = 1}
+bench::mark(
+  `  R` = eval_integrand(true_params), 
+  `C++` = eval_mlogit(val = true_params, ptr = optimizer, n_threads = 1L), 
+  min_iterations = 100)
+```
+
+There is a big difference. Moreover, there is an overhead with 
+repeatedly going back and forward between R and C++. A fair comparison would
+use an R implementation for all methods.
 
 ## Details
 ### Using the Code in a Package

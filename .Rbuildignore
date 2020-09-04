@@ -6,3 +6,5 @@
 ^vignettes/psqn\.html
 ^vignettes/psqn_files
 ^README\.md$
+^src/prof
+^inst/include/prof

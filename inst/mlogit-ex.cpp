@@ -52,14 +52,16 @@ public:
    */
   double func(double const *point) const {
     arma::vec const beta = vec_no_cp(point           , X.n_rows),
-                       u = vec_no_cp(point + X.n_rows, Z.n_rows),
-                     eta = X.t() * beta + Z.t() * u;
+                       u = vec_no_cp(point + X.n_rows, Z.n_rows);
 
     double out(0);
-    for(size_t i = 0; i < y.n_elem; ++i)
-      out -= y[i] * eta[i] - log(1 + exp(eta[i]));
+    for(size_t i = 0; i < y.n_elem; ++i){
+      double const eta =
+        arma::dot(beta, X.col(i)) + arma::dot(u, Z.col(i));
+      out -= y[i] * eta - log(1 + exp(eta));
+    }
 
-    out += arma::as_scalar(u.t() * Sigma_inv * u) * .5;
+    out += arma::dot(u, Sigma_inv * u) * .5;
 
     return out;
   }
@@ -72,8 +74,7 @@ public:
   double grad
     (double const * __restrict__ point, double * __restrict__ gr) const {
     arma::vec const beta = vec_no_cp(point           , X.n_rows),
-                       u = vec_no_cp(point + X.n_rows, Z.n_rows),
-                     eta = X.t() * beta + Z.t() * u;
+                       u = vec_no_cp(point + X.n_rows, Z.n_rows);
 
     // create objects to write to for the gradient
     std::fill(gr, gr + beta.n_elem + u.n_elem, 0.);
@@ -82,15 +83,19 @@ public:
 
     double out(0);
     for(size_t i = 0; i < y.n_elem; ++i){
-      double const exp_eta = exp(eta[i]),
-                   d_eta   = y[i] - exp_eta / (1 + exp_eta);
-      out -= y[i] * eta[i] - log(1 + exp_eta);
-      dbeta -= d_eta * X.col(i);
-      du    -= d_eta * Z.col(i);
+      arma::vec const xi = X.unsafe_col(i),
+                      zi = Z.unsafe_col(i);
+      double const eta = arma::dot(beta, xi) + arma::dot(u, zi),
+               exp_eta = exp(eta),
+               d_eta   = y[i] - exp_eta / (1 + exp_eta);
+      out -= y[i] * eta - log(1 + exp_eta);
+      dbeta -= d_eta * xi;
+      du    -= d_eta * zi;
     }
 
-    out += arma::as_scalar(u.t() * Sigma_inv * u) * .5;
-    du += Sigma_inv * u;
+    arma::vec u_scaled = Sigma_inv * u;
+    out += arma::dot(u, u_scaled) * .5;
+    du += u_scaled;
 
     return out;
   }
