@@ -422,36 +422,41 @@ public:
 #ifdef _OPENMP
     double out(0.);
 #pragma omp parallel num_threads(n_threads)
-{
-    double * th_mem = get_thread_mem();
-    lp::copy(th_mem, val, global_dim);
-#pragma omp for schedule(static) reduction(+:out)
+  {
+    double * v_mem = get_thread_mem(),
+           * r_mem = v_mem + global_dim;
+    lp::copy(v_mem, val, global_dim);
+    if(comp_grad)
+      std::fill(r_mem, r_mem + global_dim, 0.);
+
+#pragma omp for schedule(static) reduction(+:out) nowait
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      out += f(th_mem, val + f.par_start, comp_grad);
+      out += f(v_mem, val + f.par_start, comp_grad);
+
+      if(comp_grad){
+        // update global
+        double *lhs = r_mem;
+        double const *rhs = f.gr;
+        for(size_t j = 0; j < global_dim; ++j, ++lhs, ++rhs)
+          *lhs += *rhs;
+
+        // update private
+        lp::copy(gr + f.par_start, f.gr + global_dim, f.func.private_dim());
+      }
     }
 
     if(comp_grad){
-      std::fill(th_mem, th_mem + global_dim, 0.);
-#pragma omp for schedule(static)
-      for(size_t i = 0; i < n_funcs; ++i){
-        auto const &f = funcs[i];
-        for(size_t j = 0; j < global_dim; ++j)
-          *(th_mem + j) += *(f.gr + j);
-
-        size_t const iprivate = f.func.private_dim();
-        lp::copy(gr + f.par_start, f.gr + global_dim, iprivate);
-      }
-
 #pragma omp single
       std::fill(gr, gr + global_dim, 0.);
 
       // add to global parameters
 #pragma omp critical(eval)
       for(size_t i = 0; i < global_dim; ++i)
-        *(gr + i) += *(th_mem + i);
+        *(gr + i) += *(r_mem + i);
     }
-}
+  }
+
     return out;
 #else
     return serial_version();
@@ -487,18 +492,18 @@ public:
 #ifdef _OPENMP
 #pragma omp parallel num_threads(n_threads)
     {
-    double * val_mem = get_thread_mem(),
-           * r_mem   = val_mem + global_dim;
-    lp::copy(val_mem, val, global_dim);
+    double * v_mem = get_thread_mem(),
+           * r_mem = v_mem + global_dim;
+    lp::copy(v_mem, val, global_dim);
     std::fill(r_mem, r_mem + global_dim, 0.);
 
-#pragma omp for schedule(static)
+#pragma omp for schedule(static) nowait
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       size_t const iprivate = f.func.private_dim(),
              private_offset = f.par_start;
 
-      lp::mat_vec_dot(f.B, val_mem, val + private_offset, r_mem,
+      lp::mat_vec_dot(f.B, v_mem, val + private_offset, r_mem,
                       res + private_offset, global_dim, iprivate);
     }
 
