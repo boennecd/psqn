@@ -4,7 +4,7 @@ psqn: Partially Separable Quasi-Newton
 [![Build Status on
 Travis](https://travis-ci.org/boennecd/psqn.svg?branch=master,osx)](https://travis-ci.org/boennecd/psqn)
 
-This package provides methods to optimize partially separable using 
+This package provides methods to optimize partially separable functions using 
 quasi-Newton methods. The packages can be installed from Github by calling:
 
 ```r
