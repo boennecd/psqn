@@ -14,6 +14,9 @@
 #endif
 
 namespace PSQN {
+using std::abs;
+using std::sqrt;
+
 /***
  performs intrapolation.
  */
@@ -47,6 +50,7 @@ public:
     fold = fnew;
     xnew = x;
     fnew = f;
+    has_two_values = true;
   }
 };
 
@@ -85,7 +89,43 @@ public:
   virtual ~element_function() = default;
 };
 
-template<class EFunc>
+struct dummy_reporter {
+  /**
+   reporting after conjugate gradient method.
+
+   @param trace info level passed by the user.
+   @param iteration itteration number starting at zero.
+   @param n_cg number of conjugate gradient iterations.
+   @param successful true of conjugate gradient method succeeded.
+   */
+  static void cg(int const trace, size_t const iteration,
+                 size_t const n_cg, bool const successful) { }
+
+  /**
+   reporting after line search.
+
+   @param trace info level passed by the user.
+   @param iteration itteration number starting at zero.
+   @param n_eval number of function evaluations.
+   @param n_grad number of gradient evaluations.
+   @param fval_old old function value.
+   @param fval new function value.
+   @param successful true of conjugate gradient method succeeded.
+   @param step_size found step size.
+   @param new_x new parameter value.
+   @param n_global number of global parameters.
+   */
+  static void line_search
+  (int const trace, size_t const iteration, size_t const n_eval,
+   size_t const n_grad, double const fval_old,
+   double const fval, bool const successful, double const step_size,
+   double const *new_x, size_t const n_global) { }
+};
+
+/***
+ the reporter class can be used to report results during the optimization.
+ */
+template<class EFunc, class Reporter = dummy_reporter>
 class optimizer {
   /***
    worker class to hold an element function and the element function''s
@@ -229,10 +269,10 @@ class optimizer {
           *(wrk + i) += *(y + i);
         }
         double const s_w = lp::vec_dot(s, wrk, n_ele),
-                  s_norm = std::sqrt(std::abs(lp::vec_dot(s, n_ele))),
-                wrk_norm = std::sqrt(std::abs(lp::vec_dot(wrk, n_ele)));
+                  s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
+                wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
         constexpr double const r = 1e-8;
-        if(std::abs(s_w) > r * s_norm * wrk_norm)
+        if(abs(s_w) > r * s_norm * wrk_norm)
           lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
 
       }
@@ -537,13 +577,11 @@ public:
     }
 
     double old_r_dot = lp::vec_dot(r, n_par);
-    double const eps = std::numeric_limits<double>::epsilon();
-
     for(size_t i = 0; i < n_par; ++i){
       ++n_cg;
       std::fill(B_p, B_p + n_par, 0.);
       B_vec(p, B_p);
-      double const alpha = old_r_dot / (lp::vec_dot(p, B_p, n_par) + eps);
+      double const alpha = old_r_dot / lp::vec_dot(p, B_p, n_par);
 
       for(size_t j = 0; j < n_par; ++j){
         *(y + j) += alpha * *(p   + j);
@@ -553,10 +591,10 @@ public:
       double const r_dot = lp::vec_dot(r, n_par),
                    y_dot = lp::vec_dot(y, n_par);
 
-      if(std::sqrt(std::abs(r_dot / (y_dot + eps))) < rel_eps)
+      if(sqrt(abs(r_dot)) < rel_eps * (sqrt(abs(y_dot)) + rel_eps))
         break;
 
-      double const beta = r_dot / (old_r_dot + eps);
+      double const beta = r_dot / old_r_dot;
       old_r_dot = r_dot;
       for(size_t j = 0; j < n_par; ++j){
         *(p + j) *= beta;
@@ -618,7 +656,7 @@ public:
         }
 
         double const dpsi_i = dpsi(ai);
-        if(std::abs(dpsi_i) <= - c2 * dpsi_zero)
+        if(abs(dpsi_i) <= - c2 * dpsi_zero)
           return true;
 
         if(dpsi_i * (a_high - a_low) >= 0.)
@@ -646,7 +684,7 @@ public:
       }
 
       double const dpsi_i = dpsi(ai);
-      if(std::abs(dpsi_i) <= -c2 * dpsi_zero){
+      if(abs(dpsi_i) <= -c2 * dpsi_zero){
         lp::copy(x0, x_mem, n_par);
         return true;
       }
@@ -682,11 +720,12 @@ public:
    method.
    @param c1,c2 tresholds for Wolfe condition.
    @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
+   @param trace integer with info level passed to reporter.
    */
   optim_info optim
     (double * val, double const rel_eps, size_t const max_it,
      double const cg_rel_eps, double const c1, double const c2,
-     bool const use_bfgs = true){
+     bool const use_bfgs = true, int const trace = 0){
     reset_counters();
     for(auto &f : funcs){
       f.reset();
@@ -704,17 +743,32 @@ public:
       double const fval_old = fval;
       if(!conj_grad(gr.get(), dir.get(), cg_rel_eps)){
         info = -2L;
+        Reporter::cg(trace, i, n_cg, false);
         break;
       }
+
+      Reporter::cg(trace, i, n_cg, true);
       for(double * d = dir.get(); d != dir.get() + n_par; ++d)
         *d *= -1;
 
+      double const x1 = *val;
       if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2)){
         info = -3L;
+        Reporter::line_search
+          (trace, i, n_eval, n_grad, fval_old, fval, false,
+           std::numeric_limits<double>::quiet_NaN(),
+           const_cast<double const *>(val), global_dim);
         break;
       }
 
-      if(std::abs((fval - fval_old) / fval_old) < rel_eps){
+      Reporter::line_search
+        (trace, i, n_eval, n_grad, fval_old, fval, true,
+         (*val - x1) / *dir.get(), const_cast<double const *>(val),
+         global_dim);
+
+      bool const has_converged =
+        abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
+      if(has_converged){
         info = 0L;
         break;
       }

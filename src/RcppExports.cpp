@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // psqn
-List psqn(NumericVector par, Function fn, unsigned const n_ele_func, double const rel_eps, unsigned const max_it, unsigned const n_threads, double const cg_rel_eps, double const c1, double const c2, bool const use_bfgs);
-RcppExport SEXP _psqn_psqn(SEXP parSEXP, SEXP fnSEXP, SEXP n_ele_funcSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP n_threadsSEXP, SEXP cg_rel_epsSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP use_bfgsSEXP) {
+List psqn(NumericVector par, Function fn, unsigned const n_ele_func, double const rel_eps, unsigned const max_it, unsigned const n_threads, double const cg_rel_eps, double const c1, double const c2, bool const use_bfgs, int const trace);
+RcppExport SEXP _psqn_psqn(SEXP parSEXP, SEXP fnSEXP, SEXP n_ele_funcSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP n_threadsSEXP, SEXP cg_rel_epsSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP use_bfgsSEXP, SEXP traceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -22,7 +22,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double const >::type c1(c1SEXP);
     Rcpp::traits::input_parameter< double const >::type c2(c2SEXP);
     Rcpp::traits::input_parameter< bool const >::type use_bfgs(use_bfgsSEXP);
-    rcpp_result_gen = Rcpp::wrap(psqn(par, fn, n_ele_func, rel_eps, max_it, n_threads, cg_rel_eps, c1, c2, use_bfgs));
+    Rcpp::traits::input_parameter< int const >::type trace(traceSEXP);
+    rcpp_result_gen = Rcpp::wrap(psqn(par, fn, n_ele_func, rel_eps, max_it, n_threads, cg_rel_eps, c1, c2, use_bfgs, trace));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -30,7 +31,7 @@ END_RCPP
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_psqn_psqn", (DL_FUNC) &_psqn_psqn, 10},
+    {"_psqn_psqn", (DL_FUNC) &_psqn_psqn, 11},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}
 };

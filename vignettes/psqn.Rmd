@@ -21,14 +21,14 @@ knitr::opts_chunk$set(
 options(digits = 3, width = 80)
 ```
 
-$$\renewcommand\vec{\boldsymbol}   \def\bigO#1{\mathcal{O}(#1)}   \def\Cond#1#2{\left(#1\,\middle|\, #2\right)}   \def\mat#1{\boldsymbol{#1}}   \def\der{{\mathop{}\!\mathrm{d}}}   \def\argmax{\text{arg}\,\text{max}}  \def\Prob{\text{P}}  \def\diag{\text{diag}}$$
+$$\renewcommand\vec{\boldsymbol}   \def\bigO#1{\mathcal{O}(#1)}   \def\Cond#1#2{\left(#1\,\middle|\, #2\right)}   \def\mat#1{\boldsymbol{#1}}   \def\der{{\mathop{}\!\mathrm{d}}}   \def\argmax{\text{arg}\,\text{max}}  \def\Prob{\text{P}}  \def\diag{\text{diag}}   \def\argmin{\text{arg}\,\text{min}}   \def\Expe{\text{E}}$$
 
 This package provides an optimization method for _partially separable_ 
 functions. Partially separable functions are of the following form:
 
 $$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
 
-where $\vec r\in \mathbb R^l$,
+where $\vec x\in \mathbb R^l$,
 
 $$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots, l\}^l,$$
 and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix. 
@@ -43,7 +43,7 @@ alternatives in much greater detail.
 We only consider a more restricted form of the problem. Assume that each 
 index set $\mathcal I_i$ is of the form:
 
-$$\begin{align*}   \mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_k &= \emptyset \qquad k\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.$$
+$$\begin{align*}   \mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_j &= \emptyset \qquad j\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.$$
 
 That is, each index set contains $p$ _global parameters_ and 
 $q_i = \lvert\mathcal J_i\rvert$ _private parameters_ which are particular 
@@ -75,13 +75,111 @@ $\widehat{\mat \Sigma}$. That is, we are minimizing:
 
 $$\begin{align*}   f(\vec x) &= -\sum_{i = 1}^n \left(     \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))     - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= -\sum_{i = 1}^n \left(     \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)     - \sum_{k = 1}^{t_i}     \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))   - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)) \\   f_i((\vec\beta^\top, \vec u^\top)) &=    -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)     + \sum_{k = 1}^{t_i}   \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))   + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u   \end{align*}$$
 
-In this problem, $\vec\beta$ is the shared parameters and the 
+In this problem, $\vec\beta$ are the global parameters and the 
 $\widehat{\vec u}_i$'s are the private parameters. Thus, 
 $l = p + nr$. We will later return to this example with an implementation 
 which uses this package.
 
-### Variational Approximation
-TODO: write about variational approximations.
+### Variational Approximations
+The objective function for variational approximations for
+mixed models for 
+clustered data is commonly also partially separable. We will 
+briefly summarize the idea here. @Ormerod12 and @Ormerod11
+are examples where one might benefit from using the methods in this package.
+
+We let $\tilde f_i$ be the log marginal likelihood term from cluster $i$. 
+This is of the form:
+
+$$
+\tilde f_i(\vec\omega) = \log \int p_i(\vec y_i, \vec u;\vec\omega)\der \vec u 
+$$
+
+where $\vec\omega$ are unknown model parameters,
+$p_i(\vec u;\vec\omega)$ is the joint density of the observed data denoted 
+by $\vec y_i$, and $\vec u$ which is a 
+cluster specific random effect. $\exp \tilde f_i(\vec\omega)$ is often 
+intractable. An approximation of $\tilde f_i$ is to select some 
+variational distribution denoted by $v_i$ parameterized by some set 
+$\Theta_i$. We 
+then use the approximation: 
+
+$$
+\begin{align*}
+\tilde f_i(\vec\omega) &= \int v_i(\vec u; \vec\theta_i)
+  \log\left(
+  \frac{p_i(\vec y_i \vec u;\vec\omega)/v_i(\vec u; \vec\theta_i)}
+       {p_i(\vec u_i \mid \vec y_i;\vec\omega)/v_i(\vec u; \vec\theta_i)}
+  \right)\der\vec u \\
+  &= 
+  \int v_i(\vec u; \vec\theta_i)
+  \log\left(
+  \frac{p_i(\vec y_i, \vec u;\vec\omega)}
+       {v_i(\vec u; \vec\theta_i)}
+  \right)\der\vec u
+  + \int v_i(\vec u; \vec\theta_i)
+  \log\left(
+  \frac{v_i(\vec u; \vec\theta_i)}
+       {p_i(\vec u \mid \vec y_i;\vec\omega)}
+  \right)\der\vec u \\
+&\geq
+  \int v_i(\vec u; \vec\theta_i)
+  \log\left(
+  \frac{p_i(\vec y_i, \vec u;\vec\omega)}
+       {v_i(\vec u; \vec\theta_i)}
+  \right)\der\vec u = f_i(\vec\omega,\vec\theta_i)
+\end{align*}
+$$
+
+where $p_i(\vec u_i \mid \vec y_i;\vec\omega)$ is the conditional density 
+of the random effect given the observed data, $\vec y_i$, and model parameters, 
+$\vec\omega$. $f_i(\vec\omega,\vec\theta_i)$ is a lower bound since the 
+Kullback–Leibler divergence
+
+$$
+\int v_i(\vec u; \vec\theta_i)\log\left(
+  \frac{v_i(\vec u; \vec\theta_i)}
+       {p_i(\vec u \mid \vec y_i;\vec\omega)} 
+  \right)\der\vec u
+$$
+
+is positive. The idea is to replace the minimization problem:
+
+$$
+\argmin_{\vec\omega} -\sum_{i = 1}^n \tilde f_i(\vec\omega)
+$$
+
+with a variational approximation:
+
+$$
+\argmin_{\vec\omega,\vec\theta_1,\dots,\vec\theta_n} 
+  -\sum_{i = 1}^n f_i(\vec\omega,\vec\theta_i)
+$$
+
+This problem fits into the framework in the package where $\vec\omega$ 
+are the global parameters and the $\vec\theta_i$s are the private parameters. 
+
+Variational approximation have the property that if 
+$v_i(\vec u; \vec\theta_i) = p_i(\vec u \mid \vec y_i;\vec\omega)$ then 
+the Kullback–Leibler divergence is zero and the lower bound is equal 
+to the log marginal likelihood. Thus, we need to use a family of 
+variational distributions, $v_i$, which yields a close approximation 
+of the conditional density of the random effects, 
+$p_i(\vec u \mid \vec y_i;\vec\omega)$, for some 
+$\vec\theta_i\in\Theta_i$. Moreover, the lower bound also needs to be 
+easy to optimize. Variational approximations have an advantage that 
+given estimates of 
+$\widehat{\vec\omega},\widehat{\vec\theta}_1,\dots,\widehat{\vec\theta}_n$
+then subsequent inference can be approximated using:
+
+$$
+\Expe\left(h(\vec U_i)\right) =
+  \int h(\vec u) p_i(\vec u \mid \vec y_i;\widehat{\vec\omega})\der\vec u 
+  \approx 
+  \int h(\vec u) v_i(\vec u; \widehat{\vec\theta}_i)\der\vec u.
+$$
+
+The latter integral may be much easier to work with for a given function 
+$h$ and variational distribution, $v_i$. 
 
 ## Quasi-Newton Method for Partially Separable Functions
 We are going to assume some prior knowledge of Newton's method and the 
@@ -272,7 +370,7 @@ TODO: write this section.
 We simulate a data set below from the mixed logit model we showed earlier.
 
 ```{r sim_dat}
-# assign model parameters and number of random effects and fixed effects
+# assign model parameters, number of random effects, and fixed effects
 q <- 4
 p <- 5
 beta <- sqrt((1:p) / sum(1:p))
@@ -348,7 +446,7 @@ We will use this function to compare with our C++ implementation.
 
 ### R Implementation
 
-An R function which we need to pass to `psqn` to minimize the partially 
+A R function which we need to pass to `psqn` to minimize the partially 
 separable function is given below:
 
 ```{r assing_r_api}
@@ -438,7 +536,7 @@ The most important part of the implementation is the problem specific
 the `get_mlogit_optimizer` function and the `optim_mlogit` function which 
 are needed to perform the optimization. The content of the file is:
 
-```{cpp, code = readLines(system.file("mlogit-ex.cpp", package = "psqn"))}
+```{cpp mlogit_cpp_code, code = readLines(system.file("mlogit-ex.cpp", package = "psqn"))}
 ```
 
 We can use the code by calling `Rcpp::sourceCpp` to compile the code: 
@@ -491,10 +589,10 @@ We then use the quasi-Newton method like this:
 
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
 psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-3, c1 = 1e-4, 
-                      c2 = .9)
+                      c2 = .9, trace = 0L)
   optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
                n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, 
-               c2 = c2)
+               c2 = c2, trace = trace)
 
 psqn_res <- psqn_func(start_val)
 ```
@@ -579,7 +677,6 @@ idx <- 1:min(1000, NROW(aprox_hes))
 aprox_hes <- aprox_hes[idx, idx] # reduce dimension to plot quickly
 image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
       col = gray.colors(2L, 1, 0))
-
 if(FALSE){
   # only feasible for smaller problem
   hess_true <- jacobian(
@@ -610,7 +707,7 @@ bench::mark(
 
 We see a large reduction. To be fair, we can use the C interface 
 for the limited-memory BFGS methods to avoid re-allocating the gradient
-at very iteration. This will reduce their computation time. The R version of
+at every iteration. This will reduce their computation time. The R version of
 the quasi-Newton method is slower mainly as the R version to evaluate the 
 log of the integrand and its derivative is slower than the version used by 
 all the other methods. We can illustrate this by comparing with the 
@@ -626,6 +723,179 @@ bench::mark(
 There is a big difference. Moreover, there is an overhead with 
 repeatedly going back and forward between R and C++. A fair comparison would
 use an R implementation for all methods.
+
+### Polynomial Example
+
+We consider the following trivial (regression) example as there is an 
+explicit solution to compare with:
+
+$$
+\begin{align*}
+\mathcal G &=\{1,\dots, p\} \\
+\mathcal G  \cap \mathcal P_i &= \emptyset \\
+\mathcal P_j \cap \mathcal P_i &= \emptyset, \qquad i\neq j \\
+\mathcal I_i &\in \{1,\dots, p\}^{\lvert\mathcal P_i\rvert} \\
+f(\vec x) &= (\vec x_{\mathcal G} - \vec\mu_{\mathcal G})^\top
+  (\vec x_{\mathcal G} - \vec\mu_{\mathcal G}) +
+  \sum_{i = 1}^n 
+  (\vec x_{\mathcal P_i} - \vec\mu_{\mathcal P_i} - 
+   \mat\Psi_i\vec x_{\mathcal I_i})^\top
+  (\vec x_{\mathcal P_i} - \vec\mu_{\mathcal P_i} - 
+   \mat\Psi_i\vec x_{\mathcal I_i}) 
+\end{align*}
+$$
+This is not because the problem is interesting per se but it is meant as 
+another illustration. R code to simulate from this model is given below:
+
+```{r poly_ex}
+# simulate the data
+set.seed(1)
+n_global <- 10L
+n_clusters <- 50L
+
+mu_global <- rnorm(n_global)
+idx_start <- n_global
+
+cluster_dat <- replicate(n_clusters, {
+  n_members <- sample.int(n_global, 1L)
+  g_idx <- sort(sample.int(n_global, n_members))
+  mu_cluster <- rnorm(n_members)
+  Psi <- matrix(rnorm(n_members * n_members), n_members, n_members)
+  
+  out <- list(idx = idx_start + 1:n_members, g_idx = g_idx,
+              mu_cluster = mu_cluster, Psi = Psi)
+  idx_start <<- idx_start + n_members
+  out
+}, simplify = FALSE)
+
+# assign matrices needed for comparisons
+library(Matrix)
+M <- diag(idx_start)
+for(cl in cluster_dat)
+  M[cl$idx, cl$g_idx] <- -cl$Psi
+M <- as(M, "dgCMatrix")
+
+# Assign two R functions to evaluate the objective function. There are two 
+# versions of the function to show that we get the same with one being 
+# closer to the shown equation
+fn_one <- function(par, ...){
+  delta <- par[1:n_global] - mu_global
+  out <- drop(delta %*% delta)
+  for(cl in cluster_dat){
+    delta <- drop(par[cl$idx] - cl$mu_cluster - cl$Psi %*% par[cl$g_idx])
+    out <- out + drop(delta %*% delta)
+  }
+  out
+}
+fn_two <- function(par, ...){
+  mu <- c(mu_global, unlist(sapply(cluster_dat, "[[", "mu_cluster")))
+  delta <- drop(M %*% par - mu)
+  drop(delta %*% delta)
+}
+
+tmp <- rnorm(idx_start)
+all.equal(fn_one(tmp), fn_two(tmp))
+fn <- fn_two
+rm(fn_one, fn_two, tmp)
+
+# assign gradient function
+gr <- function(par, ...){
+  mu <- c(mu_global, unlist(sapply(cluster_dat, "[[", "mu_cluster")))
+  2 * drop(crossprod(M, drop(M %*% par - mu)))
+}
+
+# we can easily find the explicit solution
+mu <- c(mu_global, unlist(sapply(cluster_dat, "[[", "mu_cluster")))
+exp_res <- drop(solve(M, mu))
+fn(exp_res) # ~ zero as it should be
+```
+
+C++ code to work with this function is provided at 
+`system.file("poly-ex.cpp", package = "psqn")` with the package
+and given below:
+
+```{cpp poly_cpp_code, code = readLines(system.file("poly-ex.cpp", package = "psqn"))}
+```
+
+We can `Rcpp::sourceCpp` the file and use the code like below to find the
+solution:
+
+```{r cpp_w_poly}
+library(Rcpp)
+sourceCpp(system.file("poly-ex.cpp", package = "psqn"))
+
+# get pointer to C++ object
+optimizer <- get_poly_optimizer(cluster_dat, mu_global = mu_global, 
+                                max_threads = 2L)
+
+# we get the same function value and gradient
+tmp <- rnorm(idx_start)
+all.equal(fn       (tmp), 
+          eval_poly(tmp, optimizer, 1L))
+all.equal(gr       (tmp), 
+          grad_poly(tmp, optimizer, 1L), 
+          check.attributes = FALSE)
+
+# run the optimization
+psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-4, c1 = 1e-4, 
+                      c2 = .9, trace = 0L)
+  optim_poly(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
+             n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, 
+             c2 = c2, trace = trace)
+
+psqn_res <- psqn_func(numeric(idx_start))
+all.equal(exp_res, psqn_res$par)
+```
+
+A version using the R function `psqn` is:
+
+```{r r_w_poly}
+# assign function to pass to psqn
+r_func <- function(i, par, comp_grad){
+  dat <- cluster_dat[[i]]
+  g_idx <- dat$g_idx
+  mu_cluster <- dat$mu_cluster
+  Psi <- dat$Psi
+  
+  if(length(par) < 1)
+    # requested the dimension of the parameter
+    return(c(global_dim = length(mu_global), 
+             private_dim = length(mu_cluster)))
+  
+  is_glob <- 1:length(mu_global)
+  x_glob <- par[is_glob]
+  x_priv <- par[-is_glob]
+  
+  delta <- drop(x_priv - Psi %*% x_glob[g_idx] - mu_cluster)
+  
+  out <- drop(delta %*% delta)
+  if(i == 1L){
+    delta_glob <- x_glob - mu_global
+    out <- out + drop(delta_glob %*% delta_glob)
+  }
+  
+  if(comp_grad){
+    grad <- numeric(length(mu_cluster) + length(mu_global))
+    grad[g_idx] <- -2 * drop(crossprod(Psi, delta))
+    grad[-is_glob] <- 2 * delta
+    if(i == 1L)
+      grad[is_glob] <- grad[is_glob] + 2 * delta_glob
+    attr(out, "grad") <- grad
+  }
+  
+  out
+}
+
+# use the function
+r_psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-4, c1 = 1e-4, 
+                        c2 = .9, trace = 0L)
+  psqn(par = par, fn = r_func, n_ele_func = n_clusters, 
+       n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, c2 = c2, 
+       trace = trace, max_it = 1000L)
+
+R_res <- r_psqn_func(numeric(idx_start))
+all.equal(exp_res, R_res$par)
+```
 
 ## Details
 ### Using the Code in a Package

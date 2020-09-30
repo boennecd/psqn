@@ -1,16 +1,16 @@
 // we will use openMP to perform the comptutation in parallel
 // [[Rcpp::plugins(openmp)]]
 
-// [[Rcpp::depends(psqn)]]
-#include "psqn.h"
-
 // we use RcppArmadillo to simplify the code
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 
+// [[Rcpp::depends(psqn)]]
+#include "psqn.h"
+#include "psqn-reporter.h"
 using namespace Rcpp;
 
-/// simple function to avoid copying a vector. You can ignore this.
+/// simple function to avoid copying a vector. You can ignore this
 inline arma::vec vec_no_cp(double const * x, size_t const n_ele){
   return arma::vec(const_cast<double *>(x), n_ele, false);
 }
@@ -108,6 +108,8 @@ public:
   }
 };
 
+using mlogit_topim = PSQN::optimizer<m_logit_func, PSQN::R_reporter>;
+
 /***
  creates a pointer to an object which is needed in the optim_mlogit
  function.
@@ -122,9 +124,8 @@ SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
   for(auto dat : data)
     funcs.emplace_back(List(dat));
 
-  // create an XPtr to the pointer object we will need
-  XPtr<PSQN::optimizer<m_logit_func> >
-    ptr(new PSQN::optimizer<m_logit_func>(funcs, max_threads));
+  // create an XPtr to the object we will need
+  XPtr<mlogit_topim> ptr(new mlogit_topim(funcs, max_threads));
 
   // return the pointer to be used later
   return ptr;
@@ -142,13 +143,15 @@ SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
  method.
  @param c1,c2 tresholds for Wolfe condition.
  @param use_bfgs boolean for whether to use SR1 or BFGS updates.
+ @param trace integer where larger values gives more information during the
+ optimization.
  */
 // [[Rcpp::export]]
 List optim_mlogit
   (NumericVector val, SEXP ptr, double const rel_eps, unsigned const max_it,
    unsigned const n_threads, double const cg_rel_eps, double const c1,
-   double const c2, bool const use_bfgs = true){
-  XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
+   double const c2, bool const use_bfgs = true, int const trace = 0L){
+  XPtr<mlogit_topim> optim(ptr);
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
@@ -157,7 +160,7 @@ List optim_mlogit
   NumericVector par = clone(val);
   optim->set_n_threads(n_threads);
   auto res = optim->optim(&par[0], rel_eps, max_it, cg_rel_eps, c1, c2,
-                          use_bfgs);
+                          use_bfgs, trace);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
@@ -176,7 +179,7 @@ List optim_mlogit
  */
 // [[Rcpp::export]]
 double eval_mlogit(NumericVector val, SEXP ptr, unsigned const n_threads){
-  XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
+  XPtr<mlogit_topim> optim(ptr);
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
@@ -196,7 +199,7 @@ double eval_mlogit(NumericVector val, SEXP ptr, unsigned const n_threads){
 // [[Rcpp::export]]
 NumericVector grad_mlogit(NumericVector val, SEXP ptr,
                           unsigned const n_threads){
-  XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
+  XPtr<mlogit_topim> optim(ptr);
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
@@ -215,7 +218,7 @@ NumericVector grad_mlogit(NumericVector val, SEXP ptr,
  */
 // [[Rcpp::export]]
 NumericMatrix get_Hess_approx_mlogit(SEXP ptr){
-  XPtr<PSQN::optimizer<m_logit_func> > optim(ptr);
+  XPtr<mlogit_topim> optim(ptr);
 
   NumericMatrix out(optim->n_par, optim->n_par);
   optim->get_hess(&out[0]);

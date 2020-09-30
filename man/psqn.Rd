@@ -14,7 +14,8 @@ psqn(
   cg_rel_eps = 0.001,
   c1 = 1e-04,
   c2 = 0.9,
-  use_bfgs = TRUE
+  use_bfgs = TRUE,
+  trace = 0L
 )
 }
 \arguments{
@@ -36,6 +37,9 @@ derivatives.}
 \item{c1, c2}{Tresholds for the Wolfe condition.}
 
 \item{use_bfgs}{Logical for whether to use BFGS updates or SR1 updates.}
+
+\item{trace}{Integer where larger values gives more information during the
+optimization.}
 }
 \description{
 Optimization for specially structured partially separable function.
