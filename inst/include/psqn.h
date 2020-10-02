@@ -8,6 +8,7 @@
 #include <limits>
 #include "constant.h"
 #include <cmath>
+#include "intrapolate.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -16,43 +17,6 @@
 namespace PSQN {
 using std::abs;
 using std::sqrt;
-
-/***
- performs intrapolation.
- */
-class intrapolate {
-  double const f0, d0;
-  double xold = std::numeric_limits<double>::quiet_NaN(),
-         fold = std::numeric_limits<double>::quiet_NaN(),
-         xnew, fnew;
-  bool has_two_values = false;
-
-public:
-  intrapolate(double const f0, double const d0, double const x,
-              double const f): f0(f0), d0(d0), xnew(x), fnew(f) { }
-
-  double get_value(double const v1, double const v2) const {
-    double const a = std::min(v1, v2),
-                 b = std::max(v1, v2),
-             small = .1,
-              diff = b - a;
-
-    double const val = ([&](){
-      // TODO: implement cubic intrapolation.
-      return - d0 * xnew * xnew / 2 / (fnew - f0 - d0 * xnew);
-    })();
-
-    return std::min(std::max(val, a + small * diff), b - small * diff);
-  }
-
-  void update(double const x, double const f){
-    xold = xnew;
-    fold = fnew;
-    xnew = x;
-    fnew = f;
-    has_two_values = true;
-  }
-};
 
 /***
  virtual base class which computes an element function and its gradient. The
