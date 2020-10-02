@@ -1,5 +1,5 @@
-#include "Rcpp.h"
 #include <testthat.h>
+#include "intrapolate.h"
 
 using namespace PSQN;
 
@@ -17,7 +17,7 @@ context("testing intrapolate class") {
     expect_true(std::abs((val - .5) / .5) < 1e-8);
   }
 
-  test_that("intrapolate gives the correct result with a 3nd order poly") {
+  test_that("intrapolate gives the correct result with a 3rd order poly") {
     constexpr double const f0 = 0,
                            d0 = -1,
                            x0 = 0,

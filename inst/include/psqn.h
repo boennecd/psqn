@@ -210,9 +210,23 @@ class optimizer {
         // perform BFGS update
         std::fill(wrk, wrk + n_ele, 0.);
         lp::mat_vec_dot(B, s, wrk, n_ele);
-        double const scal = lp::vec_dot(s, wrk, n_ele);
-        lp::rank_one_update(B, wrk, -1. / scal, n_ele);
-        lp::rank_one_update(B, y, 1. / s_y, n_ele);
+        double const s_B_s = lp::vec_dot(s, wrk, n_ele);
+
+        lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
+
+        if(s_y < .2 * s_B_s){
+          // damped BFGS
+          double const theta = .8 * s_B_s / (s_B_s - s_y);
+          double *yi = y,
+                 *wi = wrk;
+          for(size_t i = 0; i < n_ele; ++i, ++yi, ++wi)
+            *yi = theta * *yi + (1 - theta) * *wi;
+          double const s_r = lp::vec_dot(y, s, n_ele);
+          lp::rank_one_update(B, y, 1. / s_r, n_ele);
+
+        } else
+          // regular BFGS
+          lp::rank_one_update(B, y, 1. / s_y, n_ele);
 
       } else {
         if(first_call){
@@ -537,7 +551,7 @@ public:
     std::fill(y, y + n_par, 0.);
     for(size_t i = 0; i < n_par; ++i){
       *(r + i) = -*(x + i);
-      *(p + i) = -*(r + i);
+      *(p + i) =  *(x + i);
     }
 
     double old_r_dot = lp::vec_dot(r, n_par);
@@ -545,7 +559,18 @@ public:
       ++n_cg;
       std::fill(B_p, B_p + n_par, 0.);
       B_vec(p, B_p);
-      double const alpha = old_r_dot / lp::vec_dot(p, B_p, n_par);
+
+      double const p_B_p = lp::vec_dot(p, B_p, n_par);
+      if(p_B_p <= 0){
+        // negative curvature. Thus, exit
+        if(i < 1L)
+          // set output to be the gradient
+          for(size_t j = 0; j < n_par; ++j)
+            *(y + j) = *(x + j);
+
+        break;
+      }
+      double const alpha = old_r_dot / p_B_p;
 
       for(size_t j = 0; j < n_par; ++j){
         *(y + j) += alpha * *(p   + j);

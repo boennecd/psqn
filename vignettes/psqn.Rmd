@@ -589,12 +589,16 @@ We then use the quasi-Newton method like this:
 
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
 psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-3, c1 = 1e-4, 
-                      c2 = .9, trace = 0L)
+                      c2 = .9, trace = 0L, use_bfgs = TRUE)
   optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
                n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, 
-               c2 = c2, trace = trace)
+               c2 = c2, trace = trace, use_bfgs = use_bfgs)
 
 psqn_res <- psqn_func(start_val)
+
+# using SR1 updates
+psqn_res_sr1 <- psqn_func(start_val, use_bfgs = FALSE)
+all.equal(psqn_res_sr1$value, psqn_res$value)
 ```
 
 The `counts` element contains the number number of function evaluations, 
@@ -700,9 +704,13 @@ bench::mark(
   `   lbfgsb3c(2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
   `    psqn (R; 1 thread)` = r_psqn_func  (start_val, n_threads = 1L),
   `    psqn(R; 2 threads)` = r_psqn_func  (start_val, n_threads = 2L),
+  `  psqn (1 thread, SR1)` = psqn_func    (start_val, n_threads = 1L, 
+                                           use_bfgs = FALSE),
+  `  psqn(2 threads, SR1)` = psqn_func    (start_val, n_threads = 2L, 
+                                           use_bfgs = FALSE),
   `       psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
   `       psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
-  check = FALSE, min_iterations = 2)
+  check = FALSE, min_time = 1)
 ```
 
 We see a large reduction. To be fair, we can use the C interface 

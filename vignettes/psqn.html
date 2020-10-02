@@ -879,12 +879,17 @@ img {
 <a class="sourceLine" id="cb10-9" data-line-number="9">bfgs_res &lt;-<span class="st"> </span><span class="kw">optim_func</span>(start_val)</a></code></pre></div>
 <p>We then use the quasi-Newton method like this:</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb11-1" data-line-number="1">psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 2L, <span class="dt">cg_rel_eps =</span> <span class="fl">1e-3</span>, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, </a>
-<a class="sourceLine" id="cb11-2" data-line-number="2">                      <span class="dt">c2 =</span> <span class="fl">.9</span>, <span class="dt">trace =</span> 0L)</a>
+<a class="sourceLine" id="cb11-2" data-line-number="2">                      <span class="dt">c2 =</span> <span class="fl">.9</span>, <span class="dt">trace =</span> 0L, <span class="dt">use_bfgs =</span> <span class="ot">TRUE</span>)</a>
 <a class="sourceLine" id="cb11-3" data-line-number="3">  <span class="kw">optim_mlogit</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> optimizer, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L, </a>
 <a class="sourceLine" id="cb11-4" data-line-number="4">               <span class="dt">n_threads =</span> n_threads, <span class="dt">cg_rel_eps =</span> cg_rel_eps, <span class="dt">c1 =</span> c1, </a>
-<a class="sourceLine" id="cb11-5" data-line-number="5">               <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace)</a>
+<a class="sourceLine" id="cb11-5" data-line-number="5">               <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace, <span class="dt">use_bfgs =</span> use_bfgs)</a>
 <a class="sourceLine" id="cb11-6" data-line-number="6"></a>
-<a class="sourceLine" id="cb11-7" data-line-number="7">psqn_res &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val)</a></code></pre></div>
+<a class="sourceLine" id="cb11-7" data-line-number="7">psqn_res &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val)</a>
+<a class="sourceLine" id="cb11-8" data-line-number="8"></a>
+<a class="sourceLine" id="cb11-9" data-line-number="9"><span class="co"># using SR1 updates</span></a>
+<a class="sourceLine" id="cb11-10" data-line-number="10">psqn_res_sr1 &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val, <span class="dt">use_bfgs =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb11-11" data-line-number="11"><span class="kw">all.equal</span>(psqn_res_sr1<span class="op">$</span>value, psqn_res<span class="op">$</span>value)</a>
+<a class="sourceLine" id="cb11-12" data-line-number="12"><span class="co">#&gt; [1] &quot;Mean relative difference: 8.19e-08&quot;</span></a></code></pre></div>
 <p>The <code>counts</code> element contains the number number of function evaluations, gradient evaluations, and the total number of conjugate gradient iterations:</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb12-1" data-line-number="1">psqn_res<span class="op">$</span>counts</a>
 <a class="sourceLine" id="cb12-2" data-line-number="2"><span class="co">#&gt; function gradient     n_cg </span></a>
@@ -892,7 +897,7 @@ img {
 <a class="sourceLine" id="cb12-4" data-line-number="4"></a>
 <a class="sourceLine" id="cb12-5" data-line-number="5"><span class="co"># it is the same as we got from R</span></a>
 <a class="sourceLine" id="cb12-6" data-line-number="6"><span class="kw">all.equal</span>(psqn_res<span class="op">$</span>par, R_res<span class="op">$</span>par)</a>
-<a class="sourceLine" id="cb12-7" data-line-number="7"><span class="co">#&gt; [1] &quot;Mean relative difference: 3.73e-08&quot;</span></a>
+<a class="sourceLine" id="cb12-7" data-line-number="7"><span class="co">#&gt; [1] &quot;Mean relative difference: 2.44e-08&quot;</span></a>
 <a class="sourceLine" id="cb12-8" data-line-number="8"><span class="kw">all.equal</span>(psqn_res<span class="op">$</span>value, R_res<span class="op">$</span>value)</a>
 <a class="sourceLine" id="cb12-9" data-line-number="9"><span class="co">#&gt; [1] TRUE</span></a>
 <a class="sourceLine" id="cb12-10" data-line-number="10"></a>
@@ -971,22 +976,28 @@ img {
 <a class="sourceLine" id="cb18-6" data-line-number="6">  <span class="st">`</span><span class="dt">   lbfgsb3c(2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">lbfgsb3c_func</span>(start_val, <span class="dt">n_threads =</span> 2L),</a>
 <a class="sourceLine" id="cb18-7" data-line-number="7">  <span class="st">`</span><span class="dt">    psqn (R; 1 thread)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">r_psqn_func</span>  (start_val, <span class="dt">n_threads =</span> 1L),</a>
 <a class="sourceLine" id="cb18-8" data-line-number="8">  <span class="st">`</span><span class="dt">    psqn(R; 2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">r_psqn_func</span>  (start_val, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb18-9" data-line-number="9">  <span class="st">`</span><span class="dt">       psqn (1 thread)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb18-10" data-line-number="10">  <span class="st">`</span><span class="dt">       psqn(2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb18-11" data-line-number="11">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">min_iterations =</span> <span class="dv">2</span>)</a>
-<a class="sourceLine" id="cb18-12" data-line-number="12"><span class="co">#&gt; Warning: Some expressions had a GC in every iteration; so filtering is disabled.</span></a>
-<a class="sourceLine" id="cb18-13" data-line-number="13"><span class="co">#&gt; # A tibble: 9 x 6</span></a>
-<a class="sourceLine" id="cb18-14" data-line-number="14"><span class="co">#&gt;   expression                  min   median `itr/sec` mem_alloc `gc/sec`</span></a>
-<a class="sourceLine" id="cb18-15" data-line-number="15"><span class="co">#&gt;   &lt;bch:expr&gt;             &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb18-16" data-line-number="16"><span class="co">#&gt; 1 optim BFGS (2 threads)     1.2s     1.2s     0.831    42.4MB    0.415</span></a>
-<a class="sourceLine" id="cb18-17" data-line-number="17"><span class="co">#&gt; 2       lbfgs (1 thread)  257.6ms  258.2ms     3.87       10MB    0    </span></a>
-<a class="sourceLine" id="cb18-18" data-line-number="18"><span class="co">#&gt; 3       lbfgs(2 threads)  167.7ms  170.2ms     5.89       12MB    1.96 </span></a>
-<a class="sourceLine" id="cb18-19" data-line-number="19"><span class="co">#&gt; 4    lbfgsb3c (1 thread)  315.7ms  316.9ms     3.16     23.2MB    1.58 </span></a>
-<a class="sourceLine" id="cb18-20" data-line-number="20"><span class="co">#&gt; 5    lbfgsb3c(2 threads)  204.2ms  205.4ms     4.87       28MB    3.24 </span></a>
-<a class="sourceLine" id="cb18-21" data-line-number="21"><span class="co">#&gt; 6     psqn (R; 1 thread)  435.3ms  437.6ms     2.28     10.8MB   41.1  </span></a>
-<a class="sourceLine" id="cb18-22" data-line-number="22"><span class="co">#&gt; 7     psqn(R; 2 threads)  441.4ms  442.7ms     2.26     10.8MB   42.9  </span></a>
-<a class="sourceLine" id="cb18-23" data-line-number="23"><span class="co">#&gt; 8        psqn (1 thread)   20.1ms   20.3ms    49.1      41.8KB    0    </span></a>
-<a class="sourceLine" id="cb18-24" data-line-number="24"><span class="co">#&gt; 9        psqn(2 threads)   11.2ms   11.6ms    83.6      27.6KB    0</span></a></code></pre></div>
+<a class="sourceLine" id="cb18-9" data-line-number="9">  <span class="st">`</span><span class="dt">  psqn (1 thread, SR1)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 1L, </a>
+<a class="sourceLine" id="cb18-10" data-line-number="10">                                           <span class="dt">use_bfgs =</span> <span class="ot">FALSE</span>),</a>
+<a class="sourceLine" id="cb18-11" data-line-number="11">  <span class="st">`</span><span class="dt">  psqn(2 threads, SR1)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 2L, </a>
+<a class="sourceLine" id="cb18-12" data-line-number="12">                                           <span class="dt">use_bfgs =</span> <span class="ot">FALSE</span>),</a>
+<a class="sourceLine" id="cb18-13" data-line-number="13">  <span class="st">`</span><span class="dt">       psqn (1 thread)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb18-14" data-line-number="14">  <span class="st">`</span><span class="dt">       psqn(2 threads)</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>    (start_val, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb18-15" data-line-number="15">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">min_time =</span> <span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb18-16" data-line-number="16"><span class="co">#&gt; Warning: Some expressions had a GC in every iteration; so filtering is disabled.</span></a>
+<a class="sourceLine" id="cb18-17" data-line-number="17"><span class="co">#&gt; # A tibble: 11 x 6</span></a>
+<a class="sourceLine" id="cb18-18" data-line-number="18"><span class="co">#&gt;    expression                  min   median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb18-19" data-line-number="19"><span class="co">#&gt;    &lt;bch:expr&gt;             &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb18-20" data-line-number="20"><span class="co">#&gt;  1 optim BFGS (2 threads)     1.2s     1.2s     0.833    42.4MB    0.833</span></a>
+<a class="sourceLine" id="cb18-21" data-line-number="21"><span class="co">#&gt;  2       lbfgs (1 thread)  259.1ms  259.8ms     3.84       10MB    0.959</span></a>
+<a class="sourceLine" id="cb18-22" data-line-number="22"><span class="co">#&gt;  3       lbfgs(2 threads)  165.6ms  167.3ms     5.98       12MB    0.996</span></a>
+<a class="sourceLine" id="cb18-23" data-line-number="23"><span class="co">#&gt;  4    lbfgsb3c (1 thread)    313ms  316.2ms     3.17     23.2MB    2.38 </span></a>
+<a class="sourceLine" id="cb18-24" data-line-number="24"><span class="co">#&gt;  5    lbfgsb3c(2 threads)  203.4ms  207.9ms     4.82       28MB    3.86 </span></a>
+<a class="sourceLine" id="cb18-25" data-line-number="25"><span class="co">#&gt;  6     psqn (R; 1 thread)  432.6ms  436.9ms     2.29     10.8MB   41.2  </span></a>
+<a class="sourceLine" id="cb18-26" data-line-number="26"><span class="co">#&gt;  7     psqn(R; 2 threads)  401.6ms  453.1ms     2.23     10.8MB   35.7  </span></a>
+<a class="sourceLine" id="cb18-27" data-line-number="27"><span class="co">#&gt;  8   psqn (1 thread, SR1)   30.3ms   30.5ms    32.7      27.6KB    0    </span></a>
+<a class="sourceLine" id="cb18-28" data-line-number="28"><span class="co">#&gt;  9   psqn(2 threads, SR1)   18.5ms   18.7ms    53.0      27.6KB    0    </span></a>
+<a class="sourceLine" id="cb18-29" data-line-number="29"><span class="co">#&gt; 10        psqn (1 thread)   20.2ms   20.2ms    49.1      27.6KB    0    </span></a>
+<a class="sourceLine" id="cb18-30" data-line-number="30"><span class="co">#&gt; 11        psqn(2 threads)   11.2ms   11.3ms    87.3      27.6KB    0</span></a></code></pre></div>
 <p>We see a large reduction. To be fair, we can use the C interface for the limited-memory BFGS methods to avoid re-allocating the gradient at every iteration. This will reduce their computation time. The R version of the quasi-Newton method is slower mainly as the R version to evaluate the log of the integrand and its derivative is slower than the version used by all the other methods. We can illustrate this by comparing with the computation time with the <code>eval_integrand</code>:</p>
 <div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb19-1" data-line-number="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
 <a class="sourceLine" id="cb19-2" data-line-number="2">  <span class="st">`</span><span class="dt">  R</span><span class="st">`</span> =<span class="st"> </span><span class="kw">eval_integrand</span>(true_params), </a>
@@ -995,8 +1006,8 @@ img {
 <a class="sourceLine" id="cb19-5" data-line-number="5"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
 <a class="sourceLine" id="cb19-6" data-line-number="6"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb19-7" data-line-number="7"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb19-8" data-line-number="8"><span class="co">#&gt; 1   R          2.99ms   3.38ms      292.  139.17KB     20.1</span></a>
-<a class="sourceLine" id="cb19-9" data-line-number="9"><span class="co">#&gt; 2 C++        593.23µs 597.35µs     1663.    2.49KB      0</span></a></code></pre></div>
+<a class="sourceLine" id="cb19-8" data-line-number="8"><span class="co">#&gt; 1   R          3.02ms   3.23ms      303.  139.17KB     25.8</span></a>
+<a class="sourceLine" id="cb19-9" data-line-number="9"><span class="co">#&gt; 2 C++        583.41µs 586.03µs     1682.    2.49KB      0</span></a></code></pre></div>
 <p>There is a big difference. Moreover, there is an overhead with repeatedly going back and forward between R and C++. A fair comparison would use an R implementation for all methods.</p>
 </div>
 <div id="polynomial-example" class="section level3">
