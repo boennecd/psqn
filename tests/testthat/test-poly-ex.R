@@ -58,20 +58,20 @@ test_that("Poly example gives the same", {
   rel_eps <- sqrt(.Machine$double.eps)
   opt <- optim_poly(
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
-    cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 1L)
-  opt_res <- list(par = c(-0.626453812529315, 0.183643325937407, -0.835628609223361,
-                          -2.04960115683058, 0.602201894508594, -0.601922178495141, 0.936438000196469,
-                          1.78735959680091, -1.01160126588394, -0.125807956417566, 1.3064642831217,
-                          0.823781888271444, 0.35766813854324, 0.196958421506784, -0.760960914620894,
-                          0.762492430948241, 0.866996123790694, -0.234758321257806, 0.307564405628873,
-                          1.43619906794461, 1.32150098077651, -0.873195705752549), value = 1.78681836602356e-17,
-                  info = 0L, counts = c(`function` = 35, gradient = 34, n_cg = 629
+    c1 = 1e-4, c2 = .9, n_threads = 1L)
+  opt_res <- list(par = c(-0.626453810632069, 0.183643324345628, -0.835628612250485,
+                          -2.04960116005313, 0.602201895204366, -0.601922171312659, 0.936438001760361,
+                          1.7873595917768, -1.01160126624839, -0.125807962111816, 1.30646428460648,
+                          0.823781885813167, 0.357668134623467, 0.196958422127988, -0.760960914726239,
+                          0.762492431522127, 0.866996127883627, -0.234758322046668, 0.307564405437029,
+                          1.43619906759021, 1.32150098518575, -0.873195703378549), value = 2.28888765400896e-19,
+                  info = 0L, counts = c(`function` = 36, gradient = 35, n_cg = 244
                   ), convergence = TRUE)
-  tol <- .Machine$double.eps^(1/3)
+  tol <- sqrt(rel_eps)
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
   opt <- optim_poly(
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
-    cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 2L)
+    c1 = 1e-4, c2 = .9, n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 })

@@ -516,10 +516,10 @@ start_val <- true_params
 start_val[-(1:p)] <- 0
 
 library(psqn)
-r_psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-3, c1 = 1e-4, 
+r_psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
                         c2 = .9)
   psqn(par = par, fn = r_func, n_ele_func = n_clusters, 
-       n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, c2 = c2)
+       n_threads = n_threads, c1 = c1, c2 = c2)
 
 R_res <- r_psqn_func(start_val)
 ```
@@ -588,10 +588,10 @@ bfgs_res <- optim_func(start_val)
 We then use the quasi-Newton method like this:
 
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
-psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-3, c1 = 1e-4, 
+psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
                       c2 = .9, trace = 0L, use_bfgs = TRUE)
   optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
-               n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, 
+               n_threads = n_threads, c1 = c1, 
                c2 = c2, trace = trace, use_bfgs = use_bfgs)
 
 psqn_res <- psqn_func(start_val)
@@ -645,7 +645,7 @@ lbfgsb3c_func <- function(par, n_threads = 2L)
 lbfgsb3c_res <- lbfgsb3c_func(start_val)
 
 all.equal(lbfgsb3c_res$par, psqn_res$par)
-all.equal(lbfgsb3c_res$value, bfgs_res$value, tolerance = 1e-8)
+all.equal(lbfgsb3c_res$value, bfgs_res$value)
 psqn_res$value - lbfgsb3c_res$value
 ```
 
@@ -664,7 +664,7 @@ lbfgs_func <- function(par, n_threads = 2L)
 lbfgs_res <- lbfgs_func(start_val)
 
 all.equal(lbfgs_res$par, psqn_res$par)
-all.equal(lbfgs_res$value, bfgs_res$value, tolerance = 1e-8)
+all.equal(lbfgs_res$value, bfgs_res$value)
 psqn_res$value - lbfgs_res$value
 ```
 
@@ -845,10 +845,10 @@ all.equal(gr       (tmp),
           check.attributes = FALSE)
 
 # run the optimization
-psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-4, c1 = 1e-4, 
+psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
                       c2 = .9, trace = 0L)
   optim_poly(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
-             n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, 
+             n_threads = n_threads, c1 = c1, 
              c2 = c2, trace = trace)
 
 psqn_res <- psqn_func(numeric(idx_start))
@@ -895,10 +895,10 @@ r_func <- function(i, par, comp_grad){
 }
 
 # use the function
-r_psqn_func <- function(par, n_threads = 2L, cg_rel_eps = 1e-4, c1 = 1e-4, 
+r_psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
                         c2 = .9, trace = 0L)
   psqn(par = par, fn = r_func, n_ele_func = n_clusters, 
-       n_threads = n_threads, cg_rel_eps = cg_rel_eps, c1 = c1, c2 = c2, 
+       n_threads = n_threads, c1 = c1, c2 = c2, 
        trace = trace, max_it = 1000L)
 
 R_res <- r_psqn_func(numeric(idx_start))

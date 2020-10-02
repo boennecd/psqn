@@ -46,41 +46,41 @@ test_that("mixed logit model gives the same", {
   val <- c(beta, sapply(sim_dat, function(x) x$u))
   opt <- psqn(
     par = val, fn = r_func, n_ele_func = n_clusters, rel_eps = rel_eps,
-    max_it = 100L, cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 1L)
-  opt_res <- list(par = c(0.64728530110947, 0.773194017021601, 0.657000534901989,
-                          0.119680984770149, 0.855866285979022, -0.484305536586791, 0.412501613805294,
-                          0.766995560437863, 0.422857367872878, 0.605158943583224, -0.783730421012958,
-                          0.0961764408437856, -0.922959439713509, -0.483522109084062, 0.438228261355513,
-                          -0.493282831674971, 0.0274308256734968, 0.426837683845752, 0.0282555513891497,
-                          -0.180702023732985, -0.150661553719773), value = 25.121501499614,
-                  info = 0L, counts = c(`function` = 12, gradient = 11, n_cg = 132
+    max_it = 100L, c1 = 1e-4, c2 = .9, n_threads = 1L)
+  opt_res <- list(par = c(0.647310437469711, 0.773205671911178, 0.656983834118283,
+                          0.119681528415682, 0.855849653168437, -0.484311298187747, 0.412484752266496,
+                          0.766994317977443, 0.422874453513229, 0.605169744625452, -0.783701817869368,
+                          0.0961948999677121, -0.922934757392211, -0.483542761956257, 0.438193243670319,
+                          -0.493309514536335, 0.0274193762771718, 0.426816737611666, 0.0281704108821128,
+                          -0.180877909582702, -0.150512019701299), value = 25.1215015278071,
+                  info = 0L, counts = c(`function` = 12, gradient = 11, n_cg = 40
                   ), convergence = TRUE)
-  tol <- .Machine$double.eps^(1/3)
+  tol <- sqrt(rel_eps)
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
   opt <- psqn(
     par = val, fn = r_func, n_ele_func = n_clusters, rel_eps = rel_eps,
-    max_it = 100L, cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 2L)
+    max_it = 100L, c1 = 1e-4, c2 = .9, n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
   opt <- psqn(
     par = val, fn = r_func, n_ele_func = n_clusters, rel_eps = rel_eps,
-    max_it = 100L, cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 1L,
+    max_it = 100L, c1 = 1e-4, c2 = .9, n_threads = 1L,
     use_bfgs = FALSE)
-  opt_res <- list(par = c(0.647275645738644, 0.773166405224482, 0.65701868587754,
-                          0.119620392079857, 0.855935194552437, -0.484320891227118, 0.412483498667473,
-                          0.766965424427122, 0.422820956122594, 0.605160873384254, -0.783750631065262,
-                          0.0961498616334638, -0.922989688317959, -0.483529642590115, 0.438265028750743,
-                          -0.493282887150997, 0.0274560092292598, 0.42686782768471, 0.0283980041013476,
-                          -0.180765748491386, -0.150514195778015), value = 25.1215014472174,
-                  info = 0L, counts = c(`function` = 21, gradient = 14, n_cg = 121
+  opt_res <- list(par = c(0.647312399593272, 0.773180471730626, 0.6570617410787,
+                          0.119630546874293, 0.85595502016993, -0.484316891358561, 0.412488738456401,
+                          0.766975554121974, 0.422825073677682, 0.605153277060966, -0.783774377322635,
+                          0.0961329299272066, -0.923001177401597, -0.483537409424477, 0.438262748069446,
+                          -0.493258780253669, 0.0274569314927997, 0.426952405357697, 0.0284032062298845,
+                          -0.18070846603226, -0.150657495438486), value = 25.1215014846691,
+                  info = 0L, counts = c(`function` = 18, gradient = 13, n_cg = 50
                   ), convergence = TRUE)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
   opt <- psqn(
     par = val, fn = r_func, n_ele_func = n_clusters, rel_eps = rel_eps,
-    max_it = 100L, cg_rel_eps = 1e-5, c1 = 1e-4, c2 = .9, n_threads = 2L,
+    max_it = 100L, c1 = 1e-4, c2 = .9, n_threads = 2L,
     use_bfgs = FALSE)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 })

@@ -14,14 +14,14 @@
 #' @param rel_eps Relative convergence threshold.
 #' @param n_threads Number of threads to use.
 #' @param max_it Maximum number of iterations.
-#' @param cg_rel_eps Relative convergence threshold for conjugate gradient method.
 #' @param c1,c2 Tresholds for the Wolfe condition.
 #' @param use_bfgs Logical for whether to use BFGS updates or SR1 updates.
 #' @param trace Integer where larger values gives more information during the
 #' optimization.
+#' @param cg_tol threshold for conjugate gradient method.
 #'
 #' @export
-psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, cg_rel_eps = .001, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L) {
-    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, cg_rel_eps, c1, c2, use_bfgs, trace)
+psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .1) {
+    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol)
 }
 

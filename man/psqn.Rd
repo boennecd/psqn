@@ -11,11 +11,11 @@ psqn(
   rel_eps = 1e-08,
   max_it = 100L,
   n_threads = 1L,
-  cg_rel_eps = 0.001,
   c1 = 1e-04,
   c2 = 0.9,
   use_bfgs = TRUE,
-  trace = 0L
+  trace = 0L,
+  cg_tol = 0.1
 )
 }
 \arguments{
@@ -32,14 +32,14 @@ derivatives.}
 
 \item{n_threads}{Number of threads to use.}
 
-\item{cg_rel_eps}{Relative convergence threshold for conjugate gradient method.}
-
 \item{c1, c2}{Tresholds for the Wolfe condition.}
 
 \item{use_bfgs}{Logical for whether to use BFGS updates or SR1 updates.}
 
 \item{trace}{Integer where larger values gives more information during the
 optimization.}
+
+\item{cg_tol}{threshold for conjugate gradient method.}
 }
 \description{
 Optimization for specially structured partially separable function.

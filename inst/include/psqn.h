@@ -539,10 +539,10 @@ public:
   /***
     conjugate gradient method. Solves B.y = x where B is the Hessian
     approximation.
-    @param rel_eps relative convergence threshold.
+    @param tol convergence threshold.
    */
   bool conj_grad(double const * __restrict__ x, double * __restrict__ y,
-                 double const rel_eps){
+                 double const tol){
     double * __restrict__ r   = temp_mem,
            * __restrict__ p   = r + n_par,
            * __restrict__ B_p = p + n_par;
@@ -577,10 +577,8 @@ public:
         *(r + j) += alpha * *(B_p + j);
       }
 
-      double const r_dot = lp::vec_dot(r, n_par),
-                   y_dot = lp::vec_dot(y, n_par);
-
-      if(sqrt(abs(r_dot)) < rel_eps * (sqrt(abs(y_dot)) + rel_eps))
+      double const r_dot = lp::vec_dot(r, n_par);
+      if(sqrt(abs(r_dot)) < tol)
         break;
 
       double const beta = r_dot / old_r_dot;
@@ -705,16 +703,16 @@ public:
    end.
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
-   @param cg_rel_eps relative convergence threshold for conjugate gradient
-   method.
    @param c1,c2 tresholds for Wolfe condition.
    @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
    @param trace integer with info level passed to reporter.
+   @param cg_tol threshold for conjugate gradient method.
    */
   optim_info optim
     (double * val, double const rel_eps, size_t const max_it,
-     double const cg_rel_eps, double const c1, double const c2,
-     bool const use_bfgs = true, int const trace = 0){
+     double const c1, double const c2,
+     bool const use_bfgs = true, int const trace = 0,
+     double const cg_tol = .1){
     reset_counters();
     for(auto &f : funcs){
       f.reset();
@@ -729,8 +727,10 @@ public:
 
     int info = -1L;
     for(size_t i = 0; i < max_it; ++i){
-      double const fval_old = fval;
-      if(!conj_grad(gr.get(), dir.get(), cg_rel_eps)){
+      double const fval_old = fval,
+                     gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
+                 cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
+      if(!conj_grad(gr.get(), dir.get(), cg_tol_use)){
         info = -2L;
         Reporter::cg(trace, i, n_cg, false);
         break;

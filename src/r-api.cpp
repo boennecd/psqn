@@ -99,20 +99,21 @@ public:
 //' @param rel_eps Relative convergence threshold.
 //' @param n_threads Number of threads to use.
 //' @param max_it Maximum number of iterations.
-//' @param cg_rel_eps Relative convergence threshold for conjugate gradient method.
 //' @param c1,c2 Tresholds for the Wolfe condition.
 //' @param use_bfgs Logical for whether to use BFGS updates or SR1 updates.
 //' @param trace Integer where larger values gives more information during the
 //' optimization.
+//' @param cg_tol threshold for conjugate gradient method.
 //'
 //' @export
 // [[Rcpp::export]]
 List psqn
   (NumericVector par, Function fn, unsigned const n_ele_func,
    double const rel_eps = .00000001, unsigned const max_it = 100L,
-   unsigned const n_threads = 1L, double const cg_rel_eps = .001,
+   unsigned const n_threads = 1L,
    double const c1 = .0001, double const c2 = .9,
-   bool const use_bfgs = true, int const trace = 0L){
+   bool const use_bfgs = true, int const trace = 0L,
+   double const cg_tol = .1){
   if(n_ele_func < 1L)
     throw std::invalid_argument("optim_mlogit: n_ele_func < 1L");
 
@@ -129,8 +130,8 @@ List psqn
 
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);
-  auto res = optim.optim(&par_arg[0], rel_eps, max_it, cg_rel_eps, c1, c2,
-                         use_bfgs, trace);
+  auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
+                         use_bfgs, trace, cg_tol);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
