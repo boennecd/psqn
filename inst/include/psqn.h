@@ -463,10 +463,11 @@ public:
     if(comp_grad)
       std::fill(r_mem, r_mem + global_dim, 0.);
 
-#pragma omp for schedule(static) reduction(+:out) nowait
+    double thread_terms(0.);
+#pragma omp for schedule(static) nowait
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      out += f(v_mem, val + f.par_start, comp_grad);
+      thread_terms += f(v_mem, val + f.par_start, comp_grad);
 
       if(comp_grad){
         // update global
@@ -480,14 +481,20 @@ public:
       }
     }
 
-    if(comp_grad){
+    if(comp_grad)
 #pragma omp single
       std::fill(gr, gr + global_dim, 0.);
 
-      // add to global parameters
-#pragma omp critical(eval)
-      for(size_t i = 0; i < global_dim; ++i)
-        *(gr + i) += *(r_mem + i);
+    // add to global parameters
+#pragma omp for ordered schedule(static, 1)
+    for (int t = 0; t < omp_get_num_threads(); t++){
+#pragma omp ordered
+      {
+        out += thread_terms;
+        if(comp_grad)
+          for(size_t i = 0; i < global_dim; ++i)
+            *(gr + i) += *(r_mem + i);
+      }
     }
   }
 
@@ -542,10 +549,14 @@ public:
     }
 
     // add to global parameters
-#pragma omp critical(cg)
-    for(size_t i = 0; i < global_dim; ++i)
-      *(res + i) += *(r_mem + i);
-
+#pragma omp for ordered schedule(static, 1)
+    for (int t = 0; t < omp_get_num_threads(); t++){
+#pragma omp ordered
+      {
+        for(size_t i = 0; i < global_dim; ++i)
+          *(res + i) += *(r_mem + i);
+      }
+    }
     }
 #else
     serial_version();
@@ -766,7 +777,7 @@ public:
     (double * val, double const rel_eps, size_t const max_it,
      double const c1, double const c2,
      bool const use_bfgs = true, int const trace = 0,
-     double const cg_tol = .1, bool const strong_wolfe = true){
+     double const cg_tol = .5, bool const strong_wolfe = true){
     reset_counters();
     for(auto &f : funcs){
       f.reset();
@@ -783,7 +794,7 @@ public:
     for(size_t i = 0; i < max_it; ++i){
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
-                 cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
+                 cg_tol_use = std::min(cg_tol, gr_nom) * gr_nom;
       if(!conj_grad(gr.get(), dir.get(), cg_tol_use)){
         info = -2L;
         Reporter::cg(trace, i, n_cg, false);

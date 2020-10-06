@@ -15,7 +15,7 @@ psqn(
   c2 = 0.9,
   use_bfgs = TRUE,
   trace = 0L,
-  cg_tol = 0.1,
+  cg_tol = 0.5,
   strong_wolfe = TRUE
 )
 }

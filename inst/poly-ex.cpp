@@ -123,7 +123,7 @@ List optim_poly
   (NumericVector val, SEXP ptr, double const rel_eps, unsigned const max_it,
    unsigned const n_threads, double const c1,
    double const c2, bool const use_bfgs = true, int const trace = 0L,
-   double const cg_tol = .1, bool const strong_wolfe = true){
+   double const cg_tol = .5, bool const strong_wolfe = true){
   XPtr<poly_optim> optim(ptr);
 
   // check that we pass a parameter value of the right length

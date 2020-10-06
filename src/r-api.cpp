@@ -114,7 +114,7 @@ List psqn
    unsigned const n_threads = 1L,
    double const c1 = .0001, double const c2 = .9,
    bool const use_bfgs = true, int const trace = 0L,
-   double const cg_tol = .1, bool const strong_wolfe = true){
+   double const cg_tol = .5, bool const strong_wolfe = true){
   if(n_ele_func < 1L)
     throw std::invalid_argument("optim_mlogit: n_ele_func < 1L");
 
