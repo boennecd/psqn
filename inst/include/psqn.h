@@ -66,6 +66,22 @@ struct dummy_reporter {
                  size_t const n_cg, bool const successful) { }
 
   /**
+   reporting during line search.
+
+   @param trace info level passed by the user.
+   @param a_old lower value in zoom or previous value if not zoom.
+   @param a_new new value to test.
+   @param f_new function value at a_new.
+   @param is_zoom true if the call is from the zoom function.
+   @param d_new derivative at a_new.
+   @param a_high upper value in zoom.
+   */
+  static void line_search_inner
+  (int const trace, double const a_old, double const a_new,
+   double const f_new, bool const is_zoom, double const d_new,
+   double const a_high) { }
+
+  /**
    reporting after line search.
 
    @param trace info level passed by the user.
@@ -608,7 +624,7 @@ public:
   bool line_search(
       double const f0, double * __restrict__ x0, double * __restrict__ gr0,
       double * __restrict__ dir, double &fnew, double const c1,
-      double const c2, bool const strong_wolfe){
+      double const c2, bool const strong_wolfe, int const trace){
     double * const x_mem = temp_mem;
 
     // declare 1D functions
@@ -634,8 +650,11 @@ public:
       // not a descent direction! Go the other way
       for(double * d = dir; d != dir + n_par; ++d)
         *d *= -1;
-      return line_search(f0, x0, gr0, dir, fnew, c1, c2, strong_wolfe);
+      return line_search(f0, x0, gr0, dir, fnew, c1, c2, strong_wolfe,
+                         trace);
     }
+
+    constexpr double const NaNv  = std::numeric_limits<double>::quiet_NaN();
 
     auto zoom = [&](double a_low, double a_high, intrapolate &inter){
       double f_low = psi(a_low);
@@ -643,6 +662,8 @@ public:
         double const ai = inter.get_value(a_low, a_high),
                      fi = psi(ai);
         inter.update(ai, fi);
+        Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                    NaNv, a_high);
 
         if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
           a_high = ai;
@@ -650,6 +671,8 @@ public:
         }
 
         double const dpsi_i = dpsi(ai);
+        Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                    dpsi_i, a_high);
         double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
         if(test_val <= - c2 * dpsi_zero)
           return true;
@@ -658,20 +681,28 @@ public:
           a_high = a_low;
 
         a_low = ai;
-        f_low = psi(a_low);
+        f_low = fi;
       }
 
       return false;
     };
 
-    double fold(0.),
-         a_prev(0.);
-    constexpr double const a_max = 2.;
+    double fold(f0),
+         a_prev(0),
+             ai(.5);
+    bool found_ok_prev = false;
     for(size_t i = 0; i < 25L; ++i){
-      double const ai = (a_max - a_prev) / 2.,
-                   fi = psi(ai);
+      ai *= 2;
+      double const fi = psi(ai);
+      Reporter::line_search_inner(trace, a_prev, ai, fi, false,
+                                  NaNv, NaNv);
+      if(!std::isfinite(fi)){
+        // handle inf/nan case
+        ai /= 4;
+        continue;
+      }
 
-      if(fi > f0 + c1 * ai * dpsi_zero or (i > 0 and fi > fold)){
+      if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
         intrapolate inter(f0, dpsi_zero, ai, fi);
         bool const out = zoom(a_prev, ai, inter);
         lp::copy(x0, x_mem, n_par);
@@ -679,6 +710,9 @@ public:
       }
 
       double const dpsi_i = dpsi(ai);
+      Reporter::line_search_inner(trace, a_prev, ai, fi, false,
+                                  dpsi_i, NaNv);
+
       double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
       if(test_val <= - c2 * dpsi_zero){
         lp::copy(x0, x_mem, n_par);
@@ -686,12 +720,22 @@ public:
       }
 
       if(dpsi_i >= 0){
-        intrapolate inter(f0, dpsi_zero, ai, fi);
+        intrapolate inter = ([&](){
+          if(found_ok_prev){
+            // we have two values that we can use
+            intrapolate out(f0, dpsi_zero, a_prev, fold);
+            out.update(ai, fi);
+            return out;
+          }
+
+          return intrapolate(f0, dpsi_zero, ai, fi);
+        })();
         bool const out = zoom(ai, a_prev, inter);
         lp::copy(x0, x_mem, n_par);
         return out;
       }
 
+      found_ok_prev = true;
       a_prev = ai;
       fold = fi;
     }
@@ -752,7 +796,7 @@ public:
 
       double const x1 = *val;
       if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2,
-                      strong_wolfe)){
+                      strong_wolfe, trace)){
         info = -3L;
         Reporter::line_search
           (trace, i, n_eval, n_grad, fval_old, fval, false,

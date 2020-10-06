@@ -47,6 +47,26 @@ struct R_reporter {
     if(trace > 0L)
       Rcpp::Rcout << '\n';
   }
+
+  static void line_search_inner
+  (int const trace, double const a_old, double const a_new,
+   double const f_new, bool const is_zoom, double const d_new,
+   double const a_high) {
+    if(trace < 4L)
+      return;
+
+    if(is_zoom)
+      Rcpp::Rcout << "      (zoom) lower: " << a_old
+                  << " upper: " << a_high
+                  << " new value: " << a_new
+                  << " f new: " << f_new
+                  << " d new: " << d_new << '\n';
+    else
+      Rcpp::Rcout << "      a_prev: " << a_old
+                  << " new value: " << a_new
+                  << " f new: " << f_new
+                  << " d new: " << d_new << '\n';
+  }
 };
 } // namespace PSQN
 
