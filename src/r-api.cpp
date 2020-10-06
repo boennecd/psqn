@@ -104,6 +104,7 @@ public:
 //' @param trace Integer where larger values gives more information during the
 //' optimization.
 //' @param cg_tol threshold for conjugate gradient method.
+//' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
 //'
 //' @export
 // [[Rcpp::export]]
@@ -113,7 +114,7 @@ List psqn
    unsigned const n_threads = 1L,
    double const c1 = .0001, double const c2 = .9,
    bool const use_bfgs = true, int const trace = 0L,
-   double const cg_tol = .1){
+   double const cg_tol = .1, bool const strong_wolfe = true){
   if(n_ele_func < 1L)
     throw std::invalid_argument("optim_mlogit: n_ele_func < 1L");
 
@@ -131,7 +132,7 @@ List psqn
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);
   auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
-                         use_bfgs, trace, cg_tol);
+                         use_bfgs, trace, cg_tol, strong_wolfe);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");

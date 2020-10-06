@@ -74,4 +74,17 @@ test_that("Poly example gives the same", {
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
     c1 = 1e-4, c2 = .9, n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
+
+  opt <- optim_poly(
+    val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    c1 = 1e-4, c2 = .9, n_threads = 1L, strong_wolfe = FALSE)
+  opt_res <- list(par = c(-0.626453810632069, 0.183643324345628, -0.835628612250485,
+                          -2.04960116005313, 0.602201895204366, -0.601922171312659, 0.936438001760361,
+                          1.7873595917768, -1.01160126624839, -0.125807962111816, 1.30646428460648,
+                          0.823781885813167, 0.357668134623467, 0.196958422127988, -0.760960914726239,
+                          0.762492431522127, 0.866996127883627, -0.234758322046668, 0.307564405437029,
+                          1.43619906759021, 1.32150098518575, -0.873195703378549), value = 2.28888765400896e-19,
+                  info = 0L, counts = c(`function` = 36, gradient = 35, n_cg = 244
+                  ), convergence = TRUE)
+  expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 })

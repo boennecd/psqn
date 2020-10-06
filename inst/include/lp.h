@@ -54,6 +54,7 @@ inline void mat_vec_dot
   }
 }
 
+/** util class which jumps from one memory location to another. */
 template<class T>
 class sep_mem {
   T *       cur,

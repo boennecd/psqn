@@ -528,7 +528,7 @@ We will later compare this with the result from the C++ implementation
 which we provide in the next section.
 
 ### C++ Implementation
-We provide a C++ implementation with the package as example of how to use 
+We provide a C++ implementation with the package as an example of how to use 
 this package. The location of the implementation can be found by 
 calling `system.file("mlogit-ex.cpp", package = "psqn")`. 
 The most important part of the implementation is the problem specific 

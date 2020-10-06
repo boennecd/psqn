@@ -91,4 +91,17 @@ test_that("mixed logit model gives the same", {
     c1 = 1e-4, c2 = .9, use_bfgs = FALSE,
     n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
+
+  opt <- optim_mlogit(
+    val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    c1 = 1e-4, c2 = .9, n_threads = 1L, strong_wolfe = FALSE)
+  opt_res <- list(par = c(0.647310437469711, 0.773205671911178, 0.656983834118283,
+                          0.119681528415682, 0.855849653168437, -0.484311298187747, 0.412484752266496,
+                          0.766994317977443, 0.422874453513229, 0.605169744625452, -0.783701817869368,
+                          0.096194899967712, -0.922934757392211, -0.483542761956257, 0.438193243670319,
+                          -0.493309514536335, 0.0274193762771719, 0.426816737611666, 0.0281704108821127,
+                          -0.180877909582702, -0.150512019701299), value = 25.1215015278071,
+                  info = 0L, counts = c(`function` = 12, gradient = 11, n_cg = 40
+                  ), convergence = TRUE)
+  expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 })

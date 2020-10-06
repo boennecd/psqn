@@ -270,7 +270,7 @@ public:
 private:
   /***
    size of the allocated working memory. The first element is needed for
-   the worker. The second element is needed during the computation for the
+   the workers. The second element is needed during the computation for the
    master thread. The third element is number required per thread.
   */
   std::array<size_t, 3L> const n_mem;
@@ -600,14 +600,15 @@ public:
    @param dir direction to search in.
    @param fnew the function value at the found solution.
    @param c1,c2 tresholds for Wolfe condition.
+   @param strong_wolfe true if the strong Wolfe condition should be used.
 
    x0 and gr0 contains the new value and gradient on return. The method
    returns false if the line search fails.
    */
   bool line_search(
       double const f0, double * __restrict__ x0, double * __restrict__ gr0,
-      double const * __restrict__ dir, double &fnew, double const c1,
-      double const c2){
+      double * __restrict__ dir, double &fnew, double const c1,
+      double const c2, bool const strong_wolfe){
     double * const x_mem = temp_mem;
 
     // declare 1D functions
@@ -629,6 +630,12 @@ public:
 
     // the above at alpha = 0
     double const dpsi_zero = lp::vec_dot(gr0, dir, n_par);
+    if(dpsi_zero > 0){
+      // not a descent direction! Go the other way
+      for(double * d = dir; d != dir + n_par; ++d)
+        *d *= -1;
+      return line_search(f0, x0, gr0, dir, fnew, c1, c2, strong_wolfe);
+    }
 
     auto zoom = [&](double a_low, double a_high, intrapolate &inter){
       double f_low = psi(a_low);
@@ -643,7 +650,8 @@ public:
         }
 
         double const dpsi_i = dpsi(ai);
-        if(abs(dpsi_i) <= - c2 * dpsi_zero)
+        double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
+        if(test_val <= - c2 * dpsi_zero)
           return true;
 
         if(dpsi_i * (a_high - a_low) >= 0.)
@@ -671,7 +679,8 @@ public:
       }
 
       double const dpsi_i = dpsi(ai);
-      if(abs(dpsi_i) <= -c2 * dpsi_zero){
+      double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
+      if(test_val <= - c2 * dpsi_zero){
         lp::copy(x0, x_mem, n_par);
         return true;
       }
@@ -707,12 +716,13 @@ public:
    @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
    @param trace integer with info level passed to reporter.
    @param cg_tol threshold for conjugate gradient method.
+   @param strong_wolfe true if the strong Wolfe condition should be used.
    */
   optim_info optim
     (double * val, double const rel_eps, size_t const max_it,
      double const c1, double const c2,
      bool const use_bfgs = true, int const trace = 0,
-     double const cg_tol = .1){
+     double const cg_tol = .1, bool const strong_wolfe = true){
     reset_counters();
     for(auto &f : funcs){
       f.reset();
@@ -741,7 +751,8 @@ public:
         *d *= -1;
 
       double const x1 = *val;
-      if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2)){
+      if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2,
+                      strong_wolfe)){
         info = -3L;
         Reporter::line_search
           (trace, i, n_eval, n_grad, fval_old, fval, false,

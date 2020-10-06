@@ -15,7 +15,8 @@ psqn(
   c2 = 0.9,
   use_bfgs = TRUE,
   trace = 0L,
-  cg_tol = 0.1
+  cg_tol = 0.1,
+  strong_wolfe = TRUE
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ derivatives.}
 optimization.}
 
 \item{cg_tol}{threshold for conjugate gradient method.}
+
+\item{strong_wolfe}{\code{TRUE} if the strong Wolfe condition should be used.}
 }
 \description{
 Optimization for specially structured partially separable function.
