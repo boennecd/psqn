@@ -138,9 +138,11 @@ List optim_poly
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
 
+  int const info = static_cast<int>(res.info);
   return List::create(
-    _["par"] = par, _["value"] = res.value, _["info"] = res.info,
-      _["counts"] = counts, _["convergence"] = res.info == 0L);
+    _["par"] = par, _["value"] = res.value, _["info"] = info,
+      _["counts"] = counts,
+      _["convergence"] =  res.info == PSQN::info_code::converged);
 }
 
 // [[Rcpp::export]]

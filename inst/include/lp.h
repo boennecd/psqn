@@ -118,6 +118,31 @@ noexcept {
     *X++ += scal * *xj * *xj;
   }
 }
+
+/***
+ performs the update
+   H <- (I - cx.y^T).H.(I - cy.x^T) + cx.x^T
+      = H - cx.y^T.H - cH.y.x^T + c^2x.(y^T.H.y).x^T + cx.x^T
+ where X is a symmetric matrix contaning only the upper triangular.
+ */
+inline void bfgs_update
+  (double * __restrict__ X, double const * __restrict__ x,
+   double const * __restrict__ H_y, double const y_H_y,
+   double const scal, size_t const n)
+  noexcept {
+  double const * xj = x,
+             * H_yj = H_y;
+  double const y_H_y_p_scal = scal * (scal * y_H_y + 1);
+  for(size_t j = 0; j < n; ++j, ++xj, ++H_yj){
+    double const * xi = x,
+               * H_yi = H_y;
+    for(size_t i = 0; i < j; ++i, ++xi, ++H_yi, ++X){
+      *X += y_H_y_p_scal * *xj * *xi;
+      *X -= scal * (*H_yj * *xi + *H_yi * *xj);
+    }
+    *X++ += y_H_y_p_scal * *xj * *xj - 2 *  scal * (*H_yj * *xj);
+  }
+}
 } // namespace lp
 
 #endif

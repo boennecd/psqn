@@ -16,7 +16,8 @@ psqn(
   use_bfgs = TRUE,
   trace = 0L,
   cg_tol = 0.5,
-  strong_wolfe = TRUE
+  strong_wolfe = TRUE,
+  env = NULL
 )
 }
 \arguments{
@@ -43,6 +44,9 @@ optimization.}
 \item{cg_tol}{threshold for conjugate gradient method.}
 
 \item{strong_wolfe}{\code{TRUE} if the strong Wolfe condition should be used.}
+
+\item{env}{enviroment to evaluate fn in. \code{NULL} yields the global
+enviroment.}
 }
 \description{
 Optimization for specially structured partially separable function.

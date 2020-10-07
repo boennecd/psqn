@@ -9,6 +9,8 @@
 #include "constant.h"
 #include <cmath>
 #include "intrapolate.h"
+#include "psqn-misc.h"
+#include "psqn-bfgs.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -51,55 +53,6 @@ public:
   virtual bool thread_safe() const = 0;
 
   virtual ~element_function() = default;
-};
-
-struct dummy_reporter {
-  /**
-   reporting after conjugate gradient method.
-
-   @param trace info level passed by the user.
-   @param iteration itteration number starting at zero.
-   @param n_cg number of conjugate gradient iterations.
-   @param successful true of conjugate gradient method succeeded.
-   */
-  static void cg(int const trace, size_t const iteration,
-                 size_t const n_cg, bool const successful) { }
-
-  /**
-   reporting during line search.
-
-   @param trace info level passed by the user.
-   @param a_old lower value in zoom or previous value if not zoom.
-   @param a_new new value to test.
-   @param f_new function value at a_new.
-   @param is_zoom true if the call is from the zoom function.
-   @param d_new derivative at a_new.
-   @param a_high upper value in zoom.
-   */
-  static void line_search_inner
-  (int const trace, double const a_old, double const a_new,
-   double const f_new, bool const is_zoom, double const d_new,
-   double const a_high) { }
-
-  /**
-   reporting after line search.
-
-   @param trace info level passed by the user.
-   @param iteration itteration number starting at zero.
-   @param n_eval number of function evaluations.
-   @param n_grad number of gradient evaluations.
-   @param fval_old old function value.
-   @param fval new function value.
-   @param successful true of conjugate gradient method succeeded.
-   @param step_size found step size.
-   @param new_x new parameter value.
-   @param n_global number of global parameters.
-   */
-  static void line_search
-  (int const trace, size_t const iteration, size_t const n_eval,
-   size_t const n_grad, double const fval_old,
-   double const fval, bool const successful, double const step_size,
-   double const *new_x, size_t const n_global) { }
 };
 
 /***
@@ -628,6 +581,7 @@ public:
    @param fnew the function value at the found solution.
    @param c1,c2 tresholds for Wolfe condition.
    @param strong_wolfe true if the strong Wolfe condition should be used.
+   @param trace controls the amount of tracing information.
 
    x0 and gr0 contains the new value and gradient on return. The method
    returns false if the line search fails.
@@ -665,8 +619,7 @@ public:
                          trace);
     }
 
-    constexpr double const NaNv  = std::numeric_limits<double>::quiet_NaN();
-
+    constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom = [&](double a_low, double a_high, intrapolate &inter){
       double f_low = psi(a_low);
       for(size_t i = 0; i < 25L; ++i){
@@ -754,13 +707,6 @@ public:
     return false;
   }
 
-  struct optim_info {
-    double value;
-    int info;
-    size_t n_eval, n_grad, n_cg;
-  };
-
-
   /***
    optimizes the partially separable function.
    @param val pointer to starting value. Set to the final estimate at the
@@ -790,13 +736,13 @@ public:
     // evaluate the gradient at the current value
     double fval = eval(val, gr.get(), true);
 
-    int info = -1L;
+    info_code info = info_code::max_it_reached;
     for(size_t i = 0; i < max_it; ++i){
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
                  cg_tol_use = std::min(cg_tol, gr_nom) * gr_nom;
       if(!conj_grad(gr.get(), dir.get(), cg_tol_use)){
-        info = -2L;
+        info = info_code::conjugate_gradient_failed;
         Reporter::cg(trace, i, n_cg, false);
         break;
       }
@@ -808,7 +754,7 @@ public:
       double const x1 = *val;
       if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2,
                       strong_wolfe, trace)){
-        info = -3L;
+        info = info_code::line_search_failed;
         Reporter::line_search
           (trace, i, n_eval, n_grad, fval_old, fval, false,
            std::numeric_limits<double>::quiet_NaN(),
@@ -824,11 +770,12 @@ public:
       bool const has_converged =
         abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
       if(has_converged){
-        info = 0L;
+        info = info_code::converged;
         break;
       }
 
       // update the Hessian and take another iteation
+      // TODO: do this in parallel?
       for(auto &f : funcs)
         f.update_Hes(temp_mem);
     }

@@ -20,9 +20,56 @@
 #' optimization.
 #' @param cg_tol threshold for conjugate gradient method.
 #' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
+#' @param env enviroment to evaluate fn in. \code{NULL} yields the global
+#' enviroment.
 #'
 #' @export
-psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE) {
-    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe)
+psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL) {
+    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env)
+}
+
+#' BFGS Implementation Used Internally in the psqn Package
+#'
+#' @inheritParams psqn
+#' @param fn Function to evaluate the function to be minimized.
+#' @param gr Gradient of \code{fn}. Should return the function value as an
+#' attribute called \code{"value"}.
+#' @export
+#'
+#' @examples
+#' # declare function and gradient from the example from help(optim)
+#' fn <- function(x) {
+#'   x1 <- x[1]
+#'   x2 <- x[2]
+#'   100 * (x2 - x1 * x1)^2 + (1 - x1)^2
+#' }
+#' gr <- function(x) {
+#'   x1 <- x[1]
+#'   x2 <- x[2]
+#'   c(-400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1),
+#'      200 *      (x2 - x1 * x1))
+#' }
+#' 
+#' # we need a different function for the method in this package
+#' gr_psqn <- function(x) {
+#'   x1 <- x[1]
+#'   x2 <- x[2]
+#'   out <- c(-400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1),
+#'             200 *      (x2 - x1 * x1))
+#'   attr(out, "value") <- 100 * (x2 - x1 * x1)^2 + (1 - x1)^2
+#'   out
+#' }
+#' 
+#' # we get the same
+#' optim    (c(-1.2, 1), fn, gr, method = "BFGS")
+#' psqn_bfgs(c(-1.2, 1), fn, gr_psqn)
+#' 
+#' # compare the computation time
+#' system.time(replicate(1000,
+#'                       optim    (c(-1.2, 1), fn, gr, method = "BFGS")))
+#' system.time(replicate(1000,
+#'                       psqn_bfgs(c(-1.2, 1), fn, gr_psqn)))
+psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .0001, c2 = .9, trace = 0L, env = NULL) {
+    .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env)
 }
 
