@@ -512,7 +512,10 @@ if(FALSE){
 The partially separable function can be minimized like this:
 
 ```{r min_with_R, cache = 1}
-start_val <- true_params
+start_val <- true_params 
+start_val[  1:p ] <- 
+  start_val[  1:p ] + 
+  c(0.49, -0.63, -0.4, -0.33, -0.38) # ~rnorm(length(beta), sd = .5)
 start_val[-(1:p)] <- 0
 
 library(psqn)
@@ -723,12 +726,12 @@ bench::mark(
                                               use_bfgs = FALSE),
   `     psqn(2 threads, SR1)` = psqn_func    (start_val, n_threads = 2L, 
                                               use_bfgs = FALSE),
-  `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
-  `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
   `psqn  (1 thread, opt pri.)` = psqn_func   (start_val, n_threads = 1L, 
                                               opt_private = TRUE),
   `psqn (2 threads, opt pri.)` = psqn_func   (start_val, n_threads = 2L, 
                                               opt_private = TRUE),
+  `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
+  `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
   check = FALSE, min_time = 1)
 ```
 
