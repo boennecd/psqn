@@ -131,7 +131,7 @@ optim_info bfgs(
     // declare 1D functions
     auto psi = [&](double const alpha){
       for(size_t i = 0; i < n_ele; ++i)
-        *(x_mem + i) = *(x0 + i) + alpha * *(dir + i);
+        x_mem[i] = x0[i] + alpha * dir[i];
       ++n_eval;
       return prob.func(x_mem);
     };
@@ -139,7 +139,7 @@ optim_info bfgs(
     // returns the function value and the gradient
     auto dpsi = [&](double const alpha){
       for(size_t i = 0; i < n_ele; ++i)
-        *(x_mem + i) = *(x0 + i) + alpha * *(dir + i);
+        x_mem[i] = x0[i] + alpha * dir[i];
       ++n_grad;
       fnew = prob.grad(x_mem, gr0);
       return lp::vec_dot(gr0, dir, n_ele);

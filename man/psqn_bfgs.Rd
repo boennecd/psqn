@@ -35,8 +35,8 @@ attribute called \code{"value"}.}
 \item{trace}{Integer where larger values gives more information during the
 optimization.}
 
-\item{env}{enviroment to evaluate fn in. \code{NULL} yields the global
-enviroment.}
+\item{env}{Enviroment to evaluate \code{fn} and \code{gr} in.
+\code{NULL} yields the global enviroment.}
 }
 \description{
 BFGS Implementation Used Internally in the psqn Package

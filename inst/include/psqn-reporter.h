@@ -37,7 +37,7 @@ struct R_reporter {
       Rcpp::Rcout << "    step size is " << step_size
                   << " and new global parameters are\n      ";
       for(size_t i = 0; i < n_global; ++i)
-        Rcpp::Rcout << *(new_x + i) << " ";
+        Rcpp::Rcout << new_x[i] << " ";
 
       Rcpp::Rcout << "\n    " << n_eval
                   << " function evaluations and "

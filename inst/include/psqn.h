@@ -67,8 +67,6 @@ class optimizer {
   class worker {
     /// logical for whether it the first call
     bool first_call = true;
-    /// logical for whether this is the first gradient evaluation
-    bool first_grad = true;
 
   public:
     /// the element function for this worker
@@ -90,7 +88,7 @@ class optimizer {
     /// bool for whether to use BFGS or SR1 updates
     bool use_bfgs = true;
 
-  private:
+  public:
     /***
      save the current parameter values and gradient in order to do update
      the Hessian approximation.
@@ -100,13 +98,11 @@ class optimizer {
       lp::copy(gr_old, static_cast<double const*>(gr   ), n_ele);
     }
 
-  public:
     /***
      resets the Hessian approximation.
      */
     void reset() noexcept {
       first_call = true;
-      first_grad = true;
 
       std::fill(B, B + n_ele * n_ele, 0.);
       // set diagonal entries to one
@@ -143,11 +139,6 @@ class optimizer {
       double const out =  func.grad(
         static_cast<double const *>(x_new), gr);
 
-      if(!first_grad)
-        return out;
-
-      first_grad = false;
-      record();
       return out;
     }
 
@@ -163,66 +154,80 @@ class optimizer {
              * const __restrict__ wrk = y + n_ele;
 
       lp::vec_diff(x_new, x_old , s, n_ele);
-      lp::vec_diff(gr   , gr_old, y, n_ele);
 
-      if(use_bfgs){
-        double const s_y = lp::vec_dot(y, s, n_ele);
-        if(first_call){
-          first_call = false;
-          // make update on page 143
-          double const scal = lp::vec_dot(y, n_ele) / s_y;
-          double *b = B;
-          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
-            *b = scal;
+      bool all_unchanged(true);
+      for(size_t i = 0; i < n_ele; ++i)
+        if(abs(s[i]) > abs(x_new[i]) *
+           std::numeric_limits<double>::epsilon() * 100){
+          all_unchanged = false;
+          break;
         }
 
-        // perform BFGS update
-        std::fill(wrk, wrk + n_ele, 0.);
-        lp::mat_vec_dot(B, s, wrk, n_ele);
-        double const s_B_s = lp::vec_dot(s, wrk, n_ele);
+      if(!all_unchanged){
+        lp::vec_diff(gr, gr_old, y, n_ele);
 
-        lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
+        if(use_bfgs){
+          double const s_y = lp::vec_dot(y, s, n_ele);
+          if(first_call){
+            first_call = false;
+            // make update on page 143
+            double const scal = lp::vec_dot(y, n_ele) / s_y;
+            double *b = B;
+            for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+              *b = scal;
+          }
 
-        if(s_y < .2 * s_B_s){
-          // damped BFGS
-          double const theta = .8 * s_B_s / (s_B_s - s_y);
-          double *yi = y,
-                 *wi = wrk;
-          for(size_t i = 0; i < n_ele; ++i, ++yi, ++wi)
-            *yi = theta * *yi + (1 - theta) * *wi;
-          double const s_r = lp::vec_dot(y, s, n_ele);
-          lp::rank_one_update(B, y, 1. / s_r, n_ele);
+          // perform BFGS update
+          std::fill(wrk, wrk + n_ele, 0.);
+          lp::mat_vec_dot(B, s, wrk, n_ele);
+          double const s_B_s = lp::vec_dot(s, wrk, n_ele);
 
-        } else
-          // regular BFGS
-          lp::rank_one_update(B, y, 1. / s_y, n_ele);
+          lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
 
-      } else {
-        if(first_call){
-          first_call = false;
-          // make update on page 143
-          double const scal =
-            lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
-          double *b = B;
-          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
-            *b = scal;
+          if(s_y < .2 * s_B_s){
+            // damped BFGS
+            double const theta = .8 * s_B_s / (s_B_s - s_y);
+            double *yi = y,
+                   *wi = wrk;
+            for(size_t i = 0; i < n_ele; ++i, ++yi, ++wi)
+              *yi = theta * *yi + (1 - theta) * *wi;
+            double const s_r = lp::vec_dot(y, s, n_ele);
+            lp::rank_one_update(B, y, 1. / s_r, n_ele);
+
+          } else
+            // regular BFGS
+            lp::rank_one_update(B, y, 1. / s_y, n_ele);
+
+        } else {
+          if(first_call){
+            first_call = false;
+            // make update on page 143
+            double const scal =
+              lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
+            double *b = B;
+            for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+              *b = scal;
+          }
+
+          /// maybe perform SR1
+          std::fill(wrk, wrk + n_ele, 0.);
+          lp::mat_vec_dot(B, s, wrk, n_ele);
+          for(size_t i = 0; i < n_ele; ++i){
+            wrk[i] *= -1;
+            wrk[i] += y[i];
+          }
+          double const s_w = lp::vec_dot(s, wrk, n_ele),
+                    s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
+                  wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
+          constexpr double const r = 1e-8;
+          if(abs(s_w) > r * s_norm * wrk_norm)
+            lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
+
         }
-
-        /// maybe perform SR1
-        std::fill(wrk, wrk + n_ele, 0.);
-        lp::mat_vec_dot(B, s, wrk, n_ele);
-        for(size_t i = 0; i < n_ele; ++i){
-          *(wrk + i) *= -1;
-          *(wrk + i) += *(y + i);
-        }
-        double const s_w = lp::vec_dot(s, wrk, n_ele),
-                  s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
-                wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
-        constexpr double const r = 1e-8;
-        if(abs(s_w) > r * s_norm * wrk_norm)
-          lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
-
-      }
+      } else
+        // essentially no change in the input. Reset the Hessian
+        // approximation
+        reset();
 
       record();
     }
@@ -340,8 +345,7 @@ public:
     constexpr size_t const mult = cacheline_size() / sizeof(double),
                        min_size = 2L * mult;
 
-    size_t thread_mem = std::max(global_dim + max_priv, min_size);
-    thread_mem = std::max(thread_mem, 2L * global_dim);
+    size_t thread_mem = std::max(3 * (global_dim + max_priv), min_size);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
@@ -393,7 +397,7 @@ public:
         for(size_t i = 0; i < n_funcs; ++i){
           auto const &f = funcs[i];
           for(size_t j = 0; j < global_dim; ++j)
-            *(gr + j) += *(f.gr + j);
+            gr[j] += f.gr[j];
 
           size_t const iprivate = f.func.private_dim();
           lp::copy(gr + f.par_start, f.gr + global_dim, iprivate);
@@ -446,7 +450,7 @@ public:
         out += thread_terms;
         if(comp_grad)
           for(size_t i = 0; i < global_dim; ++i)
-            *(gr + i) += *(r_mem + i);
+            gr[i] += r_mem[i];
       }
     }
   }
@@ -507,7 +511,7 @@ public:
 #pragma omp ordered
       {
         for(size_t i = 0; i < global_dim; ++i)
-          *(res + i) += *(r_mem + i);
+          res[i] += r_mem[i];
       }
     }
     }
@@ -530,8 +534,8 @@ public:
     // setup before first iteration
     std::fill(y, y + n_par, 0.);
     for(size_t i = 0; i < n_par; ++i){
-      *(r + i) = -*(x + i);
-      *(p + i) =  *(x + i);
+      r[i] = -x[i];
+      p[i] =  x[i];
     }
 
     double old_r_dot = lp::vec_dot(r, n_par);
@@ -546,15 +550,15 @@ public:
         if(i < 1L)
           // set output to be the gradient
           for(size_t j = 0; j < n_par; ++j)
-            *(y + j) = *(x + j);
+            y[j] = x[j];
 
         break;
       }
       double const alpha = old_r_dot / p_B_p;
 
       for(size_t j = 0; j < n_par; ++j){
-        *(y + j) += alpha * *(p   + j);
-        *(r + j) += alpha * *(B_p + j);
+        y[j] += alpha *   p[j];
+        r[j] += alpha * B_p[j];
       }
 
       double const r_dot = lp::vec_dot(r, n_par);
@@ -564,8 +568,8 @@ public:
       double const beta = r_dot / old_r_dot;
       old_r_dot = r_dot;
       for(size_t j = 0; j < n_par; ++j){
-        *(p + j) *= beta;
-        *(p + j) -= *(r + j);
+        p[j] *= beta;
+        p[j] -= r[j];
       }
     }
 
@@ -595,7 +599,7 @@ public:
     // declare 1D functions
     auto psi = [&](double const alpha){
       for(size_t i = 0; i < n_par; ++i)
-        *(x_mem + i) = *(x0 + i) + alpha * *(dir + i);
+        x_mem[i] = x0[i] + alpha * dir[i];
 
       return eval(x_mem, nullptr, false);
     };
@@ -603,7 +607,7 @@ public:
     // returns the function value and the gradient
     auto dpsi = [&](double const alpha){
       for(size_t i = 0; i < n_par; ++i)
-        *(x_mem + i) = *(x0 + i) + alpha * *(dir + i);
+        x_mem[i] = x0[i] + alpha * dir[i];
 
       fnew = eval(x_mem, gr0, true);
       return lp::vec_dot(gr0, dir, n_par);
@@ -735,6 +739,8 @@ public:
 
     // evaluate the gradient at the current value
     double fval = eval(val, gr.get(), true);
+    for(auto &f : funcs)
+      f.record();
 
     info_code info = info_code::max_it_reached;
     for(size_t i = 0; i < max_it; ++i){
@@ -775,9 +781,17 @@ public:
       }
 
       // update the Hessian and take another iteation
-      // TODO: do this in parallel?
-      for(auto &f : funcs)
-        f.update_Hes(temp_mem);
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+#endif
+      {
+        double * const tmp_mem_use = get_thread_mem();
+#ifdef _OPENMP
+#pragma omp for schedule(static)
+#endif
+        for(size_t i = 0; i < funcs.size(); ++i)
+          funcs[i].update_Hes(tmp_mem_use);
+      }
     }
 
     return { fval, info, n_eval, n_grad, n_cg };
@@ -808,9 +822,9 @@ public:
         for(size_t j = 0; j < global_dim;
             ++j, h1 += n_par, h2 += n_par){
           for(size_t i = 0; i < global_dim; ++i)
-            *(h1 + i) += *(b + get_i(i             , j));
+            h1[i] += b[get_i(i             , j)];
           for(size_t i = 0; i < iprivate; ++i)
-            *(h2 + i) += *(b + get_i(i + global_dim, j));
+            h2[i] += b[get_i(i + global_dim, j)];
         }
       }
 
@@ -819,9 +833,9 @@ public:
       for(size_t j = 0; j < iprivate;
           ++j, h1 += n_par, h2 += n_par){
         for(size_t i = 0; i < global_dim; ++i)
-          *(h1 + i) += *(b + get_i(i             , j + global_dim));
+          h1[i] += b[get_i(i             , j + global_dim)];
         for(size_t i = 0; i < iprivate; ++i)
-          *(h2 + i) += *(b + get_i(i + global_dim, j + global_dim));
+          h2[i] += b[get_i(i + global_dim, j + global_dim)];
       }
 
       private_offset += iprivate;

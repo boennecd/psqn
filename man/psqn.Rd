@@ -41,12 +41,12 @@ derivatives.}
 \item{trace}{Integer where larger values gives more information during the
 optimization.}
 
-\item{cg_tol}{threshold for conjugate gradient method.}
+\item{cg_tol}{Threshold for conjugate gradient method.}
 
 \item{strong_wolfe}{\code{TRUE} if the strong Wolfe condition should be used.}
 
-\item{env}{enviroment to evaluate fn in. \code{NULL} yields the global
-enviroment.}
+\item{env}{Enviroment to evaluate \code{fn} in. \code{NULL} yields the
+global enviroment.}
 }
 \description{
 Optimization for specially structured partially separable function.

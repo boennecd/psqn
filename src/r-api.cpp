@@ -77,7 +77,7 @@ public:
       throw std::invalid_argument(
           "fn returns invalid lengths with zero length par");
 
-    return *(INTEGER(res) + 1L);
+    return INTEGER(res)[1L];
   })())
   { };
 
@@ -153,10 +153,10 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @param use_bfgs Logical for whether to use BFGS updates or SR1 updates.
 //' @param trace Integer where larger values gives more information during the
 //' optimization.
-//' @param cg_tol threshold for conjugate gradient method.
+//' @param cg_tol Threshold for conjugate gradient method.
 //' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
-//' @param env enviroment to evaluate fn in. \code{NULL} yields the global
-//' enviroment.
+//' @param env Enviroment to evaluate \code{fn} in. \code{NULL} yields the
+//' global enviroment.
 //'
 //' @export
 // [[Rcpp::export]]
@@ -245,6 +245,8 @@ public:
 //' @param fn Function to evaluate the function to be minimized.
 //' @param gr Gradient of \code{fn}. Should return the function value as an
 //' attribute called \code{"value"}.
+//' @param env Enviroment to evaluate \code{fn} and \code{gr} in.
+//' \code{NULL} yields the global enviroment.
 //' @export
 //'
 //' @examples
@@ -260,7 +262,7 @@ public:
 //'   c(-400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1),
 //'      200 *      (x2 - x1 * x1))
 //' }
-//' 
+//'
 //' # we need a different function for the method in this package
 //' gr_psqn <- function(x) {
 //'   x1 <- x[1]
@@ -270,11 +272,11 @@ public:
 //'   attr(out, "value") <- 100 * (x2 - x1 * x1)^2 + (1 - x1)^2
 //'   out
 //' }
-//' 
+//'
 //' # we get the same
 //' optim    (c(-1.2, 1), fn, gr, method = "BFGS")
 //' psqn_bfgs(c(-1.2, 1), fn, gr_psqn)
-//' 
+//'
 //' # compare the computation time
 //' system.time(replicate(1000,
 //'                       optim    (c(-1.2, 1), fn, gr, method = "BFGS")))

@@ -61,7 +61,7 @@ class sep_mem {
     * const d1_end,
     * const d2;
 public:
-  sep_mem(T * d1, T * d2, size_t const n1):
+  sep_mem(T * d1, T * d2, size_t const n1) noexcept:
   cur(n1 > 0 ? d1 : d2), d1_end(d1 + n1), d2(d2) { }
 
   inline sep_mem& operator++() noexcept {
@@ -88,10 +88,13 @@ inline void mat_vec_dot
  size_t const n1, size_t const n2) noexcept {
   sep_mem<double const> xj(x1, x2, n1);
   sep_mem<double>       rj(r1, r2, n1);
+  auto const xi_start = xj;
+  auto const ri_start = rj;
+
   size_t const n = n1 + n2;
   for(size_t j = 0; j < n; ++j, ++xj, ++rj){
-    sep_mem<double const> xi(x1, x2, n1);
-    sep_mem<double>       ri(r1, r2, n1);
+    sep_mem<double const> xi = xi_start;
+    sep_mem<double>       ri = ri_start;
 
     for(size_t i = 0L; i < j; ++i, ++X, ++ri, ++xi){
       *ri += *X * *xj;
@@ -112,10 +115,8 @@ noexcept {
   double const * xj = x;
   for(size_t j = 0; j < n; ++j, ++xj){
     double const * xi = x;
-    for(size_t i = 0; i < j; ++i, ++xi, ++X){
+    for(size_t i = 0; i <= j; ++i, ++xi, ++X)
       *X += scal * *xj * *xi;
-    }
-    *X++ += scal * *xj * *xj;
   }
 }
 
@@ -136,11 +137,10 @@ inline void bfgs_update
   for(size_t j = 0; j < n; ++j, ++xj, ++H_yj){
     double const * xi = x,
                * H_yi = H_y;
-    for(size_t i = 0; i < j; ++i, ++xi, ++H_yi, ++X){
+    for(size_t i = 0; i <= j; ++i, ++xi, ++H_yi, ++X){
       *X += y_H_y_p_scal * *xj * *xi;
       *X -= scal * (*H_yj * *xi + *H_yi * *xj);
     }
-    *X++ += y_H_y_p_scal * *xj * *xj - 2 *  scal * (*H_yj * *xj);
   }
 }
 } // namespace lp
