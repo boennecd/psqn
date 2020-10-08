@@ -73,6 +73,16 @@ test_that("mixed logit model gives the same", {
     c1 = 1e-4, c2 = .9, n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
+  # check the function to optimize the private parameters
+  start_priv <- opt$par
+  start_priv[-seq_along(beta)] <- 0
+  out <- optim_mlogit_private(
+    val = start_priv, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    c1 = 1e-4, c2 = .9, n_threads = 2L)
+  expect_equal(opt$par, out, tolerance = tol, check.attributes = FALSE)
+  expect_true(all(opt$par[seq_along(beta)] == out[seq_along(beta)]))
+  expect_equal(opt$value, attr(out, "value"), tolerance = rel_eps)
+
   opt <- optim_mlogit(
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
     c1 = 1e-4, c2 = .9, use_bfgs = FALSE,

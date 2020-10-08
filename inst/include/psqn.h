@@ -88,7 +88,6 @@ class optimizer {
     /// bool for whether to use BFGS or SR1 updates
     bool use_bfgs = true;
 
-  public:
     /***
      save the current parameter values and gradient in order to do update
      the Hessian approximation.
@@ -230,6 +229,33 @@ class optimizer {
         reset();
 
       record();
+    }
+  };
+
+  /**
+   class to optimize one set of private parameters given the global
+   parameters. */
+  class sub_problem final : public problem {
+    worker &w;
+    double const * g_val;
+    size_t const p_dim = w.func.private_dim(),
+                 g_dim = w.func.global_dim();
+
+  public:
+    sub_problem(worker &w, double const *g_val): w(w), g_val(g_val) { }
+
+    size_t size() const {
+      return p_dim;
+    }
+    double func(double const *val){
+      return w(g_val, val, false);
+    }
+    double grad(double * __restrict__ const val,
+                double * __restrict__       gr){
+      double const out = w(g_val, val, true);
+      for(size_t i = 0; i < p_dim; ++i)
+        gr[i] = w.gr[i + g_dim];
+      return out;
     }
   };
 
@@ -840,6 +866,33 @@ public:
 
       private_offset += iprivate;
     }
+  }
+
+  /***
+   optimizes the private parameters given the global parameters.
+   @param val pointer to starting value. Set to the final estimate at the
+   end.
+   @param rel_eps relative convergence threshold.
+   @param max_it maximum number of iterations.
+   @param c1,c2 tresholds for Wolfe condition.
+   */
+  double optim_priv
+  (double * val, double const rel_eps, size_t const max_it,
+   double const c1, double const c2){
+    double out(0.);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) num_threads(n_threads) reduction(+:out) if(is_ele_func_thread_safe)
+#endif
+    for(size_t i = 0; i < funcs.size(); ++i){
+      auto &f = funcs[i];
+      sub_problem prob(f, val);
+      double * const p_val = val + f.par_start;
+
+      auto const opt_out = bfgs(prob, p_val, rel_eps, max_it, c1, c2, 0L);
+      out += opt_out.value;
+    }
+
+    return out;
   }
 };
 } // namespace PSQN

@@ -156,7 +156,7 @@ List optim_mlogit
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
-    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+    throw std::invalid_argument("optim_mlogit: invalid parameter size");
 
   NumericVector par = clone(val);
   optim->set_n_threads(n_threads);
@@ -171,6 +171,33 @@ List optim_mlogit
     _["par"] = par, _["value"] = res.value, _["info"] = info,
     _["counts"] = counts,
     _["convergence"] =  res.info == PSQN::info_code::converged );
+}
+
+/***
+ performs the optimization but only for the private parameters.
+ @param val vector with starting value for the global and private
+ parameters.
+ @param ptr returned object from get_mlogit_optimizer.
+ @param rel_eps relative convergence threshold.
+ @param max_it maximum number iterations.
+ @param n_threads number of threads to use.
+ @param c1,c2 tresholds for Wolfe condition.
+ */
+// [[Rcpp::export]]
+NumericVector optim_mlogit_private
+  (NumericVector val, SEXP ptr, double const rel_eps, unsigned const max_it,
+   unsigned const n_threads, double const c1, double const c2){
+  XPtr<mlogit_topim> optim(ptr);
+
+  // check that we pass a parameter value of the right length
+  if(optim->n_par != static_cast<size_t>(val.size()))
+    throw std::invalid_argument("optim_mlogit_private: invalid parameter size");
+
+  NumericVector par = clone(val);
+  optim->set_n_threads(n_threads);
+  double const res = optim->optim_priv(&par[0], rel_eps, max_it, c1, c2);
+  par.attr("value") = res;
+  return par;
 }
 
 /***
@@ -206,7 +233,7 @@ NumericVector grad_mlogit(NumericVector val, SEXP ptr,
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
-    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+    throw std::invalid_argument("grad_mlogit: invalid parameter size");
 
   NumericVector grad(val.size());
   optim->set_n_threads(n_threads);

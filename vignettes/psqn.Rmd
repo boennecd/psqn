@@ -589,16 +589,31 @@ We then use the quasi-Newton method like this:
 
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
 psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
-                      c2 = .9, trace = 0L, use_bfgs = TRUE)
-  optim_mlogit(val = par, ptr = optimizer, rel_eps = 1e-8, max_it = 1000L, 
-               n_threads = n_threads, c1 = c1, 
+                      c2 = .9, trace = 0L, use_bfgs = TRUE, 
+                      opt_private = FALSE){
+  rel_eps <- 1e-8
+  if(opt_private){
+    # it may be useful to fix the global parameters and optimize the 
+    # private parameters to get starting values. This is very fast as each 
+    # set of parameters can be optimized separately
+    par <- optim_mlogit_private(
+      val = par, ptr = optimizer, rel_eps = sqrt(rel_eps), max_it = 100, 
+      n_threads = n_threads, c1 = c1, c2 = c2)
+  }
+  optim_mlogit(val = par, ptr = optimizer, rel_eps = rel_eps, 
+               max_it = 1000L, n_threads = n_threads, c1 = c1, 
                c2 = c2, trace = trace, use_bfgs = use_bfgs)
+}
 
 psqn_res <- psqn_func(start_val)
 
 # using SR1 updates
 psqn_res_sr1 <- psqn_func(start_val, use_bfgs = FALSE)
 all.equal(psqn_res_sr1$value, psqn_res$value)
+
+# w/ different starting values
+psqn_res_diff_start <- psqn_func(start_val, opt_private = TRUE)
+all.equal(psqn_res$value, psqn_res_diff_start$value)
 ```
 
 The `counts` element contains the number number of function evaluations, 
@@ -697,19 +712,23 @@ computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(
-  `optim BFGS (2 threads)`  = optim_func  (start_val, n_threads = 2L),
-  `      lbfgs (1 thread)` = lbfgs_func   (start_val, n_threads = 1L),
-  `      lbfgs(2 threads)` = lbfgs_func   (start_val, n_threads = 2L),
-  `   lbfgsb3c (1 thread)` = lbfgsb3c_func(start_val, n_threads = 1L),
-  `   lbfgsb3c(2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
-  `    psqn (R; 1 thread)` = r_psqn_func  (start_val, n_threads = 1L),
-  `    psqn(R; 2 threads)` = r_psqn_func  (start_val, n_threads = 2L),
-  `  psqn (1 thread, SR1)` = psqn_func    (start_val, n_threads = 1L, 
-                                           use_bfgs = FALSE),
-  `  psqn(2 threads, SR1)` = psqn_func    (start_val, n_threads = 2L, 
-                                           use_bfgs = FALSE),
-  `       psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
-  `       psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
+  `   optim BFGS (2 threads)`  = optim_func  (start_val, n_threads = 2L),
+  `         lbfgs (1 thread)` = lbfgs_func   (start_val, n_threads = 1L),
+  `         lbfgs(2 threads)` = lbfgs_func   (start_val, n_threads = 2L),
+  `      lbfgsb3c (1 thread)` = lbfgsb3c_func(start_val, n_threads = 1L),
+  `      lbfgsb3c(2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
+  `       psqn (R; 1 thread)` = r_psqn_func  (start_val, n_threads = 1L),
+  `       psqn(R; 2 threads)` = r_psqn_func  (start_val, n_threads = 2L),
+  `     psqn (1 thread, SR1)` = psqn_func    (start_val, n_threads = 1L, 
+                                              use_bfgs = FALSE),
+  `     psqn(2 threads, SR1)` = psqn_func    (start_val, n_threads = 2L, 
+                                              use_bfgs = FALSE),
+  `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
+  `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
+  `psqn  (1 thread, opt pri.)` = psqn_func   (start_val, n_threads = 1L, 
+                                              opt_private = TRUE),
+  `psqn (2 threads, opt pri.)` = psqn_func   (start_val, n_threads = 2L, 
+                                              opt_private = TRUE),
   check = FALSE, min_time = 1)
 ```
 
