@@ -35,7 +35,8 @@ public:
  @param strong_wolfe true if the strong Wolfe condition should be used.
  @param trace controls the amount of tracing information.
  */
-template<class Reporter = dummy_reporter>
+template<class Reporter = dummy_reporter,
+         class interrupter = dummy_interrupter>
 optim_info bfgs(
     problem &prob, double *val, double const rel_eps = .00000001,
     size_t const max_it = 100, double const c1 = .0001,
@@ -260,6 +261,9 @@ optim_info bfgs(
   // main loop
   int n_line_search_fail = 0;
   for(size_t i = 0; i < max_it; ++i){
+    if(i % 10 == 0)
+      interrupter::check_interrupt();
+
     double const fval_old = fval;
     std::fill(dir, dir + n_ele, 0.);
     lp::mat_vec_dot(H, gr, dir, n_ele);

@@ -68,6 +68,13 @@ struct R_reporter {
                   << " d new: " << d_new << '\n';
   }
 };
+
+class R_interrupter {
+public:
+  static void check_interrupt() {
+    Rcpp::checkUserInterrupt();
+  }
+};
 } // namespace PSQN
 
 #endif

@@ -58,7 +58,8 @@ public:
 /***
  the reporter class can be used to report results during the optimization.
  */
-template<class EFunc, class Reporter = dummy_reporter>
+template<class EFunc, class Reporter = dummy_reporter,
+         class interrupter = dummy_interrupter>
 class optimizer {
   /***
    worker class to hold an element function and the element function''s
@@ -789,6 +790,9 @@ public:
     info_code info = info_code::max_it_reached;
     int n_line_search_fail = 0;
     for(size_t i = 0; i < max_it; ++i){
+      if(i % 10 == 0)
+        interrupter::check_interrupt();
+
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
                  cg_tol_use = std::min(cg_tol, gr_nom) * gr_nom;

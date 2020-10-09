@@ -183,7 +183,8 @@ List psqn
   for(size_t i = 0; i < n_ele_func; ++i)
     funcs.emplace_back(fn, i, env);
 
-  PSQN::optimizer<r_worker, PSQN::R_reporter> optim(funcs, n_threads);
+  PSQN::optimizer<r_worker, PSQN::R_reporter,
+                  PSQN::R_interrupter> optim(funcs, n_threads);
 
   // check that we pass a parameter value of the right length
   if(optim.n_par != static_cast<size_t>(par.size()))
@@ -300,7 +301,7 @@ List psqn_bfgs
   r_worker_bfgs problem(fn, gr, par.size(), env);
 
   NumericVector par_res = clone(par);
-  auto const out = PSQN::bfgs<PSQN::R_reporter>
+  auto const out = PSQN::bfgs<PSQN::R_reporter, PSQN::R_interrupter>
     (problem, &par_res[0], rel_eps, max_it, c1, c2, trace);
 
   return wrap_optim_info(par_res, out);

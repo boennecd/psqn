@@ -108,7 +108,8 @@ public:
   }
 };
 
-using mlogit_topim = PSQN::optimizer<m_logit_func, PSQN::R_reporter>;
+using mlogit_topim = PSQN::optimizer<m_logit_func, PSQN::R_reporter,
+                                     PSQN::R_interrupter>;
 
 /***
  creates a pointer to an object which is needed in the optim_mlogit

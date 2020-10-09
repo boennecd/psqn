@@ -97,7 +97,8 @@ public:
   }
 };
 
-using poly_optim = PSQN::optimizer<poly_func, PSQN::R_reporter>;
+using poly_optim = PSQN::optimizer<poly_func, PSQN::R_reporter,
+                                   PSQN::R_interrupter>;
 
 // [[Rcpp::export]]
 SEXP get_poly_optimizer(List data, arma::vec const &mu_global,

@@ -63,6 +63,15 @@ struct dummy_reporter {
    double const fval, bool const successful, double const step_size,
    double const *new_x, size_t const n_global) { }
 };
+
+class dummy_interrupter {
+public:
+   /**
+    use during the algorithm to interup the computation. Should be
+    thread-safe. */
+   static void check_interrupt() { }
+};
+
 } // namespace PSQN
 
 #endif
