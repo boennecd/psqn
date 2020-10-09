@@ -649,10 +649,11 @@ public:
                          trace);
     }
 
+    constexpr size_t const max_it = 20L;
     constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom = [&](double a_low, double a_high, intrapolate &inter){
       double f_low = psi(a_low);
-      for(size_t i = 0; i < 25L; ++i){
+      for(size_t i = 0; i < max_it; ++i){
         double const ai = inter.get_value(a_low, a_high),
                      fi = psi(ai);
         inter.update(ai, fi);
@@ -684,16 +685,27 @@ public:
     double fold(f0),
          a_prev(0),
              ai(.5);
-    bool found_ok_prev = false;
-    for(size_t i = 0; i < 25L; ++i){
-      ai *= 2;
-      double const fi = psi(ai);
+    bool found_ok_prev = false,
+         failed_once   = false;
+    double mult = 2;
+    for(size_t i = 0; i < max_it; ++i){
+      ai *= mult;
+      double fi = psi(ai);
       Reporter::line_search_inner(trace, a_prev, ai, fi, false,
                                   NaNv, NaNv);
       if(!std::isfinite(fi)){
         // handle inf/nan case
-        ai /= 4;
-        continue;
+        failed_once = true;
+        mult = .5;
+
+        if(!found_ok_prev)
+          // no valid previous value yet to use
+          continue;
+        else {
+          // the previous value was ok. Use that one
+          fi = fold;
+          ai = a_prev;
+        }
       }
 
       if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
@@ -711,6 +723,12 @@ public:
       if(test_val <= - c2 * dpsi_zero){
         lp::copy(x0, x_mem, n_par);
         return true;
+      }
+
+      if(failed_once and fi < f0){
+        // effectively just line search
+        lp::copy(x0, x_mem, n_par);
+        return false;
       }
 
       if(dpsi_i >= 0){
@@ -769,6 +787,7 @@ public:
       f.record();
 
     info_code info = info_code::max_it_reached;
+    int n_line_search_fail = 0;
     for(size_t i = 0; i < max_it; ++i){
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
@@ -777,9 +796,9 @@ public:
         info = info_code::conjugate_gradient_failed;
         Reporter::cg(trace, i, n_cg, false);
         break;
-      }
+      } else
+        Reporter::cg(trace, i, n_cg, true);
 
-      Reporter::cg(trace, i, n_cg, true);
       for(double * d = dir.get(); d != dir.get() + n_par; ++d)
         *d *= -1;
 
@@ -791,13 +810,16 @@ public:
           (trace, i, n_eval, n_grad, fval_old, fval, false,
            std::numeric_limits<double>::quiet_NaN(),
            const_cast<double const *>(val), global_dim);
-        break;
-      }
+        if(++n_line_search_fail > 2)
+          break;
+      } else{
+        n_line_search_fail = 0;
+        Reporter::line_search
+          (trace, i, n_eval, n_grad, fval_old, fval, true,
+           (*val - x1) / *dir.get(), const_cast<double const *>(val),
+           global_dim);
 
-      Reporter::line_search
-        (trace, i, n_eval, n_grad, fval_old, fval, true,
-         (*val - x1) / *dir.get(), const_cast<double const *>(val),
-         global_dim);
+      }
 
       bool const has_converged =
         abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
@@ -807,17 +829,23 @@ public:
       }
 
       // update the Hessian and take another iteation
+      if(n_line_search_fail < 1){
 #ifdef _OPENMP
 #pragma omp parallel num_threads(n_threads)
 #endif
-      {
-        double * const tmp_mem_use = get_thread_mem();
+        {
+          double * const tmp_mem_use = get_thread_mem();
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-        for(size_t i = 0; i < funcs.size(); ++i)
-          funcs[i].update_Hes(tmp_mem_use);
-      }
+          for(size_t i = 0; i < funcs.size(); ++i)
+            funcs[i].update_Hes(tmp_mem_use);
+        }
+      } else
+        for(size_t i = 0; i < funcs.size(); ++i){
+          funcs[i].reset();
+          funcs[i].record();
+        }
     }
 
     return { fval, info, n_eval, n_grad, n_cg };

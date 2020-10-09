@@ -188,17 +188,28 @@ optim_info bfgs(
     double fold(f0),
          a_prev(0),
              ai(.5);
-    bool found_ok_prev = false;
+    bool found_ok_prev = false,
+           failed_once = false;
+    double mult = 2;
     for(size_t i = 0; i < 25L; ++i){
-      ai *= 2;
-      double const fi = psi(ai);
+      ai *= mult;
+      double fi = psi(ai);
       Reporter::line_search_inner(trace, a_prev, ai, fi, false,
                                   NaNv, NaNv);
 
       if(!std::isfinite(fi)){
         // handle inf/nan case
-        ai /= 4;
-        continue;
+        failed_once = true;
+        mult = .5;
+
+        if(!found_ok_prev)
+          // no valid previous value yet to use
+          continue;
+        else {
+          // the previous value was ok. Use that one
+          fi = fold;
+          ai = a_prev;
+        }
       }
 
       if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
@@ -215,6 +226,11 @@ optim_info bfgs(
       if(abs(dpsi_i) <= - c2 * dpsi_zero){
         lp::copy(x0, x_mem, n_ele);
         return true;
+      }
+
+      if(failed_once and fi < f0){
+        lp::copy(x0, x_mem, n_ele);
+        return false;
       }
 
       if(dpsi_i >= 0){
@@ -242,6 +258,7 @@ optim_info bfgs(
   };
 
   // main loop
+  int n_line_search_fail = 0;
   for(size_t i = 0; i < max_it; ++i){
     double const fval_old = fval;
     std::fill(dir, dir + n_ele, 0.);
@@ -258,13 +275,15 @@ optim_info bfgs(
          std::numeric_limits<double>::quiet_NaN(),
          const_cast<double const *>(val),
          std::min(n_print, n_ele));
-      break;
+      if(++n_line_search_fail > 2)
+        break;
+    } else {
+      n_line_search_fail = 0;
+      Reporter::line_search
+        (trace, i, n_eval, n_grad, fval_old, fval, true,
+         (*val - x1) / *dir, const_cast<double const *>(val),
+         std::min(n_print, n_ele));
     }
-
-    Reporter::line_search
-      (trace, i, n_eval, n_grad, fval_old, fval, true,
-       (*val - x1) / *dir, const_cast<double const *>(val),
-       std::min(n_print, n_ele));
 
     bool const has_converged =
       abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
@@ -273,7 +292,13 @@ optim_info bfgs(
       break;
     }
 
-    bfgs_update();
+    if(n_line_search_fail < 2)
+      bfgs_update();
+    else {
+      reset();
+      record();
+    }
+
   }
 
   return { fval, info, n_eval, n_grad, 0 };
