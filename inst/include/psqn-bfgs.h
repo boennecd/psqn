@@ -31,7 +31,7 @@ public:
  @param val starting value. Result on return.
  @param rel_eps relative convergence threshold.
  @param max_it maximum number of iterations.
- @param c1,c2 tresholds for Wolfe condition.
+ @param c1,c2 thresholds for Wolfe condition.
  @param strong_wolfe true if the strong Wolfe condition should be used.
  @param trace controls the amount of tracing information.
  */
@@ -148,12 +148,9 @@ optim_info bfgs(
 
     // the above at alpha = 0
     double dpsi_zero = lp::vec_dot(gr0, dir, n_ele);
-    if(dpsi_zero > 0){
-      // not a descent direction! Go the other way
-      for(double * d = dir; d != dir + n_ele; ++d)
-        *d *= -1;
-      dpsi_zero *= -1;
-    }
+    if(dpsi_zero > 0)
+      // not a descent direction
+      return false;
 
     constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom = [&](double a_low, double a_high, intrapolate &inter){

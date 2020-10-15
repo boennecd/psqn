@@ -140,7 +140,7 @@ SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
  @param rel_eps relative convergence threshold.
  @param max_it maximum number iterations.
  @param n_threads number of threads to use.
- @param c1,c2 tresholds for Wolfe condition.
+ @param c1,c2 thresholds for Wolfe condition.
  @param use_bfgs boolean for whether to use SR1 or BFGS updates.
  @param trace integer where larger values gives more information during the
  optimization.
@@ -182,7 +182,7 @@ List optim_mlogit
  @param rel_eps relative convergence threshold.
  @param max_it maximum number iterations.
  @param n_threads number of threads to use.
- @param c1,c2 tresholds for Wolfe condition.
+ @param c1,c2 thresholds for Wolfe condition.
  */
 // [[Rcpp::export]]
 NumericVector optim_mlogit_private

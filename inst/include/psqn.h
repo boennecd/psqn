@@ -610,7 +610,7 @@ public:
    @param gr0 value of the current gradient.
    @param dir direction to search in.
    @param fnew the function value at the found solution.
-   @param c1,c2 tresholds for Wolfe condition.
+   @param c1,c2 thresholds for Wolfe condition.
    @param strong_wolfe true if the strong Wolfe condition should be used.
    @param trace controls the amount of tracing information.
 
@@ -642,13 +642,9 @@ public:
 
     // the above at alpha = 0
     double const dpsi_zero = lp::vec_dot(gr0, dir, n_par);
-    if(dpsi_zero > 0){
-      // not a descent direction! Go the other way
-      for(double * d = dir; d != dir + n_par; ++d)
-        *d *= -1;
-      return line_search(f0, x0, gr0, dir, fnew, c1, c2, strong_wolfe,
-                         trace);
-    }
+    if(dpsi_zero > 0)
+      // not a descent direction
+      return false;
 
     constexpr size_t const max_it = 20L;
     constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
@@ -762,7 +758,7 @@ public:
    end.
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
-   @param c1,c2 tresholds for Wolfe condition.
+   @param c1,c2 thresholds for Wolfe condition.
    @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
    @param trace integer with info level passed to reporter.
    @param cg_tol threshold for conjugate gradient method.
@@ -791,7 +787,10 @@ public:
     int n_line_search_fail = 0;
     for(size_t i = 0; i < max_it; ++i){
       if(i % 10 == 0)
-        interrupter::check_interrupt();
+        if(interrupter::check_interrupt()){
+          info = info_code::user_interrupt;
+          break;
+        }
 
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
@@ -906,7 +905,7 @@ public:
    end.
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
-   @param c1,c2 tresholds for Wolfe condition.
+   @param c1,c2 thresholds for Wolfe condition.
    */
   double optim_priv
   (double * val, double const rel_eps, size_t const max_it,
@@ -927,6 +926,10 @@ public:
     return out;
   }
 };
+
+template<class EFunc>
+class optimizer<EFunc, dummy_reporter, dummy_interrupter>;
+
 } // namespace PSQN
 
 #endif

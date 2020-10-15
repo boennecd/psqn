@@ -28,18 +28,20 @@ attribute called \code{"value"}.}
 
 \item{max_it}{Maximum number of iterations.}
 
-\item{c1}{Tresholds for the Wolfe condition.}
+\item{c1}{Thresholds for the Wolfe condition.}
 
-\item{c2}{Tresholds for the Wolfe condition.}
+\item{c2}{Thresholds for the Wolfe condition.}
 
 \item{trace}{Integer where larger values gives more information during the
 optimization.}
 
-\item{env}{Enviroment to evaluate \code{fn} and \code{gr} in.
-\code{NULL} yields the global enviroment.}
+\item{env}{Environment to evaluate \code{fn} and \code{gr} in.
+\code{NULL} yields the global environment.}
 }
 \description{
-BFGS Implementation Used Internally in the psqn Package
+The method seems to differ from \code{\link{optim}} by the line search
+method. This version uses the interpolation method with a zoom phase
+using cubic interpolation as described by Nocedal and Wright (2006).
 }
 \examples{
 # declare function and gradient from the example from help(optim)
@@ -74,4 +76,8 @@ system.time(replicate(1000,
                       optim    (c(-1.2, 1), fn, gr, method = "BFGS")))
 system.time(replicate(1000,
                       psqn_bfgs(c(-1.2, 1), fn, gr_psqn)))
+}
+\references{
+Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+(2nd ed.). Springer.
 }

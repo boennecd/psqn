@@ -129,7 +129,7 @@ List optim_poly
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
-    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+    throw std::invalid_argument("optim_poly: invalid parameter size");
 
   NumericVector par = clone(val);
   optim->set_n_threads(n_threads);
@@ -152,7 +152,7 @@ double eval_poly(NumericVector val, SEXP ptr, unsigned const n_threads){
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
-    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+    throw std::invalid_argument("eval_poly: invalid parameter size");
 
   optim->set_n_threads(n_threads);
   return optim->eval(&val[0], nullptr, false);
@@ -165,7 +165,7 @@ NumericVector grad_poly(NumericVector val, SEXP ptr,
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<size_t>(val.size()))
-    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+    throw std::invalid_argument("grad_poly: invalid parameter size");
 
   NumericVector grad(val.size());
   optim->set_n_threads(n_threads);

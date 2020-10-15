@@ -51,8 +51,8 @@ for each element function, $f_i$. For implementation reason, we let:
 
 $$\begin{align*}   \overleftarrow q_i &=    \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\   \mathcal J_i &=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}$$
 
-such that the element functions' private parameters lies in a consecutive 
-part for $\vec x$. 
+such that the element functions' private parameters lies in consecutive 
+parts of $\vec x$. 
 
 ## Example
 We are going to consider a Taylor approximation for a generalized linear 
@@ -64,7 +64,8 @@ where $N^{(r)}(\vec\mu,\mat\Sigma)$ means a $r$-dimensional a multivariate
 normal distribution with mean $\vec\mu$ and covariance matrix $\mat\Sigma$
 and $\text{Bin}(p, k)$ means a binomial distribution probability $p$ and 
 size $k$. $\vec U_i$ is an unknown random effect with an unknown covariance 
-$\mat\Sigma$ and $\vec\beta\in\mathbb{R}^p$ is an unknown fixed effect vector. $\mat X_i$ 
+$\mat\Sigma$ and $\vec\beta\in\mathbb{R}^p$ are unknown fixed effect 
+coefficients. $\mat X_i$ 
 and $\mat Z_i$ are known design matrices each with $t_i$ rows for each of 
 the $t_i$ observed outcomes, the $y_{ij}$s.
 
@@ -73,7 +74,7 @@ $\vec x = (\vec\beta^\top, \widehat{\vec u}_1^\top, \dots, \widehat{\vec u}_n^\t
 of the log of the integrand given a covariance matrix estimate, 
 $\widehat{\mat \Sigma}$. That is, we are minimizing:
 
-$$\begin{align*}   f(\vec x) &= -\sum_{i = 1}^n \left(     \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))     - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= -\sum_{i = 1}^n \left(     \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)     - \sum_{k = 1}^{t_i}     \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))   - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)) \\   f_i((\vec\beta^\top, \vec u^\top)) &=    -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)     + \sum_{k = 1}^{t_i}   \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))   + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u   \end{align*}$$
+$$\begin{align*}   f(\vec x) &= -\sum_{i = 1}^n \left(     \sum_{k = 1}^{t_i}(y_{ij}\eta_{ij} - \log(1 + \exp\eta_{ij}))     - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= -\sum_{i = 1}^n \left(     \vec y_i(\mat X_i\vec\beta + \mat Z_i\widehat{\vec u}_i)     - \sum_{k = 1}^{t_i}     \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\widehat{\vec u}_i))   - \frac 12 \widehat{\vec u}_i^\top\widehat{\mat \Sigma}^{-1} \widehat{\vec u}_i     \right) \\   &= \sum_{i = 1}^nf_i((\vec\beta^\top, \widehat{\vec u}_i^\top)^\top) \\   f_i((\vec\beta^\top, \vec u^\top)^\top) &=    -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u)     + \sum_{k = 1}^{t_i}   \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u))   + \frac 12 \vec u^\top\widehat{\mat \Sigma}^{-1} \vec u   \end{align*}$$
 
 In this problem, $\vec\beta$ are the global parameters and the 
 $\widehat{\vec u}_i$'s are the private parameters. Thus, 
@@ -96,7 +97,7 @@ $$
 
 where $\vec\omega$ are unknown model parameters,
 $p_i(\vec u;\vec\omega)$ is the joint density of the observed data denoted 
-by $\vec y_i$, and $\vec u$ which is a 
+by $\vec y_i$, and $\vec U_i$ which is a 
 cluster specific random effect. $\exp \tilde f_i(\vec\omega)$ is often 
 intractable. An approximation of $\tilde f_i$ is to select some 
 variational distribution denoted by $v_i$ parameterized by some set 
@@ -130,7 +131,8 @@ $$
 \end{align*}
 $$
 
-where $p_i(\vec u_i \mid \vec y_i;\vec\omega)$ is the conditional density 
+where $\vec\theta_i\in\Theta_i$ and
+$p_i(\vec u_i \mid \vec y_i;\vec\omega)$ is the conditional density 
 of the random effect given the observed data, $\vec y_i$, and model parameters, 
 $\vec\omega$. $f_i(\vec\omega,\vec\theta_i)$ is a lower bound since the 
 Kullback–Leibler divergence
@@ -178,7 +180,7 @@ $$
   \int h(\vec u) v_i(\vec u; \widehat{\vec\theta}_i)\der\vec u.
 $$
 
-The latter integral may be much easier to work with for a given function 
+The latter integral may be much easier to work with for some functions 
 $h$ and variational distribution, $v_i$. 
 
 ## Quasi-Newton Method for Partially Separable Functions
@@ -359,11 +361,25 @@ then we will at most make $r$ conjugate gradient iterations. Lastly, if
 $\mat A$ has clusters of eigenvalues then we may expect to perform only 
 a number of iterations close to the number of distinct clusters.
 
+In practice, we terminate the conjugate gradient method when 
+$\lVert\vec r_k\rVert < \min (c, \lVert\nabla f(\vec x_{k -1})\rVert)\lVert\nabla f(\vec x_{k -1})\rVert$
+where $c$ is a constant the user can set.
+
 ## Line Search and Wolfe Condition
-TODO: write this section.
+We use line search and search for a point which satisfy
+[the strong Wolfe condition](https://en.wikipedia.org/wiki/Wolfe_conditions)
+by default. 
+The constants in the Wolfe condition can be set by the user. The line search 
+is implemented as described by @nocedal06 with cubic interpolation in the 
+zoom phase.
 
 ## Symmetric Rank-one Updates
-TODO: write this section.
+[Symmetric rank-one (SR1)](https://en.wikipedia.org/wiki/Symmetric_rank-one)
+is implemented as an alternative to the BFGS. The user can set whether  
+the SR1 updates should be used. The SR1 updates does not guarantee that the 
+Hessian approximation is positive definite. Thus, the conjugate gradient 
+method only proceeds if $\vec p_k^\top\mat A\vec p_k > 0$. That is, if the 
+new direction is a descent direction.
 
 ## Example Using the Implementation
 
@@ -371,13 +387,13 @@ We simulate a data set below from the mixed logit model we showed earlier.
 
 ```{r sim_dat}
 # assign model parameters, number of random effects, and fixed effects
-q <- 4
-p <- 5
+q <- 4 # number of private parameters per cluster
+p <- 5 # number of global parameters
 beta <- sqrt((1:p) / sum(1:p))
 Sigma <- diag(q)
 
-# simulate data set
-n_clusters <- 800L
+# simulate a data set
+n_clusters <- 800L # number of clusters
 set.seed(66608927)
 
 sim_dat <- replicate(n_clusters, {
@@ -454,30 +470,32 @@ separable function is given below:
 # 
 # Args:
 #   i cluster/element function index. 
-#   par the global and private parameter for this cluster. 
+#   par the global and private parameter for this cluster. It has length 
+#       zero if the number of parameters is requested.
 #   comp_grad logical for whether to compute the gradient. 
 r_func <- function(i, par, comp_grad){
   dat <- sim_dat[[i]]
   X <- dat$X
   Z <- dat$Z
-  y <- dat$y
-  Sigma_inv <- dat$Sigma_inv
   
   if(length(par) < 1)
     # requested the dimension of the parameter
     return(c(global_dim = NROW(dat$X), private_dim = NROW(dat$Z)))
+  
+  y <- dat$y
+  Sigma_inv <- dat$Sigma_inv
   
   beta <- par[1:p]
   uhat <- par[1:q + p]
   eta <- drop(beta %*% X + uhat %*% Z)
   exp_eta <- exp(eta)
   
-  out <- -drop(y %*% eta) + sum(log(1 + exp_eta)) + 
-    drop(uhat %*% Sigma_inv %*% uhat) / 2
+  out <- -sum(y * eta) + sum(log(1 + exp_eta)) + 
+    sum(uhat * (Sigma_inv %*% uhat)) / 2
   if(comp_grad){
     d_eta <- -y + exp_eta / (1 + exp_eta)
-    grad <- c(rowSums(X * rep(d_eta, each = p)), 
-              rowSums(Z * rep(d_eta, each = q)) + Sigma_inv %*% uhat)
+    grad <- c(X %*% d_eta, 
+              Z %*% d_eta + dat$Sigma_inv %*% uhat)
     attr(out, "grad") <- grad
   }
   
@@ -541,6 +559,13 @@ are needed to perform the optimization. The content of the file is:
 
 ```{cpp mlogit_cpp_code, code = readLines(system.file("mlogit-ex.cpp", package = "psqn"))}
 ```
+
+The `PSQN::R_reporter` class ensures that output will be printed when one 
+passes a `trace` argument which is greater than zero. The 
+`PSQN::R_interrupter` class ensures that the user can interrupt the 
+computation. These two classes can be replaced with custom classes  
+if one wants to and provide another implementation. See the source code 
+of this package for the required members.
 
 We can use the code by calling `Rcpp::sourceCpp` to compile the code: 
 
@@ -619,7 +644,7 @@ psqn_res_diff_start <- psqn_func(start_val, opt_private = TRUE)
 all.equal(psqn_res$value, psqn_res_diff_start$value)
 ```
 
-The `counts` element contains the number number of function evaluations, 
+The `counts` element contains the number of function evaluations, 
 gradient evaluations, and the total number of conjugate gradient 
 iterations:
 
@@ -634,7 +659,7 @@ all.equal(psqn_res$value, R_res$value)
 bfgs_res$counts
 ```
 
-We can compare the solution with `optim`:
+We can compare the solution with the solution from `optim`:
 
 ```{r comp_solution}
 all.equal(bfgs_res$par, psqn_res$par)
@@ -732,7 +757,7 @@ bench::mark(
                                               opt_private = TRUE),
   `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
   `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
-  check = FALSE, min_time = 1)
+  check = FALSE, min_time = 5)
 ```
 
 We see a large reduction. To be fair, we can use the C interface 
@@ -824,7 +849,7 @@ fn_two <- function(par, ...){
 }
 
 tmp <- rnorm(idx_start)
-all.equal(fn_one(tmp), fn_two(tmp))
+all.equal(fn_one(tmp), fn_two(tmp)) # we get the same w/ the two
 fn <- fn_two
 rm(fn_one, fn_two, tmp)
 
@@ -854,7 +879,7 @@ solution:
 library(Rcpp)
 sourceCpp(system.file("poly-ex.cpp", package = "psqn"))
 
-# get pointer to C++ object
+# get a pointer to C++ object
 optimizer <- get_poly_optimizer(cluster_dat, mu_global = mu_global, 
                                 max_threads = 2L)
 
@@ -938,11 +963,51 @@ Moreover, since the main part of the code is a header-only
 library, this package can easily be used within languages which can 
 easily call C++ code.
 
+### BFGS Method
+There is also a BFGS implementation in the package. This is both available 
+in R through the `psqn_bfgs` function and in C++ in the psqn-bfgs.h 
+header file. An example is provided below using the example from `optim`:
+
+```{r }
+# declare function and gradient from the example from help(optim)
+fn <- function(x) {
+  x1 <- x[1]
+  x2 <- x[2]
+  100 * (x2 - x1 * x1)^2 + (1 - x1)^2
+}
+gr <- function(x) {
+  x1 <- x[1]
+  x2 <- x[2]
+  c(-400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1),
+     200 *      (x2 - x1 * x1))
+}
+
+# we need a different function for the method in this package
+gr_psqn <- function(x) {
+  x1 <- x[1]
+  x2 <- x[2]
+  out <- c(-400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1),
+            200 *      (x2 - x1 * x1))
+  attr(out, "value") <- 100 * (x2 - x1 * x1)^2 + (1 - x1)^2
+  out
+}
+
+# we get the same
+optim    (c(-1.2, 1), fn, gr, method = "BFGS")$par
+psqn_bfgs(c(-1.2, 1), fn, gr_psqn)            $par
+
+# they run in about the same time
+bench::mark(
+  optim     = optim    (c(-1.2, 1), fn, gr, method = "BFGS"), 
+  psqn_bfgs = psqn_bfgs(c(-1.2, 1), fn, gr_psqn), 
+  check = FALSE, min_time = .5)
+```
+
 ### BFGS and Partially Separable Quasi-Newton
 
-Ratio for flops required in the matrix-vector product in BFGS relative to 
-the flops required in the matrix-vector product for the conjugate 
-gradient method for the quasi-Newton method:
+Below we show the ratio of flops required in the matrix-vector product in 
+a BFGS method relative to the flops required in the matrix-vector product 
+for the conjugate gradient method for the quasi-Newton method:
 
 ```{r compare_flops}
 vals <- expand.grid(n = 2^(8:13), p = 2^(2:4), q = 2^(2:8))

@@ -89,8 +89,9 @@ public:
   }
 
   double func(double const *point) const {
-    for(size_t j = 0; j < n_ele; ++j, ++point)
-      par[j] = *point;
+    double *p = &par[0];
+    for(size_t j = 0; j < n_ele; ++j, ++point, ++p)
+      *p = *point;
     scomp_grad[0] = false;
     SEXP res =  f(f_idx, par, scomp_grad);
 
@@ -139,8 +140,7 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' Partially Separable Function Optimization
 //'
 //' @description
-//' Optimization for specially structured partially separable function.
-//' See \code{vignette("psqn", package = "psqn")} for details.
+//' Optimization for specially structured partially separable functions.
 //'
 //' @param par Initial values for the parameters.
 //' @param fn Function to compute the element functions and their
@@ -149,14 +149,34 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @param rel_eps Relative convergence threshold.
 //' @param n_threads Number of threads to use.
 //' @param max_it Maximum number of iterations.
-//' @param c1,c2 Tresholds for the Wolfe condition.
+//' @param c1,c2 Thresholds for the Wolfe condition.
 //' @param use_bfgs Logical for whether to use BFGS updates or SR1 updates.
 //' @param trace Integer where larger values gives more information during the
 //' optimization.
-//' @param cg_tol Threshold for conjugate gradient method.
+//' @param cg_tol Threshold for the conjugate gradient method.
 //' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
-//' @param env Enviroment to evaluate \code{fn} in. \code{NULL} yields the
-//' global enviroment.
+//' @param env Environment to evaluate \code{fn} in. \code{NULL} yields the
+//' global environment.
+//'
+//' @details
+//' The function follows the method described by Nocedal and Wright (2006)
+//' and particularly Section 7.4. Details are provided in the psqn vignette.
+//' See \code{vignette("psqn", package = "psqn")}.
+//'
+//' The partially separable function we consider are special in that the
+//' function to minimized is a sum of functions which only depend on few
+//' shared parameters and some parameters which are particular to each
+//' function.
+//'
+//' The optimization function is also available in C++ as a header-only
+//' library. Using C++ may reduce the computation time substantially.
+//'
+//' @references
+//' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+//' (2nd ed.). Springer.
+//'
+//' @examples
+//' # TODO: write examples...
 //'
 //' @export
 // [[Rcpp::export]]
@@ -174,7 +194,7 @@ List psqn
   if(Rf_isNull(env))
     env = Environment::global_env();
   if(!Rf_isEnvironment(env))
-    throw std::invalid_argument("psqn: env is not an enviroment");
+    throw std::invalid_argument("psqn: env is not an environment");
   if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn: fn is not a function");
 
@@ -242,12 +262,21 @@ public:
 
 //' BFGS Implementation Used Internally in the psqn Package
 //'
+//' @description
+//' The method seems to differ from \code{\link{optim}} by the line search
+//' method. This version uses the interpolation method with a zoom phase
+//' using cubic interpolation as described by Nocedal and Wright (2006).
+//'
+//' @references
+//' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+//' (2nd ed.). Springer.
+//'
 //' @inheritParams psqn
 //' @param fn Function to evaluate the function to be minimized.
 //' @param gr Gradient of \code{fn}. Should return the function value as an
 //' attribute called \code{"value"}.
-//' @param env Enviroment to evaluate \code{fn} and \code{gr} in.
-//' \code{NULL} yields the global enviroment.
+//' @param env Environment to evaluate \code{fn} and \code{gr} in.
+//' \code{NULL} yields the global environment.
 //' @export
 //'
 //' @examples
@@ -292,7 +321,7 @@ List psqn_bfgs
   if(Rf_isNull(env))
     env = Environment::global_env();
   if(!Rf_isEnvironment(env))
-    throw std::invalid_argument("psqn_bfgs: env is not an enviroment");
+    throw std::invalid_argument("psqn_bfgs: env is not an environment");
   if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn_bfgs: fn is not a function");
   if(!Rf_isFunction(gr))

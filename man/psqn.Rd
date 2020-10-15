@@ -34,21 +34,41 @@ derivatives.}
 
 \item{n_threads}{Number of threads to use.}
 
-\item{c1, c2}{Tresholds for the Wolfe condition.}
+\item{c1, c2}{Thresholds for the Wolfe condition.}
 
 \item{use_bfgs}{Logical for whether to use BFGS updates or SR1 updates.}
 
 \item{trace}{Integer where larger values gives more information during the
 optimization.}
 
-\item{cg_tol}{Threshold for conjugate gradient method.}
+\item{cg_tol}{Threshold for the conjugate gradient method.}
 
 \item{strong_wolfe}{\code{TRUE} if the strong Wolfe condition should be used.}
 
-\item{env}{Enviroment to evaluate \code{fn} in. \code{NULL} yields the
-global enviroment.}
+\item{env}{Environment to evaluate \code{fn} in. \code{NULL} yields the
+global environment.}
 }
 \description{
-Optimization for specially structured partially separable function.
-See \code{vignette("psqn", package = "psqn")} for details.
+Optimization for specially structured partially separable functions.
+}
+\details{
+The function follows the method described by Nocedal and Wright (2006)
+and particularly Section 7.4. Details are provided in the psqn vignette.
+See \code{vignette("psqn", package = "psqn")}.
+
+The partially separable function we consider are special in that the
+function to minimized is a sum of functions which only depend on few
+shared parameters and some parameters which are particular to each
+function.
+
+The optimization function is also available in C++ as a header-only
+library. Using C++ may reduce the computation time substantially.
+}
+\examples{
+# TODO: write examples...
+
+}
+\references{
+Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+(2nd ed.). Springer.
 }

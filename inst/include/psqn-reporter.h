@@ -71,8 +71,15 @@ struct R_reporter {
 
 class R_interrupter {
 public:
-  static void check_interrupt() {
-    Rcpp::checkUserInterrupt();
+  static bool check_interrupt() {
+    try {
+      Rcpp::checkUserInterrupt();
+    }
+    catch(Rcpp::internal::InterruptedException e)
+    {
+      return true;
+    }
+    return false;
   }
 };
 } // namespace PSQN

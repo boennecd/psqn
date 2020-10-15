@@ -6,6 +6,7 @@ enum info_code : int {
   max_it_reached = -1L,
   conjugate_gradient_failed = -2,
   line_search_failed = -3,
+  user_interrupt = -4,
   converged = 0
 };
 
@@ -68,8 +69,10 @@ class dummy_interrupter {
 public:
    /**
     use during the algorithm to interup the computation. Should be
-    thread-safe. */
-   static void check_interrupt() { }
+    thread-safe and return true if the optimization should stop. */
+   static bool check_interrupt() {
+      return false;
+   }
 };
 
 } // namespace PSQN

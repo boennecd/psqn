@@ -4,8 +4,7 @@
 #' Partially Separable Function Optimization
 #'
 #' @description
-#' Optimization for specially structured partially separable function.
-#' See \code{vignette("psqn", package = "psqn")} for details.
+#' Optimization for specially structured partially separable functions.
 #'
 #' @param par Initial values for the parameters.
 #' @param fn Function to compute the element functions and their
@@ -14,14 +13,34 @@
 #' @param rel_eps Relative convergence threshold.
 #' @param n_threads Number of threads to use.
 #' @param max_it Maximum number of iterations.
-#' @param c1,c2 Tresholds for the Wolfe condition.
+#' @param c1,c2 Thresholds for the Wolfe condition.
 #' @param use_bfgs Logical for whether to use BFGS updates or SR1 updates.
 #' @param trace Integer where larger values gives more information during the
 #' optimization.
-#' @param cg_tol Threshold for conjugate gradient method.
+#' @param cg_tol Threshold for the conjugate gradient method.
 #' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
-#' @param env Enviroment to evaluate \code{fn} in. \code{NULL} yields the
-#' global enviroment.
+#' @param env Environment to evaluate \code{fn} in. \code{NULL} yields the
+#' global environment.
+#'
+#' @details
+#' The function follows the method described by Nocedal and Wright (2006)
+#' and particularly Section 7.4. Details are provided in the psqn vignette.
+#' See \code{vignette("psqn", package = "psqn")}.
+#'
+#' The partially separable function we consider are special in that the
+#' function to minimized is a sum of functions which only depend on few
+#' shared parameters and some parameters which are particular to each
+#' function.
+#'
+#' The optimization function is also available in C++ as a header-only
+#' library. Using C++ may reduce the computation time substantially.
+#'
+#' @references
+#' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+#' (2nd ed.). Springer.
+#'
+#' @examples
+#' # TODO: write examples...
 #'
 #' @export
 psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL) {
@@ -30,12 +49,21 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 
 #' BFGS Implementation Used Internally in the psqn Package
 #'
+#' @description
+#' The method seems to differ from \code{\link{optim}} by the line search
+#' method. This version uses the interpolation method with a zoom phase
+#' using cubic interpolation as described by Nocedal and Wright (2006).
+#'
+#' @references
+#' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+#' (2nd ed.). Springer.
+#'
 #' @inheritParams psqn
 #' @param fn Function to evaluate the function to be minimized.
 #' @param gr Gradient of \code{fn}. Should return the function value as an
 #' attribute called \code{"value"}.
-#' @param env Enviroment to evaluate \code{fn} and \code{gr} in.
-#' \code{NULL} yields the global enviroment.
+#' @param env Environment to evaluate \code{fn} and \code{gr} in.
+#' \code{NULL} yields the global environment.
 #' @export
 #'
 #' @examples
