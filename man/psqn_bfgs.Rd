@@ -38,8 +38,11 @@ optimization.}
 \item{env}{Environment to evaluate \code{fn} and \code{gr} in.
 \code{NULL} yields the global environment.}
 }
+\value{
+An object like the object returned by \code{\link{psqn}}.
+}
 \description{
-The method seems to differ from \code{\link{optim}} by the line search
+The method seems to mainly differ from \code{\link{optim}} by the line search
 method. This version uses the interpolation method with a zoom phase
 using cubic interpolation as described by Nocedal and Wright (2006).
 }

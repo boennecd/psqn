@@ -23,6 +23,7 @@ Imports:
     Rcpp
 Suggests: 
     knitr,
+    R.rsp,
     rmarkdown,
     RcppArmadillo,
     bench,
@@ -31,5 +32,5 @@ Suggests:
     lbfgsb3c, 
     lbfgs, 
     Matrix
-VignetteBuilder: knitr
+VignetteBuilder: R.rsp
 SystemRequirements: C++11

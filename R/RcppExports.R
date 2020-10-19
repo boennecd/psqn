@@ -4,11 +4,14 @@
 #' Partially Separable Function Optimization
 #'
 #' @description
-#' Optimization for specially structured partially separable functions.
+#' Optimization method for specially structured partially separable
+#' functions.
 #'
-#' @param par Initial values for the parameters.
+#' @param par Initial values for the parameters. It is a concatenated
+#' vector of the global parameters and all the private parameters.
 #' @param fn Function to compute the element functions and their
-#' derivatives.
+#' derivatives. Each call computes on element function. See the examples
+#' section.
 #' @param n_ele_func Number of element functions.
 #' @param rel_eps Relative convergence threshold.
 #' @param n_threads Number of threads to use.
@@ -24,24 +27,108 @@
 #'
 #' @details
 #' The function follows the method described by Nocedal and Wright (2006)
-#' and particularly Section 7.4. Details are provided in the psqn vignette.
-#' See \code{vignette("psqn", package = "psqn")}.
+#' and mainly what is described in Section 7.4. Details are provided
+#' in the psqn vignette. See \code{vignette("psqn", package = "psqn")}.
 #'
 #' The partially separable function we consider are special in that the
-#' function to minimized is a sum of functions which only depend on few
-#' shared parameters and some parameters which are particular to each
-#' function.
+#' function to be minimized is a sum of so-called element functions which
+#' only depend on few shared (global) parameters and some
+#' private parameters which are particular to each element function.
 #'
 #' The optimization function is also available in C++ as a header-only
-#' library. Using C++ may reduce the computation time substantially.
+#' library. Using C++ may reduce the computation time substantially. See
+#' the vignette in the package for examples.
+#'
+#' @return
+#' An object with the following elements:
+#' \item{par}{the estimated global and private parameters.}
+#' \item{value}{function value at \code{par}.}
+#' \item{info}{information code. 0 implies convergence.
+#' -1 implies that the maximum number iterations is reached.
+#' -2 implies that the conjugate gradient method failed.
+#' -3 implies that the line search failed.
+#' -4 implies that the user interrupted the optimization.}
+#' \item{counts}{An integer vector with the number of function evaluations,
+#' gradient evaluations, and the number of conjugate gradient iterations.}
+#' \item{convergence}{\code{TRUE} if \code{info == 0}.}
 #'
 #' @references
 #' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 #' (2nd ed.). Springer.
 #'
 #' @examples
-#' # TODO: write examples...
+#' # example with inner problem in a Taylor approximation for a mixed GLMM as
+#' # in the vignette
 #'
+#' # assign model parameters, number of random effects, and fixed effects
+#' q <- 2 # number of private parameters per cluster
+#' p <- 1 # number of global parameters
+#' beta <- sqrt((1:p) / sum(1:p))
+#' Sigma <- diag(q)
+#'
+#' # simulate a data set
+#' set.seed(66608927)
+#' n_clusters <- 20L # number of clusters
+#' sim_dat <- replicate(n_clusters, {
+#'   n_members <- sample.int(8L, 1L) + 2L
+#'   X <- matrix(runif(p * n_members, -sqrt(6 / 2), sqrt(6 / 2)),
+#'               p)
+#'   u <- drop(rnorm(q) %*% chol(Sigma))
+#'   Z <- matrix(runif(q * n_members, -sqrt(6 / 2 / q), sqrt(6 / 2 / q)),
+#'               q)
+#'   eta <- drop(beta %*% X + u %*% Z)
+#'   y <- as.numeric((1 + exp(-eta))^(-1) > runif(n_members))
+#'
+#'   list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
+#' }, simplify = FALSE)
+#'
+#' # evalutes the negative log integrand.
+#' #
+#' # Args:
+#' #   i cluster/element function index.
+#' #   par the global and private parameter for this cluster. It has length
+#' #       zero if the number of parameters is requested. That is, a 2D integer
+#' #       vector the number of global parameters as the first element and the
+#' #       number of private parameters as the second element.
+#' #   comp_grad logical for whether to compute the gradient.
+#' r_func <- function(i, par, comp_grad){
+#'   dat <- sim_dat[[i]]
+#'   X <- dat$X
+#'   Z <- dat$Z
+#'
+#'   if(length(par) < 1)
+#'     # requested the dimension of the parameter
+#'     return(c(global_dim = NROW(dat$X), private_dim = NROW(dat$Z)))
+#'
+#'   y <- dat$y
+#'   Sigma_inv <- dat$Sigma_inv
+#'
+#'   beta <- par[1:p]
+#'   uhat <- par[1:q + p]
+#'   eta <- drop(beta %*% X + uhat %*% Z)
+#'   exp_eta <- exp(eta)
+#'
+#'   out <- -sum(y * eta) + sum(log(1 + exp_eta)) +
+#'     sum(uhat * (Sigma_inv %*% uhat)) / 2
+#'   if(comp_grad){
+#'     d_eta <- -y + exp_eta / (1 + exp_eta)
+#'     grad <- c(X %*% d_eta,
+#'               Z %*% d_eta + dat$Sigma_inv %*% uhat)
+#'     attr(out, "grad") <- grad
+#'   }
+#'
+#'   out
+#' }
+#'
+#' # optimize the log integrand
+#' res <- psqn(par = rep(0, p + q * n_clusters), fn = r_func,
+#'             n_ele_func = n_clusters)
+#' head(res$par, p)              # the estimated global parameters
+#' tail(res$par, n_clusters * q) # the estimated private parameters
+#'
+#' # compare with
+#' beta
+#' c(sapply(sim_dat, "[[", "u"))
 #' @export
 psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL) {
     .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env)
@@ -50,7 +137,7 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #' BFGS Implementation Used Internally in the psqn Package
 #'
 #' @description
-#' The method seems to differ from \code{\link{optim}} by the line search
+#' The method seems to mainly differ from \code{\link{optim}} by the line search
 #' method. This version uses the interpolation method with a zoom phase
 #' using cubic interpolation as described by Nocedal and Wright (2006).
 #'
@@ -58,7 +145,11 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 #' (2nd ed.). Springer.
 #'
+#' @return
+#' An object like the object returned by \code{\link{psqn}}.
+#'
 #' @inheritParams psqn
+#' @param par Initial values for the parameters.
 #' @param fn Function to evaluate the function to be minimized.
 #' @param gr Gradient of \code{fn}. Should return the function value as an
 #' attribute called \code{"value"}.

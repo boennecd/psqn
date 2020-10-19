@@ -6,6 +6,7 @@
 #include "lp.h"
 #include <algorithm>
 #include <limits>
+#include <stdexcept>
 #include "constant.h"
 #include <cmath>
 #include "intrapolate.h"
@@ -251,8 +252,8 @@ class optimizer {
     double func(double const *val){
       return w(g_val, val, false);
     }
-    double grad(double * __restrict__ const val,
-                double * __restrict__       gr){
+    double grad(double const * __restrict__ val,
+                double       * __restrict__ gr){
       double const out = w(g_val, val, true);
       for(size_t i = 0; i < p_dim; ++i)
         gr[i] = w.gr[i + g_dim];

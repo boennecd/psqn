@@ -36,7 +36,7 @@ Each function $f_i$ is called an _element function_ and only depends on
 $m_i \ll l$ parameters. This allows for an efficient quasi-Newton 
 method when all the $m_i$'s are much smaller than the dimension of the 
 parameter vector $\vec x$, $l$. The framework can be extended to allow for 
-a linear combination of $m_i$ parameters but we do not cover such problems. 
+a linear combination of parameters but we do not cover such problems. 
 This vignette closely follows @nocedal06 who cover the methods and 
 alternatives in much greater detail.
 
@@ -175,7 +175,7 @@ then subsequent inference can be approximated using:
 
 $$
 \Expe\left(h(\vec U_i)\right) =
-  \int h(\vec u) p_i(\vec u \mid \vec y_i;\widehat{\vec\omega})\der\vec u 
+  \int h(\vec u) p_i(\vec u \mid \vec y_i;\vec\omega)\der\vec u 
   \approx 
   \int h(\vec u) v_i(\vec u; \widehat{\vec\theta}_i)\der\vec u.
 $$
@@ -375,11 +375,12 @@ zoom phase.
 
 ## Symmetric Rank-one Updates
 [Symmetric rank-one (SR1)](https://en.wikipedia.org/wiki/Symmetric_rank-one)
-is implemented as an alternative to the BFGS. The user can set whether  
-the SR1 updates should be used. The SR1 updates does not guarantee that the 
-Hessian approximation is positive definite. Thus, the conjugate gradient 
-method only proceeds if $\vec p_k^\top\mat A\vec p_k > 0$. That is, if the 
-new direction is a descent direction.
+updates are implemented as an alternative to the BFGS updates. 
+The user can set whether the SR1 updates should be used. The SR1 updates 
+does not guarantee that the Hessian approximation is positive definite. 
+Thus, the conjugate gradient method only proceeds if 
+$\vec p_k^\top\mat A\vec p_k > 0$. That is, if the new direction is a 
+descent direction.
 
 ## Example Using the Implementation
 

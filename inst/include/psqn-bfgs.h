@@ -20,8 +20,8 @@ public:
   /** returns evalutes the function at val. */
   virtual double func(double const *val) = 0;
   /** evaluates the function and compute the gradient. */
-  virtual double grad(double * __restrict__ const val,
-                      double * __restrict__       gr) = 0;
+  virtual double grad(double const * __restrict__ val,
+                      double       * __restrict__ gr) = 0;
   virtual ~problem() = default;
 };
 
@@ -69,7 +69,7 @@ optim_info bfgs(
   reset();
   size_t n_eval(0),
          n_grad(0);
-  double fval = prob.grad(val, gr);
+  double fval = prob.grad(const_cast<double const*>(val), gr);
   n_grad++;
   // declare lambda function to record parameter value and gradient
   auto record = [&](){
@@ -134,7 +134,7 @@ optim_info bfgs(
       for(size_t i = 0; i < n_ele; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_eval;
-      return prob.func(x_mem);
+      return prob.func(const_cast<double const *>(x_mem));
     };
 
     // returns the function value and the gradient
@@ -142,7 +142,7 @@ optim_info bfgs(
       for(size_t i = 0; i < n_ele; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_grad;
-      fnew = prob.grad(x_mem, gr0);
+      fnew = prob.grad(const_cast<double const *>(x_mem), gr0);
       return lp::vec_dot(gr0, dir, n_ele);
     };
 

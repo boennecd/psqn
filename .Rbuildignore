@@ -3,8 +3,12 @@
 ^\.travis\.yml
 ^vignettes/psqn_cache
 ^vignettes/render\.R
-^vignettes/psqn\.html
+^vignettes/psqn\.Rmd
+^vignettes/psqn\.bib
 ^vignettes/psqn_files
 ^README\.md$
 ^src/prof
 ^inst/include/prof
+^cran-comments\.md
+^inst/include/prof\.h
+^CRAN-RELEASE$
