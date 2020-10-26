@@ -17,7 +17,8 @@ psqn(
   trace = 0L,
   cg_tol = 0.5,
   strong_wolfe = TRUE,
-  env = NULL
+  env = NULL,
+  max_cg = 0L
 )
 }
 \arguments{
@@ -49,6 +50,9 @@ optimization.}
 
 \item{env}{Environment to evaluate \code{fn} in. \code{NULL} yields the
 global environment.}
+
+\item{max_cg}{maximum number of conjugate gradient iterations in each
+iteration. Use zero if there should not be a limit.}
 }
 \value{
 An object with the following elements:

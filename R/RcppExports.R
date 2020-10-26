@@ -24,6 +24,8 @@
 #' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
 #' @param env Environment to evaluate \code{fn} in. \code{NULL} yields the
 #' global environment.
+#' @param max_cg maximum number of conjugate gradient iterations in each
+#' iteration. Use zero if there should not be a limit.
 #'
 #' @details
 #' The function follows the method described by Nocedal and Wright (2006)
@@ -130,8 +132,8 @@
 #' beta
 #' c(sapply(sim_dat, "[[", "u"))
 #' @export
-psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL) {
-    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env)
+psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L) {
+    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg)
 }
 
 #' BFGS Implementation Used Internally in the psqn Package

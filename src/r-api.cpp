@@ -160,6 +160,8 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
 //' @param env Environment to evaluate \code{fn} in. \code{NULL} yields the
 //' global environment.
+//' @param max_cg maximum number of conjugate gradient iterations in each
+//' iteration. Use zero if there should not be a limit.
 //'
 //' @details
 //' The function follows the method described by Nocedal and Wright (2006)
@@ -274,7 +276,7 @@ List psqn
    double const c1 = .0001, double const c2 = .9,
    bool const use_bfgs = true, int const trace = 0L,
    double const cg_tol = .5, bool const strong_wolfe = true,
-   SEXP env = R_NilValue){
+   SEXP env = R_NilValue, int const max_cg = 0L){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn: n_ele_func < 1L");
 
@@ -300,7 +302,7 @@ List psqn
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);
   auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
-                         use_bfgs, trace, cg_tol, strong_wolfe);
+                         use_bfgs, trace, cg_tol, strong_wolfe, max_cg);
 
   return wrap_optim_info(par_arg, res);
 }

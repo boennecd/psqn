@@ -574,9 +574,10 @@ public:
     conjugate gradient method with diagonal preconditioning. Solves B.y = x
     where B is the Hessian approximation.
     @param tol convergence threshold.
+   @param max_cg maximum number of conjugate gradient iterations.
    */
   bool conj_grad(double const * __restrict__ x, double * __restrict__ y,
-                 double const tol){
+                 double const tol, size_t const max_cg){
     double * __restrict__ r      = temp_mem,
            * __restrict__ p      = r   + n_par,
            * __restrict__ B_p    = p   + n_par,
@@ -613,7 +614,7 @@ public:
     };
 
     double old_r_v_dot = get_r_v_dot();
-    for(size_t i = 0; i < n_par; ++i){
+    for(size_t i = 0; i < max_cg; ++i){
       ++n_cg;
       std::fill(B_p, B_p + n_par, 0.);
       B_vec(p, B_p);
@@ -813,12 +814,15 @@ public:
    @param trace integer with info level passed to reporter.
    @param cg_tol threshold for conjugate gradient method.
    @param strong_wolfe true if the strong Wolfe condition should be used.
+   @param max_cg maximum number of conjugate gradient iterations in each
+   iteration. Use zero if there should not be a limit.
    */
   optim_info optim
     (double * val, double const rel_eps, size_t const max_it,
      double const c1, double const c2,
      bool const use_bfgs = true, int const trace = 0,
-     double const cg_tol = .5, bool const strong_wolfe = true){
+     double const cg_tol = .5, bool const strong_wolfe = true,
+     size_t const max_cg = 0){
     reset_counters();
     for(auto &f : funcs){
       f.reset();
@@ -845,7 +849,8 @@ public:
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
                  cg_tol_use = std::min(cg_tol, gr_nom) * gr_nom;
-      if(!conj_grad(gr.get(), dir.get(), cg_tol_use)){
+      if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
+                    max_cg < 1 ? n_par : max_cg)){
         info = info_code::conjugate_gradient_failed;
         Reporter::cg(trace, i, n_cg, false);
         break;

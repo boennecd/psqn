@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // psqn
-List psqn(NumericVector par, SEXP fn, unsigned const n_ele_func, double const rel_eps, unsigned const max_it, unsigned const n_threads, double const c1, double const c2, bool const use_bfgs, int const trace, double const cg_tol, bool const strong_wolfe, SEXP env);
-RcppExport SEXP _psqn_psqn(SEXP parSEXP, SEXP fnSEXP, SEXP n_ele_funcSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP n_threadsSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP use_bfgsSEXP, SEXP traceSEXP, SEXP cg_tolSEXP, SEXP strong_wolfeSEXP, SEXP envSEXP) {
+List psqn(NumericVector par, SEXP fn, unsigned const n_ele_func, double const rel_eps, unsigned const max_it, unsigned const n_threads, double const c1, double const c2, bool const use_bfgs, int const trace, double const cg_tol, bool const strong_wolfe, SEXP env, int const max_cg);
+RcppExport SEXP _psqn_psqn(SEXP parSEXP, SEXP fnSEXP, SEXP n_ele_funcSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP n_threadsSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP use_bfgsSEXP, SEXP traceSEXP, SEXP cg_tolSEXP, SEXP strong_wolfeSEXP, SEXP envSEXP, SEXP max_cgSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -25,7 +25,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double const >::type cg_tol(cg_tolSEXP);
     Rcpp::traits::input_parameter< bool const >::type strong_wolfe(strong_wolfeSEXP);
     Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
-    rcpp_result_gen = Rcpp::wrap(psqn(par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env));
+    Rcpp::traits::input_parameter< int const >::type max_cg(max_cgSEXP);
+    rcpp_result_gen = Rcpp::wrap(psqn(par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -52,7 +53,7 @@ END_RCPP
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_psqn_psqn", (DL_FUNC) &_psqn_psqn, 13},
+    {"_psqn_psqn", (DL_FUNC) &_psqn_psqn, 14},
     {"_psqn_psqn_bfgs", (DL_FUNC) &_psqn_psqn_bfgs, 9},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}

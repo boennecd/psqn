@@ -124,7 +124,8 @@ List optim_poly
   (NumericVector val, SEXP ptr, double const rel_eps, unsigned const max_it,
    unsigned const n_threads, double const c1,
    double const c2, bool const use_bfgs = true, int const trace = 0L,
-   double const cg_tol = .5, bool const strong_wolfe = true){
+   double const cg_tol = .5, bool const strong_wolfe = true,
+   size_t const max_cg = 0L){
   XPtr<poly_optim> optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -134,7 +135,7 @@ List optim_poly
   NumericVector par = clone(val);
   optim->set_n_threads(n_threads);
   auto res = optim->optim(&par[0], rel_eps, max_it, c1, c2,
-                          use_bfgs, trace, cg_tol, strong_wolfe);
+                          use_bfgs, trace, cg_tol, strong_wolfe, max_cg);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
