@@ -33,7 +33,7 @@ inline double vec_dot
   return out;
 }
 
-/***
+/**
  computes b <- b + Xx where is is a n x n symmetric matrix containing only
  the upper triangular and x is a n-dimensional vector.
  */
@@ -77,7 +77,7 @@ public:
   }
 };
 
-/***
+/**
  computes b <- b + Xx where b and x are seperated into an nb1 and bn2
  dimensional vector.
  */
@@ -104,7 +104,7 @@ inline void mat_vec_dot
   }
 }
 
-/***
+/**
  performs a rank one update X <- X + scal * x.x^T where X is a symmetric
  matrix contaning only the upper triangular.
  */
