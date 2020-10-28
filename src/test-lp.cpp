@@ -1,6 +1,8 @@
 #include <cmath>
 #include "lp.h"
 #include <testthat.h>
+#include <algorithm>
+#include <cmath>
 
 context("testing lp namespace") {
   test_that("vec_diff works") {

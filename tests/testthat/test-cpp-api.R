@@ -31,13 +31,9 @@ sim_dat <- readRDS(f)
 test_that("mixed logit model gives the same", {
   skip_if_not_installed("Rcpp")
   skip_if_not_installed("RcppArmadillo")
+  skip_on_macOS()
 
-  cmp_res <- try(
-    Rcpp::sourceCpp(system.file("mlogit-ex.cpp", package = "psqn")),
-    silent = "TRUE")
-  if(inherits(cmp_res, "try-error"))
-    Rcpp::sourceCpp(system.file("mlogit-ex-no-openmp.cpp",
-                                package = "psqn"))
+  Rcpp::sourceCpp(system.file("mlogit-ex.cpp", package = "psqn"))
   optimizer <- get_mlogit_optimizer(sim_dat, max_threads = 2L)
 
   val <- c(beta, sapply(sim_dat, function(x) x$u))
