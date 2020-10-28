@@ -3,13 +3,22 @@ psqn: Partially Separable Quasi-Newton
 
 [![Build Status on
 Travis](https://travis-ci.org/boennecd/psqn.svg?branch=master,osx)](https://travis-ci.org/boennecd/psqn)
+[![](https://www.r-pkg.org/badges/version/psqn)](https://CRAN.R-project.org/package=psqn)
+[![CRAN RStudio mirror
+downloads](http://cranlogs.r-pkg.org/badges/psqn)](https://CRAN.R-project.org/package=psqn)
 
 This package provides methods to optimize partially separable functions using 
-quasi-Newton methods. The packages can be installed from Github by calling:
+quasi-Newton methods. The package can be installed from Github by calling:
 
 ```r
 library(remotes)
 install_github("boennecd/psqn")
+```
+
+The package can also be installed from CRAN by calling:
+
+```r
+install.packages("psqn")
 ```
 
 The details of the packages are available by calling 
