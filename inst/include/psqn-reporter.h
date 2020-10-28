@@ -2,10 +2,22 @@
 #define PSQN_REPORTER_H
 
 #include <Rcpp.h>
+#include <ios>
+#include <iostream>
+#include <iomanip>
 
 namespace PSQN {
 /** class used to print to the console during estimation */
 struct R_reporter {
+  static void cg_it(int const trace, size_t const iteration,
+                    size_t const maxit, double const r_norm,
+                    double const threshold) {
+    if(trace > 3L and iteration % (maxit / 5L) == 0L)
+      Rcpp::Rcout << "      Conjugate gradient iteration " << iteration
+                  << ". Residual norm is " << r_norm
+                  << " (threshold is " << threshold << ")\n";
+  }
+
   static void cg(int const trace, size_t const iteration,
                  size_t const n_cg, bool const successful) {
     if(trace > 0)
@@ -29,9 +41,16 @@ struct R_reporter {
                   << (successful ? "succeeded" : "failed")
                   << '\n';
 
-    if(trace > 1L)
+    if(trace > 1L){
+      std::streamsize n_digits(9 - std::log10(fval_old)),
+                      old_size = Rcpp::Rcout.precision();
       Rcpp::Rcout << "  New (old) function value is "
-                  << fval << " (" << fval_old << ")\n";
+                  << std::fixed
+                  << std::setprecision(n_digits)
+                  << fval << " (" << fval_old << ")\n"
+                  << std::defaultfloat
+                  << std::setprecision(old_size);
+    }
 
     if(trace > 2L){
       Rcpp::Rcout << "    step size is " << step_size

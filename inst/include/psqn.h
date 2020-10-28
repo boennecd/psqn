@@ -574,10 +574,12 @@ public:
     conjugate gradient method with diagonal preconditioning. Solves B.y = x
     where B is the Hessian approximation.
     @param tol convergence threshold.
-   @param max_cg maximum number of conjugate gradient iterations.
+    @param max_cg maximum number of conjugate gradient iterations.
+    @param trace controls the amount of tracing information.
    */
   bool conj_grad(double const * __restrict__ x, double * __restrict__ y,
-                 double const tol, size_t const max_cg){
+                 double const tol, size_t const max_cg,
+                 int const trace){
     double * __restrict__ r      = temp_mem,
            * __restrict__ p      = r   + n_par,
            * __restrict__ B_p    = p   + n_par,
@@ -639,8 +641,10 @@ public:
       if(do_pre)
         diag_solve(v, r);
       double const r_v_dot = get_r_v_dot(),
-                   t_val   = do_pre ? lp::vec_dot(r, n_par) : r_v_dot;
-      if(sqrt(abs(t_val)) < tol)
+                   t_val   = do_pre ? sqrt(abs(lp::vec_dot(r, n_par))) :
+                                      sqrt(abs(r_v_dot));
+      Reporter::cg_it(trace, i, max_cg, t_val, tol);
+      if(t_val < tol)
         break;
 
       double const beta = r_v_dot / old_r_v_dot;
@@ -850,7 +854,7 @@ public:
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
                  cg_tol_use = std::min(cg_tol, gr_nom) * gr_nom;
       if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
-                    max_cg < 1 ? n_par : max_cg)){
+                    max_cg < 1 ? n_par : max_cg, trace)){
         info = info_code::conjugate_gradient_failed;
         Reporter::cg(trace, i, n_cg, false);
         break;

@@ -18,6 +18,19 @@ struct optim_info {
 
 struct dummy_reporter {
   /**
+   reporting during the conjugate gradient method.
+
+   @param trace info level passed by the user.
+   @param iteration itteration number starting at zero.
+   @param maxit maximum number of iterations.
+   @param r_norm norm of the residual vector.
+   @param threshold convergence threshold.
+   */
+  static void cg_it(int const trace, size_t const iteration,
+                    size_t const maxit, double const r_norm,
+                    double const threshold) { }
+
+  /**
    reporting after conjugate gradient method.
 
    @param trace info level passed by the user.
