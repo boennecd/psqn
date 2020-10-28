@@ -852,7 +852,7 @@ public:
 
       double const fval_old = fval,
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
-                 cg_tol_use = std::min(cg_tol, gr_nom) * gr_nom;
+                 cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
       if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
                     max_cg < 1 ? n_par : max_cg, trace)){
         info = info_code::conjugate_gradient_failed;

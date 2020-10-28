@@ -1,6 +1,8 @@
 #ifndef INTRAPOLATE_H
 #define INTRAPOLATE_H
 #include <cmath>
+#include <limits>
+#include <algorithm>
 
 namespace PSQN {
 /***

@@ -1,6 +1,5 @@
 #ifndef LPSQN_P_H
 #define LPSQN_P_H
-#include <cstddef>
 
 namespace lp {
 

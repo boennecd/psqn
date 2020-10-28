@@ -7,6 +7,8 @@
 #include "intrapolate.h"
 #include <memory>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace PSQN {
 using std::abs;

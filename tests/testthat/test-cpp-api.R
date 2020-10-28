@@ -32,7 +32,12 @@ test_that("mixed logit model gives the same", {
   skip_if_not_installed("Rcpp")
   skip_if_not_installed("RcppArmadillo")
 
-  Rcpp::sourceCpp(system.file("mlogit-ex.cpp", package = "psqn"))
+  cmp_res <- try(
+    Rcpp::sourceCpp(system.file("mlogit-ex.cpp", package = "psqn")),
+    silent = "TRUE")
+  if(inherits(cmp_res, "try-error"))
+    Rcpp::sourceCpp(system.file("mlogit-ex-no-openmp.cpp",
+                                package = "psqn"))
   optimizer <- get_mlogit_optimizer(sim_dat, max_threads = 2L)
 
   val <- c(beta, sapply(sim_dat, function(x) x$u))
@@ -87,13 +92,13 @@ test_that("mixed logit model gives the same", {
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
     c1 = 1e-4, c2 = .9, use_bfgs = FALSE,
     n_threads = 1L)
-  opt_res <- list(par = c(0.647312399591242, 0.773180471729836, 0.657061741076055,
-                          0.119630546873834, 0.855955020169092, -0.484316891358651, 0.412488738455979,
-                          0.766975554121504, 0.422825073677472, 0.605153277061428, -0.783774377321522,
-                          0.0961329299281383, -0.923001177401092, -0.483537409424687, 0.438262748069482,
-                          -0.493258780254383, 0.0274569314924842, 0.426952405354215, 0.0284032062294775,
-                          -0.180708466034803, -0.150657495432569), value = 25.1215014846691,
-                  info = 0L, counts = c(`function` = 18, gradient = 13, n_cg = 50
+  opt_res <- list(par = c(0.647309984423475, 0.773099829472392, 0.657030091436329,
+                          0.119542556826119, 0.856048420971233, -0.48432079434579, 0.412471124068345,
+                          0.76694534092756, 0.422786612641562, 0.605124122567012, -0.783742636851702,
+                          0.0960937729102007, -0.922965266682886, -0.483501533118553, 0.438327834070562,
+                          -0.493318173514831, 0.0274749226734802, 0.426944683060686, 0.0287992526677307,
+                          -0.180834889398274, -0.150315014163914), value = 25.121501682662,
+                  info = 0L, counts = c(`function` = 14, gradient = 11, n_cg = 22
                   ), convergence = TRUE)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
   opt <- optim_mlogit(

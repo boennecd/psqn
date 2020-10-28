@@ -1,3 +1,4 @@
+#include <cmath>
 #include "lp.h"
 #include <testthat.h>
 

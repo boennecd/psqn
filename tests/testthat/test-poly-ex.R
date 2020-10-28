@@ -30,7 +30,12 @@ test_that("Poly example gives the same", {
   skip_if_not_installed("Rcpp")
   skip_if_not_installed("RcppArmadillo")
 
-  Rcpp::sourceCpp(system.file("poly-ex.cpp", package = "psqn"))
+  cmp_res <- try(
+    Rcpp::sourceCpp(system.file("poly-ex.cpp", package = "psqn")),
+    silent = TRUE)
+  if(inherits(cmp_res, "try-error"))
+    Rcpp::sourceCpp(system.file("poly-ex-no-openmp.cpp", package = "psqn"))
+
   optimizer <- get_poly_optimizer(
     cluster_dat, max_threads = 2L, mu_global = mu_global)
 

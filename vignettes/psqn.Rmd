@@ -30,7 +30,7 @@ $$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
 
 where $\vec x\in \mathbb R^l$,
 
-$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \in    \{1, \dots, l\}^l,$$
+$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\}^l,$$
 and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix. 
 Each function $f_i$ is called an _element function_ and only depends on 
 $m_i \ll l$ parameters. This allows for an efficient quasi-Newton 
@@ -362,8 +362,9 @@ $\mat A$ has clusters of eigenvalues then we may expect to perform only
 a number of iterations close to the number of distinct clusters.
 
 In practice, we terminate the conjugate gradient method when 
-$\lVert\vec r_k\rVert < \min (c, \lVert\nabla f(\vec x_{k -1})\rVert)\lVert\nabla f(\vec x_{k -1})\rVert$
-where $c$ is a constant the user can set.
+$\lVert\vec r_k\rVert < \min (c, \sqrt{\lVert\nabla f(\vec x_{k -1})\rVert})\lVert\nabla f(\vec x_{k -1})\rVert$
+where $c$ is a constant the user can set. Moreover, we use diagonal 
+preconditioning.
 
 ## Line Search and Wolfe Condition
 We use line search and search for a point which satisfy
@@ -579,7 +580,7 @@ Then we can create a pointer to an optimizer and check that it yields the
 correct value and gradient like this:
 
 ```{r get_optimizer, cache = 1, dependson = "create_ptr"}
-optimizer <- get_mlogit_optimizer(sim_dat, max_threads = 2L)
+optimizer <- get_mlogit_optimizer(sim_dat, max_threads = 4L)
 
 stopifnot(all.equal(
   eval_integrand(true_params), 
@@ -744,8 +745,10 @@ bench::mark(
   `   optim BFGS (2 threads)`  = optim_func  (start_val, n_threads = 2L),
   `         lbfgs (1 thread)` = lbfgs_func   (start_val, n_threads = 1L),
   `         lbfgs(2 threads)` = lbfgs_func   (start_val, n_threads = 2L),
+  `         lbfgs(4 threads)` = lbfgs_func   (start_val, n_threads = 4L),
   `      lbfgsb3c (1 thread)` = lbfgsb3c_func(start_val, n_threads = 1L),
   `      lbfgsb3c(2 threads)` = lbfgsb3c_func(start_val, n_threads = 2L),
+  `      lbfgsb3c(4 threads)` = lbfgsb3c_func(start_val, n_threads = 4L),
   `       psqn (R; 1 thread)` = r_psqn_func  (start_val, n_threads = 1L),
   `       psqn(R; 2 threads)` = r_psqn_func  (start_val, n_threads = 2L),
   `     psqn (1 thread, SR1)` = psqn_func    (start_val, n_threads = 1L, 
@@ -758,6 +761,7 @@ bench::mark(
                                               opt_private = TRUE),
   `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
   `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
+  `          psqn(4 threads)` = psqn_func    (start_val, n_threads = 4L),
   check = FALSE, min_time = 5)
 ```
 
@@ -969,7 +973,7 @@ There is also a BFGS implementation in the package. This is both available
 in R through the `psqn_bfgs` function and in C++ in the psqn-bfgs.h 
 header file. An example is provided below using the example from `optim`:
 
-```{r }
+```{r bfgs_example}
 # declare function and gradient from the example from help(optim)
 fn <- function(x) {
   x1 <- x[1]

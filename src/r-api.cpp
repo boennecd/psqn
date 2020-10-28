@@ -1,5 +1,6 @@
 #include "psqn.h"
 #include "psqn-reporter.h"
+#include <stdexcept>
 
 using namespace Rcpp;
 
@@ -94,12 +95,11 @@ public:
       *p = *point;
     scomp_grad[0] = false;
     SEXP res =  f(f_idx, par, scomp_grad);
-
     if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L)
       throw std::invalid_argument(
           "fn returns invalid output with comp_grad = FALSE");
 
-    return Rf_asReal(res);
+    return *REAL(res);
   }
 
   double grad
@@ -118,7 +118,7 @@ public:
           "fn returns invalid output with comp_grad = TRUE");
 
     lp::copy(gr, REAL(gr_val), n_ele);
-    return Rf_asReal(res);
+    return *REAL(res);
   };
 
   virtual bool thread_safe() const {
@@ -327,7 +327,7 @@ public:
     if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L)
       throw std::invalid_argument("fn returns invalid output");
 
-    return Rf_asReal(res);
+    return *REAL(res);
   }
 
   double grad(double const * __restrict__ val,
@@ -345,7 +345,7 @@ public:
       throw std::invalid_argument("gr returns invalid output");
 
     lp::copy(gr, REAL(res), n_ele);
-    return Rf_asReal(func_val);
+    return *REAL(func_val);
   }
 };
 
