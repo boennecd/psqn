@@ -18,7 +18,8 @@ psqn(
   cg_tol = 0.5,
   strong_wolfe = TRUE,
   env = NULL,
-  max_cg = 0L
+  max_cg = 0L,
+  pre_method = 1L
 )
 }
 \arguments{
@@ -53,6 +54,9 @@ global environment.}
 
 \item{max_cg}{maximum number of conjugate gradient iterations in each
 iteration. Use zero if there should not be a limit.}
+
+\item{pre_method}{preconditioning method in conjugate gradient method.
+zero yields no preconditioning and one yields diagonal preconditioning.}
 }
 \value{
 An object with the following elements:

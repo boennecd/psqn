@@ -162,6 +162,8 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' global environment.
 //' @param max_cg maximum number of conjugate gradient iterations in each
 //' iteration. Use zero if there should not be a limit.
+//' @param pre_method preconditioning method in conjugate gradient method.
+//' zero yields no preconditioning and one yields diagonal preconditioning.
 //'
 //' @details
 //' The function follows the method described by Nocedal and Wright (2006)
@@ -276,7 +278,8 @@ List psqn
    double const c1 = .0001, double const c2 = .9,
    bool const use_bfgs = true, int const trace = 0L,
    double const cg_tol = .5, bool const strong_wolfe = true,
-   SEXP env = R_NilValue, int const max_cg = 0L){
+   SEXP env = R_NilValue, int const max_cg = 0L,
+   int const pre_method = 1L){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn: n_ele_func < 1L");
 
@@ -286,6 +289,8 @@ List psqn
     throw std::invalid_argument("psqn: env is not an environment");
   if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn: fn is not a function");
+  if(pre_method < 0L or pre_method > 1L)
+    throw std::invalid_argument("psqn: invalid pre_method");
 
   std::vector<r_worker> funcs;
   funcs.reserve(n_ele_func);
@@ -302,7 +307,8 @@ List psqn
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);
   auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
-                         use_bfgs, trace, cg_tol, strong_wolfe, max_cg);
+                         use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
+                         static_cast<PSQN::precondition>(pre_method));
 
   return wrap_optim_info(par_arg, res);
 }

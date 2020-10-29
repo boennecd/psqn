@@ -1,7 +1,7 @@
 Package: psqn
 Type: Package
 Title: Partially Separable Quasi-Newton
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: c(person("Benjamin", "Christoffersen", 
                     email = "boennecd@gmail.com", 
                     role = c("cre", "aut")))
@@ -22,7 +22,6 @@ LinkingTo:
 Imports: 
     Rcpp
 Suggests: 
-    knitr,
     R.rsp,
     rmarkdown,
     RcppArmadillo,

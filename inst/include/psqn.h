@@ -576,26 +576,31 @@ public:
     @param tol convergence threshold.
     @param max_cg maximum number of conjugate gradient iterations.
     @param trace controls the amount of tracing information.
+    @param pre_method preconditioning method.
    */
   bool conj_grad(double const * __restrict__ x, double * __restrict__ y,
                  double const tol, size_t const max_cg,
-                 int const trace){
+                 int const trace, precondition const pre_method){
     double * __restrict__ r      = temp_mem,
            * __restrict__ p      = r   + n_par,
            * __restrict__ B_p    = p   + n_par,
            * __restrict__ v      = B_p + n_par,
            * __restrict__ B_diag = v   + n_par;
-    constexpr bool const do_pre = true;
+    bool const do_pre = pre_method == 1L;
 
     // setup before first iteration
-    if(do_pre)
+    if(do_pre){
       get_diag(B_diag);
+      double *b = B_diag;
+      for(size_t i = 0; i < n_par; ++i, ++b)
+        *b = 1. / *b; // want to use multiplication rather than division
+    }
 
     auto diag_solve = [&](double       * __restrict__ vy,
                           double const * __restrict__ vx){
       double * di = B_diag;
       for(size_t i = 0; i < n_par; ++i)
-        *vy++ = *vx++ / *di++;
+        *vy++ = *vx++ * *di++;
     };
 
     std::fill(y, y + n_par, 0.);
@@ -820,13 +825,15 @@ public:
    @param strong_wolfe true if the strong Wolfe condition should be used.
    @param max_cg maximum number of conjugate gradient iterations in each
    iteration. Use zero if there should not be a limit.
+   @param pre_method preconditioning method.
    */
   optim_info optim
     (double * val, double const rel_eps, size_t const max_it,
      double const c1, double const c2,
      bool const use_bfgs = true, int const trace = 0,
      double const cg_tol = .5, bool const strong_wolfe = true,
-     size_t const max_cg = 0){
+     size_t const max_cg = 0,
+     precondition const pre_method = precondition::diag){
     reset_counters();
     for(auto &f : funcs){
       f.reset();
@@ -854,7 +861,8 @@ public:
                      gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
                  cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
       if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
-                    max_cg < 1 ? n_par : max_cg, trace)){
+                    max_cg < 1 ? n_par : max_cg, trace,
+                    pre_method)){
         info = info_code::conjugate_gradient_failed;
         Reporter::cg(trace, i, n_cg, false);
         break;

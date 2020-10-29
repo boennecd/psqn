@@ -10,6 +10,11 @@ enum info_code : int {
   converged = 0
 };
 
+enum precondition : int {
+   non = 0,
+   diag = 1
+};
+
 struct optim_info {
   double value;
   info_code info;
