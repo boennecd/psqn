@@ -314,8 +314,12 @@ private:
   }
 
   /// returns working memory for this thread
+  double * get_thread_mem(int const thread_num) const noexcept {
+    return temp_thread_mem + thread_num * n_mem[2];
+  }
+
   double * get_thread_mem() const noexcept {
-    return temp_thread_mem + get_thread_num() * n_mem[2];
+    return get_thread_mem(get_thread_num());
   }
 
   /// number of threads to use
@@ -439,17 +443,18 @@ public:
       return serial_version();
 
 #ifdef _OPENMP
-    double out(0.);
 #pragma omp parallel num_threads(n_threads)
-  {
-    double * v_mem = get_thread_mem(),
-           * r_mem = v_mem + global_dim;
+    {
+    double * r_mem = get_thread_mem(),
+           * v_mem =
+               r_mem + global_dim + 1L /* leave 1 ele for func value*/;
     lp::copy(v_mem, val, global_dim);
     if(comp_grad)
       std::fill(r_mem, r_mem + global_dim, 0.);
 
-    double thread_terms(0.);
-#pragma omp for schedule(static) nowait
+    double &thread_terms = *(r_mem + global_dim);
+    thread_terms = 0;
+#pragma omp for schedule(static)
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       thread_terms += f(v_mem, val + f.par_start, comp_grad);
@@ -465,23 +470,20 @@ public:
         lp::copy(gr + f.par_start, f.gr + global_dim, f.func.private_dim());
       }
     }
+    }
 
     if(comp_grad)
-#pragma omp single
       std::fill(gr, gr + global_dim, 0.);
 
     // add to global parameters
-#pragma omp for ordered schedule(static, 1)
+    double out(0.);
     for (int t = 0; t < n_threads; t++){
-#pragma omp ordered
-      {
-        out += thread_terms;
-        if(comp_grad)
-          for(size_t i = 0; i < global_dim; ++i)
-            gr[i] += r_mem[i];
-      }
+      double const *r_mem = get_thread_mem(t);
+      if(comp_grad)
+        for(size_t i = 0; i < global_dim; ++i)
+          gr[i] += r_mem[i];
+      out += r_mem[global_dim];
     }
-  }
 
     return out;
 #else
@@ -518,12 +520,12 @@ public:
 #ifdef _OPENMP
 #pragma omp parallel num_threads(n_threads)
     {
-    double * v_mem = get_thread_mem(),
-           * r_mem = v_mem + global_dim;
+    double * r_mem = get_thread_mem(),
+           * v_mem = r_mem + global_dim;
     lp::copy(v_mem, val, global_dim);
     std::fill(r_mem, r_mem + global_dim, 0.);
 
-#pragma omp for schedule(static) nowait
+#pragma omp for schedule(static)
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       size_t const iprivate = f.func.private_dim(),
@@ -532,16 +534,13 @@ public:
       lp::mat_vec_dot(f.B, v_mem, val + private_offset, r_mem,
                       res + private_offset, global_dim, iprivate);
     }
+    }
 
     // add to global parameters
-#pragma omp for ordered schedule(static, 1)
     for (int t = 0; t < n_threads; t++){
-#pragma omp ordered
-      {
-        for(size_t i = 0; i < global_dim; ++i)
-          res[i] += r_mem[i];
-      }
-    }
+      double const *r_mem = get_thread_mem(t);
+      for(size_t i = 0; i < global_dim; ++i)
+        res[i] += r_mem[i];
     }
 #else
     serial_version();
