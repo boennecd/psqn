@@ -1,6 +1,7 @@
 #ifndef LPSQN_P_H
 #define LPSQN_P_H
 #include <cstddef>
+#include <algorithm>
 
 namespace lp {
 
@@ -54,53 +55,54 @@ inline void mat_vec_dot
   }
 }
 
-/** util class which jumps from one memory location to another. */
-template<class T>
-class sep_mem {
-  T *       cur,
-    * const d1_end,
-    * const d2;
-public:
-  sep_mem(T * d1, T * d2, size_t const n1) noexcept:
-  cur(n1 > 0 ? d1 : d2), d1_end(d1 + n1), d2(d2) { }
-
-  inline sep_mem& operator++() noexcept {
-    if(++cur != d1_end)
-      return *this;
-
-    cur = d2;
-    return *this;
-  }
-
-  inline operator T*() const noexcept {
-    return cur;
-  }
-};
-
 /**
  computes b <- b + Xx where b and x are seperated into an nb1 and bn2
  dimensional vector.
  */
 inline void mat_vec_dot
-(double const *__restrict__ X, double const * __restrict__ x1,
+(double const * __restrict__ X, double const * __restrict__ x1,
  double const * __restrict__ x2, double * const __restrict__ r1,
  double * const __restrict__ r2,
  size_t const n1, size_t const n2) noexcept {
-  sep_mem<double const> xj(x1, x2, n1);
-  sep_mem<double>       rj(r1, r2, n1);
-  auto const xi_start = xj;
-  auto const ri_start = rj;
-
   size_t const n = n1 + n2;
-  for(size_t j = 0; j < n; ++j, ++xj, ++rj){
-    sep_mem<double const> xi = xi_start;
-    sep_mem<double>       ri = ri_start;
-
-    for(size_t i = 0L; i < j; ++i, ++X, ++ri, ++xi){
-      *ri += *X * *xj;
-      *rj += *X * *xi;
+  auto loop_body = [&](double const xj, double &rj, size_t const j){
+    size_t i = 0L;
+    {
+      double       * ri = r1;
+      double const * xi = x1;
+      size_t const iend = std::min(j, n1);
+      for(; i < iend; ++i, ++X, ++ri, ++xi){
+        *ri += *X *  xj;
+         rj += *X * *xi;
+      }
+      if(i < n1)
+        rj += *X++ * *xi;
     }
-    *rj += *X++ * *xi;
+
+    if(i == n1){ // still work to do
+      double       * ri = r2;
+      double const * xi = x2;
+      for(; i < j; ++i, ++X, ++ri, ++xi){
+        *ri += *X *  xj;
+         rj += *X * *xi;
+      }
+      rj += *X++ * *xi;
+
+    }
+  };
+
+  {
+    double const *xj = x1;
+    double       *rj = r1;
+    for(size_t j = 0; j < n1; ++j, ++xj, ++rj)
+      loop_body(*xj, *rj, j);
+  }
+
+  {
+    double const *xj = x2;
+    double       *rj = r2;
+    for(size_t j = n1; j < n; ++j, ++xj, ++rj)
+      loop_body(*xj, *rj, j);
   }
 }
 

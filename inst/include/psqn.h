@@ -472,7 +472,7 @@ public:
 
     // add to global parameters
 #pragma omp for ordered schedule(static, 1)
-    for (int t = 0; t < omp_get_num_threads(); t++){
+    for (int t = 0; t < n_threads; t++){
 #pragma omp ordered
       {
         out += thread_terms;
@@ -535,7 +535,7 @@ public:
 
     // add to global parameters
 #pragma omp for ordered schedule(static, 1)
-    for (int t = 0; t < omp_get_num_threads(); t++){
+    for (int t = 0; t < n_threads; t++){
 #pragma omp ordered
       {
         for(size_t i = 0; i < global_dim; ++i)
