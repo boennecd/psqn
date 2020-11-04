@@ -13,11 +13,8 @@ There were no WARNINGs or ERRORs.
 
 There is a NOTE about the package size in some cases.
 
-I have added the missing headers which caused a build error on Solaris. 
+I have removed the `std::defaultfloat` as this is not implemented with the 
+compiler on r-oldrel-windows-ix86+x86_64.
 
-Regarding the rchk message. then I have removed the calls to `Rf_asReal`. 
-For the record, I already checked that 
-`Rf_isReal(x) and Rf_isVector(x) and Rf_xlength(x) == 1L` before calling 
-`Rf_asReal(x)`. I am not sure if this is sufficient.
-
-The test error on macOS has been fixed.
+I have attempted to fix the errors on r-patched-solaris-x86. However, 
+`rhub::check_on_solaris()` still passes as it did before.

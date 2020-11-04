@@ -55,12 +55,12 @@ class r_worker {
 public:
   r_worker(SEXP func, int iarg, SEXP rho):
   f(func, rho),
-  f_idx(([&](){
+  f_idx(([&]() -> IntegerVector {
     IntegerVector out(1L);
     out[0] = iarg + 1L;
     return out;
   })()),
-  g_dim(([&](){
+  g_dim(([&]() -> size_t {
     NumericVector dum(0);
     scomp_grad[0] = false;
     SEXP res =  f(f_idx, dum, scomp_grad);
@@ -70,7 +70,7 @@ public:
 
     return *INTEGER(res);
   })()),
-  p_dim(([&](){
+  p_dim(([&]() -> size_t {
     NumericVector dum(0);
     scomp_grad[0] = false;
     SEXP res =  f(f_idx, dum, scomp_grad);

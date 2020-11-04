@@ -1,5 +1,6 @@
 #ifndef PSQN_BFGS_H
 #define PSQN_BFGS_H
+#include "constant.h"
 #include <cstddef>
 #include "psqn-misc.h"
 #include "memory.h"
@@ -22,8 +23,8 @@ public:
   /** returns evalutes the function at val. */
   virtual double func(double const *val) = 0;
   /** evaluates the function and compute the gradient. */
-  virtual double grad(double const * __restrict__ val,
-                      double       * __restrict__ gr) = 0;
+  virtual double grad(double const * PSQN_RESTRICT val,
+                      double       * PSQN_RESTRICT gr) = 0;
   virtual ~problem() = default;
 };
 
@@ -49,18 +50,18 @@ optim_info bfgs(
   size_t n_ele = prob.size();
   std::unique_ptr<double[]>
     mem(new double[7 * n_ele + (n_ele * (n_ele + 1)) / 2]);
-  double * __restrict__ const v_old  = mem.get(),
-         * __restrict__ const gr     = v_old  + n_ele,
-         * __restrict__ const gr_old = gr     + n_ele,
-         * __restrict__ const s      = gr_old + n_ele,
-         * __restrict__ const y      = s      + n_ele,
-         * __restrict__ const wrk    = y      + n_ele,
-         * __restrict__ const dir    = wrk    + n_ele,
-         * __restrict__ const H      = dir    + n_ele;
+  double * PSQN_RESTRICT const v_old  = mem.get(),
+         * PSQN_RESTRICT const gr     = v_old  + n_ele,
+         * PSQN_RESTRICT const gr_old = gr     + n_ele,
+         * PSQN_RESTRICT const s      = gr_old + n_ele,
+         * PSQN_RESTRICT const y      = s      + n_ele,
+         * PSQN_RESTRICT const wrk    = y      + n_ele,
+         * PSQN_RESTRICT const dir    = wrk    + n_ele,
+         * PSQN_RESTRICT const H      = dir    + n_ele;
 
   // initialize
   bool first_call(true);
-  auto reset = [&](){
+  auto reset = [&]() -> void {
     std::fill(H, H + (n_ele * (n_ele + 1)) / 2, 0.);
     // set diagonals to 1
     double * h = H;
@@ -74,7 +75,7 @@ optim_info bfgs(
   double fval = prob.grad(const_cast<double const*>(val), gr);
   n_grad++;
   // declare lambda function to record parameter value and gradient
-  auto record = [&](){
+  auto record = [&]() -> void {
     lp::copy(v_old , val, n_ele);
     lp::copy(gr_old, gr , n_ele);
   };
@@ -82,7 +83,7 @@ optim_info bfgs(
   info_code info = info_code::max_it_reached;
 
   // declare lambda function to perform the BFGS update
-  auto bfgs_update = [&](){
+  auto bfgs_update = [&]() -> void {
     lp::vec_diff(val, v_old , s, n_ele);
 
     // check if there is any changes in the input
@@ -127,12 +128,12 @@ optim_info bfgs(
 
   // declare lambda function to perform the line search
   auto line_search = [&](
-      double const f0, double * __restrict__ x0, double * __restrict__ gr0,
-      double * __restrict__ dir, double &fnew){
+      double const f0, double * PSQN_RESTRICT x0, double * PSQN_RESTRICT gr0,
+      double * PSQN_RESTRICT dir, double &fnew) -> bool {
     double * const x_mem = wrk;
 
     // declare 1D functions
-    auto psi = [&](double const alpha){
+    auto psi = [&](double const alpha) -> double {
       for(size_t i = 0; i < n_ele; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_eval;
@@ -140,7 +141,7 @@ optim_info bfgs(
     };
 
     // returns the function value and the gradient
-    auto dpsi = [&](double const alpha){
+    auto dpsi = [&](double const alpha) -> double {
       for(size_t i = 0; i < n_ele; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_grad;
@@ -155,35 +156,36 @@ optim_info bfgs(
       return false;
 
     constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
-    auto zoom = [&](double a_low, double a_high, intrapolate &inter){
-      double f_low = psi(a_low);
-      for(size_t i = 0; i < 25L; ++i){
-        double const ai = inter.get_value(a_low, a_high),
-                     fi = psi(ai);
-        inter.update(ai, fi);
-        Reporter::line_search_inner(trace, a_low, ai, fi, true,
-                                    NaNv, a_high);
+    auto zoom =
+      [&](double a_low, double a_high, intrapolate &inter) -> bool {
+        double f_low = psi(a_low);
+        for(size_t i = 0; i < 25L; ++i){
+          double const ai = inter.get_value(a_low, a_high),
+                       fi = psi(ai);
+          inter.update(ai, fi);
+          Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                      NaNv, a_high);
 
-        if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
-          a_high = ai;
-          continue;
+          if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
+            a_high = ai;
+            continue;
+          }
+
+          double const dpsi_i = dpsi(ai);
+          Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                      dpsi_i, a_high);
+          if(abs(dpsi_i) <= - c2 * dpsi_zero)
+            return true;
+
+          if(dpsi_i * (a_high - a_low) >= 0.)
+            a_high = a_low;
+
+          a_low = ai;
+          f_low = fi;
         }
 
-        double const dpsi_i = dpsi(ai);
-        Reporter::line_search_inner(trace, a_low, ai, fi, true,
-                                    dpsi_i, a_high);
-        if(abs(dpsi_i) <= - c2 * dpsi_zero)
-          return true;
-
-        if(dpsi_i * (a_high - a_low) >= 0.)
-          a_high = a_low;
-
-        a_low = ai;
-        f_low = fi;
-      }
-
-      return false;
-    };
+        return false;
+      };
 
     double fold(f0),
          a_prev(0),
@@ -234,7 +236,7 @@ optim_info bfgs(
       }
 
       if(dpsi_i >= 0){
-        intrapolate inter = ([&](){
+        intrapolate inter = ([&]() -> intrapolate {
           if(found_ok_prev){
             // we have two values that we can use
             intrapolate out(f0, dpsi_zero, a_prev, fold);

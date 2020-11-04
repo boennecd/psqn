@@ -72,7 +72,7 @@ public:
    @param gr gradient vector with respect to global and private parameters.
    */
   double grad
-    (double const * __restrict__ point, double * __restrict__ gr) const {
+    (double const * point, double * gr) const {
     arma::vec const beta = vec_no_cp(point           , X.n_rows),
                        u = vec_no_cp(point + X.n_rows, Z.n_rows);
 

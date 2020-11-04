@@ -69,7 +69,7 @@ test_that("Poly example gives the same", {
                           1.43619906759021, 1.32150098518575, -0.873195703378549), value = 2.28888765400896e-19,
                   info = 0L, counts = c(`function` = 36, gradient = 35, n_cg = 244
                   ), convergence = TRUE)
-  tol <- sqrt(rel_eps)
+  tol <- sqrt(rel_eps) * 10
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
   opt <- optim_poly(

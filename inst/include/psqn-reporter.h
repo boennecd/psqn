@@ -47,9 +47,11 @@ struct R_reporter {
       Rcpp::Rcout << "  New (old) function value is "
                   << std::fixed
                   << std::setprecision(n_digits)
-                  << fval << " (" << fval_old << ")\n"
-                  << std::defaultfloat
-                  << std::setprecision(old_size);
+                  << fval << " (" << fval_old << ")\n";
+
+      // see https://stackoverflow.com/a/35173760/5861244
+      Rcpp::Rcout.unsetf(std::ios_base::floatfield);
+      Rcpp::Rcout << std::setprecision(old_size);
     }
 
     if(trace > 2L){

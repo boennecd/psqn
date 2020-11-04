@@ -45,7 +45,7 @@ public:
    @param gr gradient vector with respect to global and private parameters.
    */
   virtual double grad
-    (double const * __restrict__ point, double * __restrict__ gr)
+    (double const * PSQN_RESTRICT point, double * PSQN_RESTRICT gr)
     const = 0;
 
   /***
@@ -76,15 +76,15 @@ class optimizer {
     /// number of elements
     size_t const n_ele = func.global_dim() + func.private_dim();
     /// memory for the Hessian approximation
-    double * const __restrict__ B;
+    double * const PSQN_RESTRICT B;
     /// memory for the gradient
-    double * const __restrict__ gr = B + (n_ele * (n_ele + 1)) / 2L;
+    double * const PSQN_RESTRICT gr = B + (n_ele * (n_ele + 1)) / 2L;
     /// memory for the old gradient
-    double * const __restrict__ gr_old = gr + n_ele;
+    double * const PSQN_RESTRICT gr_old = gr + n_ele;
     /// memory for the old value
-    double * const __restrict__ x_old = gr_old + n_ele;
+    double * const PSQN_RESTRICT x_old = gr_old + n_ele;
     /// memory for the current value
-    double * const __restrict__ x_new = x_old + n_ele;
+    double * const PSQN_RESTRICT x_new = x_old + n_ele;
     /// indices of first set of private parameters
     size_t const par_start;
     /// bool for whether to use BFGS or SR1 updates
@@ -125,8 +125,8 @@ class optimizer {
      @param comp_grad logical for whether to compute the gradient
      */
     double operator()
-      (double const * __restrict__ global,
-       double const * __restrict__ vprivate, bool const comp_grad){
+      (double const * PSQN_RESTRICT global,
+       double const * PSQN_RESTRICT vprivate, bool const comp_grad){
       // copy values
       size_t const d_global  = func.global_dim(),
                    d_private = func.private_dim();
@@ -150,9 +150,9 @@ class optimizer {
      */
     void update_Hes(double * const wmem){
       // differences in parameters and gradient
-      double * const __restrict__ s   = wmem,
-             * const __restrict__ y   = s + n_ele,
-             * const __restrict__ wrk = y + n_ele;
+      double * const PSQN_RESTRICT s   = wmem,
+             * const PSQN_RESTRICT y   = s + n_ele,
+             * const PSQN_RESTRICT wrk = y + n_ele;
 
       lp::vec_diff(x_new, x_old , s, n_ele);
 
@@ -252,8 +252,8 @@ class optimizer {
     double func(double const *val){
       return w(g_val, val, false);
     }
-    double grad(double const * __restrict__ val,
-                double       * __restrict__ gr){
+    double grad(double const * PSQN_RESTRICT val,
+                double       * PSQN_RESTRICT gr){
       double const out = w(g_val, val, true);
       for(size_t i = 0; i < p_dim; ++i)
         gr[i] = w.gr[i + g_dim];
@@ -343,20 +343,20 @@ public:
    @param max_threads maximum number of threads to use.
    */
   optimizer(std::vector<EFunc> &funcs_in, size_t const max_threads):
-  global_dim(([&](){
+  global_dim(([&]() -> size_t {
     if(funcs_in.size() < 1L)
       throw std::invalid_argument(
           "optimizer<EFunc>::optimizer: no functions supplied");
     return funcs_in[0].global_dim();
   })()),
   is_ele_func_thread_safe(funcs_in[0].thread_safe()),
-  n_par(([&](){
+  n_par(([&]() -> size_t {
     size_t out(global_dim);
     for(auto &f : funcs_in)
       out += f.private_dim();
     return out;
   })()),
-  n_mem(([&](){
+  n_mem(([&]() -> std::array<size_t, 3L> {
     size_t out(0L),
            max_priv(0L);
     for(auto &f : funcs_in){
@@ -385,7 +385,7 @@ public:
     return ret;
   })()),
   max_threads(max_threads > 0 ? max_threads : 1L),
-  funcs(([&](){
+  funcs(([&]() -> std::vector<worker> {
     std::vector<worker> out;
     size_t const n_ele(funcs_in.size());
     out.reserve(funcs_in.size());
@@ -409,7 +409,7 @@ public:
    @param gr pointer to store gradient in.
    @param comp_grad boolean for whether to compute the gradient.
    */
-  double eval(double const * val, double * __restrict__ gr,
+  double eval(double const * val, double * PSQN_RESTRICT gr,
               bool const comp_grad){
     if(comp_grad)
       n_grad++;
@@ -417,7 +417,7 @@ public:
       n_eval++;
 
     size_t const n_funcs = funcs.size();
-    auto serial_version = [&](){
+    auto serial_version = [&]() -> double {
       double out(0.);
       for(size_t i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
@@ -496,12 +496,12 @@ public:
    @param val vector on the right-hand side.
    @param res output vector on the left-hand side.
    ***/
-  void B_vec(double const * const __restrict__ val,
-             double * const __restrict__ res) const noexcept {
+  void B_vec(double const * const PSQN_RESTRICT val,
+             double * const PSQN_RESTRICT res) const noexcept {
     size_t const n_funcs = funcs.size();
 
     // the serial version
-    auto serial_version = [&](){
+    auto serial_version = [&]() -> void {
       for(size_t i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
         size_t const iprivate = f.func.private_dim(),
@@ -552,7 +552,7 @@ public:
    */
   void get_diag(double * x){
     std::fill(x, x + global_dim, 0.);
-    double * __restrict__ x_priv = x + global_dim;
+    double * PSQN_RESTRICT x_priv = x + global_dim;
 
     for(size_t i = 0; i < funcs.size(); ++i){
       auto &f = funcs[i];
@@ -577,14 +577,14 @@ public:
     @param trace controls the amount of tracing information.
     @param pre_method preconditioning method.
    */
-  bool conj_grad(double const * __restrict__ x, double * __restrict__ y,
+  bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
                  double const tol, size_t const max_cg,
                  int const trace, precondition const pre_method){
-    double * __restrict__ r      = temp_mem,
-           * __restrict__ p      = r   + n_par,
-           * __restrict__ B_p    = p   + n_par,
-           * __restrict__ v      = B_p + n_par,
-           * __restrict__ B_diag = v   + n_par;
+    double * PSQN_RESTRICT r      = temp_mem,
+           * PSQN_RESTRICT p      = r   + n_par,
+           * PSQN_RESTRICT B_p    = p   + n_par,
+           * PSQN_RESTRICT v      = B_p + n_par,
+           * PSQN_RESTRICT B_diag = v   + n_par;
     bool const do_pre = pre_method == 1L;
 
     // setup before first iteration
@@ -595,8 +595,8 @@ public:
         *b = 1. / *b; // want to use multiplication rather than division
     }
 
-    auto diag_solve = [&](double       * __restrict__ vy,
-                          double const * __restrict__ vx){
+    auto diag_solve = [&](double       * PSQN_RESTRICT vy,
+                          double const * PSQN_RESTRICT vx) -> void {
       double * di = B_diag;
       for(size_t i = 0; i < n_par; ++i)
         *vy++ = *vx++ * *di++;
@@ -615,7 +615,7 @@ public:
         p[i] = -v[i];
     }
 
-    auto get_r_v_dot = [&](){
+    auto get_r_v_dot = [&]() -> double {
       return do_pre ? lp::vec_dot(r, v, n_par) : lp::vec_dot(r, n_par);
     };
 
@@ -677,13 +677,13 @@ public:
    returns false if the line search fails.
    */
   bool line_search(
-      double const f0, double * __restrict__ x0, double * __restrict__ gr0,
-      double * __restrict__ dir, double &fnew, double const c1,
+      double const f0, double * PSQN_RESTRICT x0, double * PSQN_RESTRICT gr0,
+      double * PSQN_RESTRICT dir, double &fnew, double const c1,
       double const c2, bool const strong_wolfe, int const trace){
     double * const x_mem = temp_mem;
 
     // declare 1D functions
-    auto psi = [&](double const alpha){
+    auto psi = [&](double const alpha) -> double {
       for(size_t i = 0; i < n_par; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
@@ -691,7 +691,7 @@ public:
     };
 
     // returns the function value and the gradient
-    auto dpsi = [&](double const alpha){
+    auto dpsi = [&](double const alpha) -> double {
       for(size_t i = 0; i < n_par; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
@@ -706,37 +706,38 @@ public:
       return false;
 
     constexpr size_t const max_it = 20L;
-    constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
-    auto zoom = [&](double a_low, double a_high, intrapolate &inter){
-      double f_low = psi(a_low);
-      for(size_t i = 0; i < max_it; ++i){
-        double const ai = inter.get_value(a_low, a_high),
-                     fi = psi(ai);
-        inter.update(ai, fi);
-        Reporter::line_search_inner(trace, a_low, ai, fi, true,
-                                    NaNv, a_high);
+    static double const NaNv = std::numeric_limits<double>::quiet_NaN();
+    auto zoom =
+      [&](double a_low, double a_high, intrapolate &inter) -> bool {
+        double f_low = psi(a_low);
+        for(size_t i = 0; i < max_it; ++i){
+          double const ai = inter.get_value(a_low, a_high),
+                       fi = psi(ai);
+          inter.update(ai, fi);
+          Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                      NaNv, a_high);
 
-        if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
-          a_high = ai;
-          continue;
+          if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
+            a_high = ai;
+            continue;
+          }
+
+          double const dpsi_i = dpsi(ai);
+          Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                      dpsi_i, a_high);
+          double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
+          if(test_val <= - c2 * dpsi_zero)
+            return true;
+
+          if(dpsi_i * (a_high - a_low) >= 0.)
+            a_high = a_low;
+
+          a_low = ai;
+          f_low = fi;
         }
 
-        double const dpsi_i = dpsi(ai);
-        Reporter::line_search_inner(trace, a_low, ai, fi, true,
-                                    dpsi_i, a_high);
-        double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
-        if(test_val <= - c2 * dpsi_zero)
-          return true;
-
-        if(dpsi_i * (a_high - a_low) >= 0.)
-          a_high = a_low;
-
-        a_low = ai;
-        f_low = fi;
-      }
-
-      return false;
-    };
+        return false;
+      };
 
     double fold(f0),
          a_prev(0),
@@ -788,7 +789,7 @@ public:
       }
 
       if(dpsi_i >= 0){
-        intrapolate inter = ([&](){
+        intrapolate inter = ([&]() -> intrapolate {
           if(found_ok_prev){
             // we have two values that we can use
             intrapolate out(f0, dpsi_zero, a_prev, fold);
@@ -923,7 +924,7 @@ public:
   /***
    returns the current Hessian approximation.
    */
-  void get_hess(double * const __restrict__ hess) const {
+  void get_hess(double * const PSQN_RESTRICT hess) const {
     // TODO: make an implementation which returns a sparse Hessian
     std::fill(hess, hess + n_par * n_par, 0.);
 
@@ -931,7 +932,7 @@ public:
     for(auto &f : funcs){
       size_t const iprivate = f.func.private_dim();
 
-      auto get_i = [&](size_t const i, size_t const j){
+      auto get_i = [&](size_t const i, size_t const j) -> size_t {
         size_t const ii = std::min(i, j),
                      jj = std::max(j, i);
 

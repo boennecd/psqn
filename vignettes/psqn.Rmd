@@ -17,7 +17,7 @@ img {
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, fig.align = "center", error = FALSE,
-  comment = "#>", fig.width = 7, fig.height = 4)
+  comment = "#>", fig.width = 7, fig.height = 4, cache.lazy = FALSE)
 options(digits = 3, width = 80)
 ```
 
@@ -365,6 +365,43 @@ In practice, we terminate the conjugate gradient method when
 $\lVert\vec r_k\rVert < \min (c, \sqrt{\lVert\nabla f(\vec x_{k -1})\rVert})\lVert\nabla f(\vec x_{k -1})\rVert$
 where $c$ is a constant the user can set. Moreover, we use diagonal 
 preconditioning.
+
+We can compare the flops of the matrix product in BFGS with applying the 
+conjugate gradient method. Assume that all $q_i$s are almost $\bar q$. 
+Then the ratio of flops is approximately:
+
+$$
+\frac{p^2 + 2pn\bar q + (n\bar q)^2}
+     {n_{\text{cg}}(np^2 + 2pn\bar q + n\bar q^2)}
+$$
+
+where $n_{\text{cg}}$ is the number of conjugate gradient iterations. Thus, 
+to get something which is linear in the number of element functions, $n$, 
+then we must have that:
+
+$$
+\begin{align*}
+\frac{n_{\text{cg}}(np^2 + 2pn\bar q + n\bar q^2)}
+     {p^2 + 2pn\bar q + (n\bar q)^2} &\leq \frac kn \\
+\Leftrightarrow n_{\text{cg}} &\leq \frac kn
+  \frac{p^2 + 2pn\bar q + (n\bar q)^2}
+  {np^2 + 2pn\bar q + n\bar q^2} \\
+&= k\frac{p^2 + 2pn\bar q + (n\bar q)^2}
+  {n^2(p^2 + 2p\bar q + \bar q^2)} \\
+&\approx k 
+  \frac{\bar q^2}{p^2 + 2p\bar q + \bar q^2}
+\end{align*}
+$$
+
+where $k$ is some fixed constant with $k < n$. An example of the latter 
+ratio is shown in the 
+[BFGS and Partially Separable Quasi-Newton](#bfgs-and-partially-separable-quasi-newton)
+section. 
+
+We can get rid of the $p^2$ in the denominator by once computing 
+the first $p\times p$ part of the Hessian approximation prior to performing
+the conjugate gradient method. This is not implemented though. The `max_cg`
+argument is added beacuse of the considerations above.
 
 ## Line Search and Wolfe Condition
 We use line search and search for a point which satisfy
@@ -1030,5 +1067,42 @@ vals <- matrix(
     NULL, c("n", "p/q", unique(vals$q))))
 knitr::kable(vals)
 ```
+
+The
+
+$$\frac{\bar q^2}{p^2 + 2p\bar q + \bar q^2}$$
+
+ratio from the section called 
+[Conjugate Gradient Method](#conjugate-gradient-method) is shown below:
+
+```{r n_cg_table}
+vals <- expand.grid(p = 2^(2:8), q = 2^(2:10))
+vals <- within(vals, {
+  ratio <- q^2 / (p^2  + 2 * p * q + q^2)
+})
+tvals <- c(unique(vals$p), vals[, "ratio"])
+
+vals <- matrix(
+  tvals, ncol = length(unique(vals$q)) + 1L, dimnames = list(
+    NULL, c("p/q", unique(vals$q))))
+knitr::kable(vals, digits = 4)
+```
+
+We can get rid of the $p^2$ term which gives us: 
+
+```{r np_p_sq_n_cg_table}
+vals <- expand.grid(p = 2^(2:8), q = 2^(2:10))
+vals <- within(vals, {
+  ratio <- q^2 / (2 * p * q + q^2)
+})
+tvals <- c(unique(vals$p), vals[, "ratio"])
+
+vals <- matrix(
+  tvals, ncol = length(unique(vals$q)) + 1L, dimnames = list(
+    NULL, c("p/q", unique(vals$q))))
+knitr::kable(vals, digits = 4)
+```
+
+This is not implemented though.
 
 ## References

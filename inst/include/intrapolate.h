@@ -25,7 +25,7 @@ public:
                  b = std::max(v1, v2),
              small = .01 * (b - a);
 
-    double const val = ([&](){
+    double const val = ([&]() -> double {
       if(!has_two_values)
         return - d0 * xnew * xnew / 2 / (fnew - f0 - d0 * xnew);
 

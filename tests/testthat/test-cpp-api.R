@@ -66,7 +66,7 @@ test_that("mixed logit model gives the same", {
                           -0.180877909582702, -0.150512019701299), value = 25.1215015278071,
                   info = 0L, counts = c(`function` = 12, gradient = 11, n_cg = 40
                   ), convergence = TRUE)
-  tol <- sqrt(rel_eps)
+  tol <- sqrt(rel_eps) * 10
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
   opt <- optim_mlogit(

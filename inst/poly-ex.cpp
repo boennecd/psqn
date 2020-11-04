@@ -67,7 +67,7 @@ public:
   }
 
   double grad
-  (double const * __restrict__ point, double * __restrict__ gr) const {
+  (double const * point, double * gr) const {
     arma::vec const x_glob = vec_no_cp(point           , n_global),
                     x_priv = vec_no_cp(point + n_global, mu_cluster.n_elem),
                      delta = x_priv - Psi * x_glob(g_idx) - mu_cluster;
