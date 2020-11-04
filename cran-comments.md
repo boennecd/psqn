@@ -3,6 +3,8 @@
   R version 3.6.3  
 * Ubuntu 16.04 LTS (on travis-ci)
   R version 4.0.0
+* Ubuntu 18.04 LTS with clang-6.0.0 with ASAN and UBSAN
+  R devel (2020-11-03 r79399)
 * win-builder (devel and release)
 * `rhub::check_for_cran()`
 * `rhub::check_on_solaris()`

@@ -5,6 +5,7 @@
 ^vignettes/render\.R
 ^vignettes/psqn\.Rmd
 ^vignettes/psqn\.bib
+^vignettes/quick-intro\.Rmd
 ^vignettes/psqn_files
 ^README\.md$
 ^src/prof

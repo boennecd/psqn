@@ -1,0 +1,160 @@
+---
+title: "A Quick Introduction to the psqn Package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{A Quick Introduction to the psqn Package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, fig.align = "center", error = FALSE,
+  comment = "#>", fig.width = 7, fig.height = 4, cache.lazy = FALSE)
+options(digits = 3, width = 80)
+```
+
+$$\renewcommand\vec{\boldsymbol}   \def\bigO#1{\mathcal{O}(#1)}   \def\Cond#1#2{\left(#1\,\middle|\, #2\right)}   \def\mat#1{\boldsymbol{#1}}   \def\der{{\mathop{}\!\mathrm{d}}}   \def\argmax{\text{arg}\,\text{max}}  \def\Prob{\text{P}}  \def\diag{\text{diag}}   \def\argmin{\text{arg}\,\text{min}}   \def\Expe{\text{E}}$$
+
+This is a quick introduction to the psqn package. A more detailed 
+description can be found in the psqn vignette (call 
+`vignette("psqn", package = "psqn")`). 
+The main function in the package is the `psqn` function. The `psqn` function 
+minimizes functions which can be written like:
+
+$$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
+
+where $\vec x\in \mathbb R^l$,
+
+$$\vec x_{\mathcal I_i} = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\}^l,$$
+
+and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix.
+We call the $f_i$s element functions and assume that each of them only 
+depend on a small number of variables. Furthermore, we assume that each 
+index set $\mathcal I_i$ is of the form:
+
+$$\begin{align*}   \mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_j &= \emptyset \qquad j\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.$$
+
+That is, each index set contains $p$ _global parameters_ and 
+$q_i = \lvert\mathcal J_i\rvert$ _private parameters_ which are particular 
+for each element function, $f_i$. For implementation reason, we let:
+
+$$\begin{align*}   \overleftarrow q_i &=    \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\   \mathcal J_i &=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}$$
+
+such that the element functions' private parameters lies in consecutive 
+parts of $\vec x$. 
+
+## The R Interface 
+As a simple example, we consider the element functions: 
+
+$$
+f_i((\vec\beta^\top, \vec u^\top_i)^\top) = -\vec y_i(\mat X_i\vec\beta + \mat Z_i\vec u_i)     + \sum_{k = 1}^{t_i}   \log(1 + \exp(\vec x_{ik}^\top\vec\beta + \vec z_{ik}^\top\vec u_i))   + \frac 12 \vec u^\top_i\mat\Sigma^{-1} \vec u_i.
+$$
+
+$\vec\beta$ is the $p$ dimensional global parameter and $\vec u_i$ is the 
+$q_i = q$ dimensional private parameters for the $i$th element function. 
+$\vec y_i\in \{0, 1\}^{t_i}$, $\mat X_i\in\mathbb R^{t_i\times p}$, and 
+$\mat Z_i\in\mathbb R^{t_i\times q}$ are particular to each element 
+function. We simulate some data below to use:
+
+```{r sim_dat}
+# assign global parameters, number of private parameters, etc.
+q <- 4 # number of private parameters per cluster
+p <- 5 # number of global parameters
+beta <- sqrt((1:p) / sum(1:p))
+Sigma <- diag(q)
+
+# simulate a data set
+n_ele_func <- 1000L # number of element functions
+set.seed(80919915)
+
+sim_dat <- replicate(n_ele_func, {
+  t_i <- sample.int(40L, 1L) + 2L
+  X <- matrix(runif(p * t_i, -sqrt(6 / 2), sqrt(6 / 2)), 
+              p)
+  u <- drop(rnorm(q) %*% chol(Sigma))
+  Z <- matrix(runif(q * t_i, -sqrt(6 / 2 / q), sqrt(6 / 2 / q)), 
+              q)
+  eta <- drop(beta %*% X + u %*% Z)
+  y <- as.numeric((1 + exp(-eta))^(-1) > runif(t_i))
+  
+  list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
+}, simplify = FALSE)
+
+# data for the first element function
+sim_dat[[1L]]
+```
+
+We work with $\mat X_i^\top$ and $\mat Z_i^\top$ for computational reasons. 
+The function we need to pass to `psqn` needs to take three arguments: 
+
+ - An index of the element function. 
+ - A vector with $\vec x_{\mathcal I_i}$. It will have length zero if the 
+   backend requests an integer vector with $p$ and $q_i$.
+ - A logical variable which is `TRUE` if the function should return an 
+   attribute with the gradient with respect to $\vec x_{\mathcal I_i}$.
+   
+The function should return the element function value (potentially with the 
+gradient as an attribute) or $p$ and $q_i$. 
+Thus, an example in our case will be:
+
+```{r def_func}
+r_func <- function(i, par, comp_grad){
+  dat <- sim_dat[[i]]
+  X <- dat$X
+  Z <- dat$Z
+  
+  if(length(par) < 1)
+    # requested the dimension of the parameter
+    return(c(global_dim = NROW(dat$X), private_dim = NROW(dat$Z)))
+  
+  y <- dat$y
+  Sigma_inv <- dat$Sigma_inv
+  
+  beta <- par[1:p]
+  u_i <- par[1:q + p]
+  eta <- drop(beta %*% X + u_i %*% Z)
+  exp_eta <- exp(eta)
+  
+  # compute the element function
+  out <- -sum(y * eta) + sum(log(1 + exp_eta)) + 
+    sum(u_i * (Sigma_inv %*% u_i)) / 2
+  
+  if(comp_grad){
+    # we also need to compute the gradient
+    d_eta <- -y + exp_eta / (1 + exp_eta)
+    grad <- c(X %*% d_eta, 
+              Z %*% d_eta + dat$Sigma_inv %*% u_i)
+    attr(out, "grad") <- grad
+  }
+  
+  out
+}
+```
+
+Then we can optimize the function as follows:
+
+```{r opt_func}
+library(psqn)
+start_val <- numeric(p + n_ele_func * q) # the starting value
+opt_res <- psqn(par = start_val, fn = r_func, n_ele_func = n_ele_func)
+
+# check the minimum
+opt_res$value
+
+# check the estimated global parameters
+head(opt_res$par, length(beta))
+
+# should be close to 
+beta
+```
+
+## Ending Remarks
+The package can also be used as a header-only library in C++. This can yield 
+a very large reduction in computation time and be easy to implement 
+with the Rcpp package. Two examples are shown in the psqn vignette 
+(see `vignette("psqn", package = "psqn")`). 
+
+There is also a BFGS implementation in the package. This can be used in 
+R with the `psqn_bfgs` function. The BFGS implementation can also be used in 
+C++ using the psqn-bfgs.h file. 
