@@ -162,6 +162,16 @@ optim_info bfgs(
         for(size_t i = 0; i < 25L; ++i){
           double const ai = inter.get_value(a_low, a_high),
                        fi = psi(ai);
+          if(!std::isfinite(fi)){
+            // this is very bad! We do not know in which direction to go.
+            // We try to go in a lower direction
+            if(a_low < a_high)
+              a_high = ai;
+            else
+              a_low = ai;
+            continue;
+          }
+
           inter.update(ai, fi);
           Reporter::line_search_inner(trace, a_low, ai, fi, true,
                                       NaNv, a_high);
