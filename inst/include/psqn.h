@@ -309,7 +309,7 @@ private:
 #ifdef _OPENMP
     return omp_get_thread_num();
 #else
-    return 1L;
+    return 0L;
 #endif
   }
 
