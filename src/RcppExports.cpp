@@ -51,12 +51,12 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP run_testthat_tests();
+RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_psqn_psqn", (DL_FUNC) &_psqn_psqn, 15},
     {"_psqn_psqn_bfgs", (DL_FUNC) &_psqn_psqn_bfgs, 9},
-    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
+    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };
 

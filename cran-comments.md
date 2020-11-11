@@ -1,22 +1,26 @@
 ## Test environments
 * Ubuntu 18.04 LTS with gcc 8.3.0
   R version 3.6.3  
+* Ubuntu 18.04 LTS with gcc 8.3.0
+  R version 3.6.3 with LTO checks
 * Ubuntu 16.04 LTS (on travis-ci)
   R version 4.0.0
-* Ubuntu 18.04 LTS with clang-6.0.0 with ASAN and UBSAN
-  R devel (2020-11-03 r79399)
 * win-builder (devel and release)
-* `rhub::check_for_cran()`
-* `rhub::check_on_solaris()`
-* `rhub::check(platform = "macos-highsierra-release")`
   
 ## R CMD check results
 There were no WARNINGs or ERRORs.
 
 There is a NOTE about the package size in some cases.
 
-I have removed the `std::defaultfloat` as this is not implemented with the 
-compiler on r-oldrel-windows-ix86+x86_64.
+The only error that was left is the issue with LTO. However, notice that 
+this is because of an update of testthat on 2020-10-31. In particular, they 
+changed this line: 
+https://github.com/r-lib/testthat/blob/b684f1ee7fd806ff55a9d901174c4cc77c38b7d0/inst/include/testthat/testthat.h#L165
 
-I have attempted to fix the errors on r-patched-solaris-x86. However, 
-`rhub::check_on_solaris()` still passes as it did before.
+I submitted my package on 2020-11-04 and did not think that there would be 
+breaking changes in the testthat package.
+
+For the record, the LTO did __not__ remain. I submitted version 0.1.1 prior 
+to the testthat 3.0.0 release with the breaking changes. I suspect that a 
+lot of packages will now fail the LTO check. See 
+https://github.com/r-lib/testthat/issues/1230
