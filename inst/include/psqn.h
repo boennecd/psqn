@@ -381,7 +381,10 @@ public:
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
-    std::array<size_t, 3L> ret = { out, 5L * n_par, thread_mem };
+    std::array<size_t, 3L> ret = {
+      out,
+      5L * n_par + (global_dim * (global_dim + 1L)) / 2L,
+      thread_mem };
     return ret;
   })()),
   max_threads(max_threads > 0 ? max_threads : 1L),
@@ -495,10 +498,30 @@ public:
    computes y <- y + B.x where B is the current Hessian approximation.
    @param val vector on the right-hand side.
    @param res output vector on the left-hand side.
+   @param B_start memory with the [global_dim] x [global_dim] part of B.
+   @param comp_B_start true if B_start should be computed.
    ***/
   void B_vec(double const * const PSQN_RESTRICT val,
-             double * const PSQN_RESTRICT res) const noexcept {
+             double * const PSQN_RESTRICT res,
+             double * const PSQN_RESTRICT B_start,
+             bool const comp_B_start) const noexcept {
     size_t const n_funcs = funcs.size();
+
+    // aggregate the first part of B if needed
+    if(comp_B_start){
+      size_t const B_sub_ele = (global_dim * (global_dim + 1)) / 2;
+      std::fill(B_start, B_start + B_sub_ele, 0);
+      for(size_t i = 0; i < n_funcs; ++i){
+        auto &f = funcs[i];
+        double * b = B_start;
+        double const *b_inc = f.B;
+        for(size_t j = 0; j < B_sub_ele; ++j)
+          *b++ += *b_inc++;
+      }
+    }
+
+    // compute the first part
+    lp::mat_vec_dot(B_start, val, res, global_dim);
 
     // the serial version
     auto serial_version = [&]() -> void {
@@ -507,8 +530,9 @@ public:
         size_t const iprivate = f.func.private_dim(),
                private_offset = f.par_start;
 
-        lp::mat_vec_dot(f.B, val, val + private_offset, res,
-                        res + private_offset, global_dim, iprivate);
+        lp::mat_vec_dot_excl_first(f.B, val, val + private_offset, res,
+                                   res + private_offset, global_dim,
+                                   iprivate);
       }
     };
 
@@ -531,8 +555,9 @@ public:
       size_t const iprivate = f.func.private_dim(),
              private_offset = f.par_start;
 
-      lp::mat_vec_dot(f.B, v_mem, val + private_offset, r_mem,
-                      res + private_offset, global_dim, iprivate);
+      lp::mat_vec_dot_excl_first(f.B, v_mem, val + private_offset, r_mem,
+                                 res + private_offset, global_dim,
+                                 iprivate);
     }
     }
 
@@ -580,11 +605,12 @@ public:
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
                  double const tol, size_t const max_cg,
                  int const trace, precondition const pre_method){
-    double * PSQN_RESTRICT r      = temp_mem,
-           * PSQN_RESTRICT p      = r   + n_par,
-           * PSQN_RESTRICT B_p    = p   + n_par,
-           * PSQN_RESTRICT v      = B_p + n_par,
-           * PSQN_RESTRICT B_diag = v   + n_par;
+    double * PSQN_RESTRICT r       = temp_mem,
+           * PSQN_RESTRICT p       = r      + n_par,
+           * PSQN_RESTRICT B_p     = p      + n_par,
+           * PSQN_RESTRICT v       = B_p    + n_par,
+           * PSQN_RESTRICT B_diag  = v      + n_par,
+           * PSQN_RESTRICT B_start = B_diag + n_par;
     bool const do_pre = pre_method == 1L;
 
     // setup before first iteration
@@ -623,7 +649,7 @@ public:
     for(size_t i = 0; i < max_cg; ++i){
       ++n_cg;
       std::fill(B_p, B_p + n_par, 0.);
-      B_vec(p, B_p);
+      B_vec(p, B_p, B_start, i == 0);
 
       double const p_B_p = lp::vec_dot(p, B_p, n_par);
       if(p_B_p <= 0){
