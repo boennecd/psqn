@@ -63,22 +63,28 @@ public:
   g_dim(([&]() -> size_t {
     NumericVector dum(0);
     scomp_grad[0] = false;
-    SEXP res =  f(f_idx, dum, scomp_grad);
-    if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) != 2L)
+    SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
+    if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) != 2L){
+      UNPROTECT(1);
       throw std::invalid_argument(
           "fn returns invalid lengths with zero length par");
-
-    return *INTEGER(res);
+    }
+    int const out = *INTEGER(res);
+    UNPROTECT(1);
+    return out;
   })()),
   p_dim(([&]() -> size_t {
     NumericVector dum(0);
     scomp_grad[0] = false;
-    SEXP res =  f(f_idx, dum, scomp_grad);
-    if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) != 2L)
+    SEXP res =  PROTECT(f(f_idx, dum, scomp_grad));
+    if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) != 2L){
+      UNPROTECT(1);
       throw std::invalid_argument(
           "fn returns invalid lengths with zero length par");
-
-    return INTEGER(res)[1L];
+    }
+    int const out = INTEGER(res)[1L];
+    UNPROTECT(1);
+    return out;
   })())
   { };
 
@@ -94,12 +100,15 @@ public:
     for(size_t j = 0; j < n_ele; ++j, ++point, ++p)
       *p = *point;
     scomp_grad[0] = false;
-    SEXP res =  f(f_idx, par, scomp_grad);
-    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L)
+    SEXP res =  PROTECT(f(f_idx, par, scomp_grad));
+    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L){
+      UNPROTECT(1);
       throw std::invalid_argument(
           "fn returns invalid output with comp_grad = FALSE");
-
-    return *REAL(res);
+    }
+    double const out = *REAL(res);
+    UNPROTECT(1);
+    return out;
   }
 
   double grad
@@ -107,18 +116,22 @@ public:
     for(size_t j = 0; j < n_ele; ++j, ++point)
       par[j] = *point;
     scomp_grad[0] = true;
-    SEXP res =  f(f_idx, par, scomp_grad);
+    SEXP res =  PROTECT(f(f_idx, par, scomp_grad));
     CharacterVector what("grad");
-    SEXP gr_val = Rf_getAttrib(res, what);
+    SEXP gr_val = PROTECT(Rf_getAttrib(res, what));
 
     if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L or
          Rf_isNull(gr_val) or !Rf_isReal(gr_val) or
-         static_cast<size_t>(Rf_xlength(gr_val)) != n_ele)
+         static_cast<size_t>(Rf_xlength(gr_val)) != n_ele){
+      UNPROTECT(2);
       throw std::invalid_argument(
           "fn returns invalid output with comp_grad = TRUE");
+    }
 
     lp::copy(gr, REAL(gr_val), n_ele);
-    return *REAL(res);
+    double const out = *REAL(res);
+    UNPROTECT(2);
+    return out;
   };
 
   virtual bool thread_safe() const {
@@ -329,29 +342,36 @@ public:
 
   double func(double const *val){
     lp::copy(&par[0], val, n_ele);
-    SEXP res = f(par);
-    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L)
+    SEXP res = PROTECT(f(par));
+    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L){
+      UNPROTECT(1);
       throw std::invalid_argument("fn returns invalid output");
-
-    return *REAL(res);
+    }
+    double const out = *REAL(res);
+    UNPROTECT(1);
+    return out;
   }
 
   double grad(double const * __restrict__ val,
               double       * __restrict__ gr){
     lp::copy(&par[0], val, n_ele);
 
-    SEXP res = g(par);
+    SEXP res = PROTECT(g(par));
     CharacterVector what("value");
-    SEXP func_val = Rf_getAttrib(res, what);
+    SEXP func_val = PROTECT(Rf_getAttrib(res, what));
 
     if(!Rf_isReal(res) or !Rf_isVector(res) or
          static_cast<size_t>(Rf_xlength(res)) != n_ele or
          Rf_isNull(func_val) or !Rf_isReal(func_val) or
-         Rf_xlength(func_val) != 1L)
+         Rf_xlength(func_val) != 1L){
+      UNPROTECT(2);
       throw std::invalid_argument("gr returns invalid output");
+    }
 
+    double const out = *REAL(func_val);
     lp::copy(gr, REAL(res), n_ele);
-    return *REAL(func_val);
+    UNPROTECT(2);
+    return out;
   }
 };
 
