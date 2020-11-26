@@ -57,10 +57,40 @@ public:
 };
 
 /***
+ default class which can be replaced to do prior computation before
+ calling the methods on the element function class. This allows one to save
+ some computation.
+ */
+template<class EFunc>
+struct default_caller {
+  default_caller(std::vector<EFunc const*>&) { }
+
+  /**
+   method that is called prior to calling eval_func or eval_grad. The method
+   will only be called by the master thread.
+
+   @param val pointer to the value to evaluate the function at.
+   @param comp_grad true if eval_grad is going to be called.
+   */
+  inline void setup(double const *val, bool const comp_grad) { }
+
+  template<class T>
+  inline double eval_func(T &obj, double const * val) {
+    return obj.func(val);
+  }
+
+  template<class T>
+  inline double eval_grad(T &obj, double const * val, double *gr) {
+    return obj.grad(val, gr);
+  }
+};
+
+/***
  the reporter class can be used to report results during the optimization.
  */
 template<class EFunc, class Reporter = dummy_reporter,
-         class interrupter = dummy_interrupter>
+         class interrupter = dummy_interrupter,
+         class T_caller = default_caller<EFunc> >
 class optimizer {
   /***
    worker class to hold an element function and the element function''s
@@ -123,10 +153,13 @@ class optimizer {
      @param global values for the global parameters
      @param vprivate values for private parameters.
      @param comp_grad logical for whether to compute the gradient
+     @param call_obj object to evaluate the function or gradient given an
+                     EFunc object.
      */
     double operator()
       (double const * PSQN_RESTRICT global,
-       double const * PSQN_RESTRICT vprivate, bool const comp_grad){
+       double const * PSQN_RESTRICT vprivate, bool const comp_grad,
+       T_caller &call_obj){
       // copy values
       size_t const d_global  = func.global_dim(),
                    d_private = func.private_dim();
@@ -135,10 +168,10 @@ class optimizer {
       lp::copy(x_new + d_global, vprivate, d_private);
 
       if(!comp_grad)
-        return func.func(static_cast<double const *>(x_new));
+        return call_obj.eval_func(func, static_cast<double const *>(x_new));
 
-      double const out =  func.grad(
-        static_cast<double const *>(x_new), gr);
+      double const out = call_obj.eval_grad(
+        func, static_cast<double const *>(x_new), gr);
 
       return out;
     }
@@ -242,19 +275,21 @@ class optimizer {
     double const * g_val;
     size_t const p_dim = w.func.private_dim(),
                  g_dim = w.func.global_dim();
+    T_caller &call_obj;
 
   public:
-    sub_problem(worker &w, double const *g_val): w(w), g_val(g_val) { }
+    sub_problem(worker &w, double const *g_val, T_caller &call_obj):
+    w(w), g_val(g_val), call_obj(call_obj) { }
 
     size_t size() const {
       return p_dim;
     }
     double func(double const *val){
-      return w(g_val, val, false);
+      return w(g_val, val, false, call_obj);
     }
     double grad(double const * PSQN_RESTRICT val,
                 double       * PSQN_RESTRICT gr){
-      double const out = w(g_val, val, true);
+      double const out = w(g_val, val, true, call_obj);
       for(size_t i = 0; i < p_dim; ++i)
         gr[i] = w.gr[i + g_dim];
       return out;
@@ -294,6 +329,14 @@ private:
   size_t n_grad = 0L;
   /// number of iterations of conjugate gradient
   size_t n_cg = 0L;
+  /// object to do computations prior to evaluating the element functions.
+  T_caller caller = T_caller(([&](){
+    std::vector<EFunc const*> ele_funcs;
+    ele_funcs.reserve(funcs.size());
+    for(auto &f : funcs)
+      ele_funcs.emplace_back(&f.func);
+    return T_caller(ele_funcs);
+  })());
 
   /***
    reset the counters for the number of evaluations
@@ -419,12 +462,14 @@ public:
     else
       n_eval++;
 
+    caller.setup(val, comp_grad);
+
     size_t const n_funcs = funcs.size();
     auto serial_version = [&]() -> double {
       double out(0.);
       for(size_t i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
-        out += f(val, val + f.par_start, comp_grad);
+        out += f(val, val + f.par_start, comp_grad, caller);
       }
 
       if(comp_grad){
@@ -460,7 +505,7 @@ public:
 #pragma omp for schedule(static)
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      thread_terms += f(v_mem, val + f.par_start, comp_grad);
+      thread_terms += f(v_mem, val + f.par_start, comp_grad, caller);
 
       if(comp_grad){
         // update global
@@ -1009,17 +1054,23 @@ public:
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
    @param c1,c2 thresholds for Wolfe condition.
+
+   If you supply a non-default T_caller class, T_caller.setup is only called
+   on the starting values. Thus, this function only yields valid results if
+   this is what is expected.
    */
   double optim_priv
   (double * val, double const rel_eps, size_t const max_it,
    double const c1, double const c2){
     double out(0.);
+    caller.setup(val, true);
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(n_threads) reduction(+:out) if(is_ele_func_thread_safe)
 #endif
     for(size_t i = 0; i < funcs.size(); ++i){
       auto &f = funcs[i];
-      sub_problem prob(f, val);
+      sub_problem prob(f, val, caller);
       double * const p_val = val + f.par_start;
 
       auto const opt_out = bfgs(prob, p_val, rel_eps, max_it, c1, c2, 0L);
@@ -1029,9 +1080,6 @@ public:
     return out;
   }
 };
-
-template<class EFunc>
-class optimizer<EFunc, dummy_reporter, dummy_interrupter>;
 
 } // namespace PSQN
 
