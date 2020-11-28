@@ -1079,6 +1079,17 @@ public:
 
     return out;
   }
+
+  /**
+   returns a pointers to the element function objects.
+   */
+  std::vector<EFunc const *> get_ele_funcs() const {
+    std::vector<EFunc const *> out;
+    out.reserve(funcs.size());
+    for(auto &o : funcs)
+      out.emplace_back(&o.func);
+    return out;
+  }
 };
 
 } // namespace PSQN
