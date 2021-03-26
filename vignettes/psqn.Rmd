@@ -415,7 +415,7 @@ zoom phase.
 [Symmetric rank-one (SR1)](https://en.wikipedia.org/wiki/Symmetric_rank-one)
 updates are implemented as an alternative to the BFGS updates. 
 The user can set whether the SR1 updates should be used. The SR1 updates 
-does not guarantee that the Hessian approximation is positive definite. 
+do not guarantee that the Hessian approximation is positive definite. 
 Thus, the conjugate gradient method only proceeds if 
 $\vec p_k^\top\mat A\vec p_k > 0$. That is, if the new direction is a 
 descent direction.
@@ -602,7 +602,7 @@ are needed to perform the optimization. The content of the file is:
 The `PSQN::R_reporter` class ensures that output will be printed when one 
 passes a `trace` argument which is greater than zero. The 
 `PSQN::R_interrupter` class ensures that the user can interrupt the 
-computation. These two classes can be replaced with custom classes  
+computation. These two classes can be replaced with custom classes 
 if one wants to and provide another implementation. See the source code 
 of this package for the required members.
 
