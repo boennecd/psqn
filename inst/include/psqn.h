@@ -225,7 +225,311 @@ struct default_caller {
 };
 
 /***
- the reporter class can be used to report results during the optimization.
+ template class to perform parts of the optimization that is common to
+ different particular optimizers. The reporter class can be used to report
+ results during the optimization.
+ */
+template<class OptT, class Reporter = dummy_reporter>
+class optimizer_internals {
+  OptT * const opt_obj = nullptr;
+  double * const temp_mem = nullptr;
+  size_t const n_par = 0L;
+public:
+  /// number of function evaluations
+  size_t n_eval = 0L;
+  /// number of gradient evaluations
+  size_t n_grad = 0L;
+  /// number of iterations of conjugate gradient
+  size_t n_cg = 0L;
+
+  /***
+   reset the counters for the number of evaluations
+   */
+  void reset_counters() {
+    n_eval = 0L;
+    n_grad = 0L;
+    n_cg = 0L;
+  }
+
+  optimizer_internals(OptT *opt_obj):
+    opt_obj(opt_obj),
+    temp_mem(opt_obj ? opt_obj->get_internals_mem() : nullptr),
+    n_par(opt_obj ? opt_obj->n_par : 0L)
+    { }
+
+  /***
+   evaluates the partially separable and also the gradient if requested.
+   @param val pointer to the value to evaluate the function at.
+   @param gr pointer to store gradient in.
+   @param comp_grad boolean for whether to compute the gradient.
+   */
+  double eval(double const * val, double * PSQN_RESTRICT gr,
+              bool const comp_grad){
+    if(comp_grad)
+      n_grad++;
+    else
+      n_eval++;
+    return opt_obj->eval(val, gr, comp_grad);
+  }
+
+  /***
+    conjugate gradient method with diagonal preconditioning. Solves B.y = x
+    where B is the Hessian approximation.
+    @param tol convergence threshold.
+    @param max_cg maximum number of conjugate gradient iterations.
+    @param trace controls the amount of tracing information.
+    @param pre_method preconditioning method.
+   */
+  bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
+                 double const tol, size_t const max_cg,
+                 int const trace, precondition const pre_method){
+    double * PSQN_RESTRICT r       = temp_mem,
+           * PSQN_RESTRICT p       = r      + n_par,
+           * PSQN_RESTRICT B_p     = p      + n_par,
+           * PSQN_RESTRICT v       = B_p    + n_par,
+           * PSQN_RESTRICT B_diag  = v      + n_par;
+    bool const do_pre = pre_method == 1L;
+
+    // setup before first iteration
+    if(do_pre){
+      opt_obj->get_diag(B_diag);
+      double *b = B_diag;
+      for(size_t i = 0; i < n_par; ++i, ++b)
+        *b = 1. / *b; // want to use multiplication rather than division
+    }
+
+    auto diag_solve = [&](double       * PSQN_RESTRICT vy,
+                          double const * PSQN_RESTRICT vx) -> void {
+      double * di = B_diag;
+      for(size_t i = 0; i < n_par; ++i)
+        *vy++ = *vx++ * *di++;
+    };
+
+    std::fill(y, y + n_par, 0.);
+    for(size_t i = 0; i < n_par; ++i){
+      r[i] = -x[i];
+      if(!do_pre)
+        p[i] = x[i];
+    }
+
+    if(do_pre){
+      diag_solve(v, r);
+      for(size_t i = 0; i < n_par; ++i)
+        p[i] = -v[i];
+    }
+
+    auto get_r_v_dot = [&]() -> double {
+      return do_pre ? lp::vec_dot(r, v, n_par) : lp::vec_dot(r, n_par);
+    };
+
+    auto comp_B_vec = opt_obj->get_comp_B_vec();
+
+    double old_r_v_dot = get_r_v_dot();
+    for(size_t i = 0; i < max_cg; ++i){
+      ++n_cg;
+      std::fill(B_p, B_p + n_par, 0.);
+      comp_B_vec(p, B_p);
+
+      double const p_B_p = lp::vec_dot(p, B_p, n_par);
+      if(p_B_p <= 0){
+        // negative curvature. Thus, exit
+        if(i < 1L)
+          // set output to be the gradient
+          for(size_t j = 0; j < n_par; ++j)
+            y[j] = x[j];
+
+        break;
+      }
+      double const alpha = old_r_v_dot / p_B_p;
+
+      for(size_t j = 0; j < n_par; ++j){
+        y[j] += alpha *   p[j];
+        r[j] += alpha * B_p[j];
+      }
+
+      if(do_pre)
+        diag_solve(v, r);
+      double const r_v_dot = get_r_v_dot(),
+                   t_val   = do_pre ? sqrt(abs(lp::vec_dot(r, n_par))) :
+                                      sqrt(abs(r_v_dot));
+      Reporter::cg_it(trace, i, max_cg, t_val, tol);
+      if(t_val < tol)
+        break;
+
+      double const beta = r_v_dot / old_r_v_dot;
+      old_r_v_dot = r_v_dot;
+      for(size_t j = 0; j < n_par; ++j){
+        p[j] *= beta;
+        p[j] -= do_pre ? v[j] : r[j];
+      }
+    }
+
+    return true;
+  }
+
+  /***
+   performs line search to satisfy the Wolfe condition.
+   @param f0 value of the functions at the current value.
+   @param x0 value the function is evaluated.
+   @param gr0 value of the current gradient.
+   @param dir direction to search in.
+   @param fnew the function value at the found solution.
+   @param c1,c2 thresholds for Wolfe condition.
+   @param strong_wolfe true if the strong Wolfe condition should be used.
+   @param trace controls the amount of tracing information.
+
+   x0 and gr0 contains the new value and gradient on return. The method
+   returns false if the line search fails.
+   */
+  bool line_search(
+      double const f0, double * PSQN_RESTRICT x0, double * PSQN_RESTRICT gr0,
+      double * PSQN_RESTRICT dir, double &fnew, double const c1,
+      double const c2, bool const strong_wolfe, int const trace){
+    double * const x_mem = temp_mem;
+
+    // declare 1D functions
+    auto psi = [&](double const alpha) -> double {
+      for(size_t i = 0; i < n_par; ++i)
+        x_mem[i] = x0[i] + alpha * dir[i];
+
+      return eval(x_mem, nullptr, false);
+    };
+
+    // returns the function value and the gradient
+    auto dpsi = [&](double const alpha) -> double {
+      for(size_t i = 0; i < n_par; ++i)
+        x_mem[i] = x0[i] + alpha * dir[i];
+
+      fnew = eval(x_mem, gr0, true);
+      return lp::vec_dot(gr0, dir, n_par);
+    };
+
+    // the above at alpha = 0
+    double const dpsi_zero = lp::vec_dot(gr0, dir, n_par);
+    if(dpsi_zero > 0)
+      // not a descent direction
+      return false;
+
+    constexpr size_t const max_it = 20L;
+    static double const NaNv = std::numeric_limits<double>::quiet_NaN();
+    auto zoom =
+      [&](double a_low, double a_high, intrapolate &inter) -> bool {
+        double f_low = psi(a_low);
+        for(size_t i = 0; i < max_it; ++i){
+          double const ai = inter.get_value(a_low, a_high),
+                       fi = psi(ai);
+          if(!std::isfinite(fi)){
+            // this is very bad! We do not know in which direction to go.
+            // We try to go in a lower direction
+            if(a_low < a_high)
+              a_high = ai;
+            else
+              a_low = ai;
+            continue;
+          }
+
+          inter.update(ai, fi);
+          Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                      NaNv, a_high);
+
+          if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
+            a_high = ai;
+            continue;
+          }
+
+          double const dpsi_i = dpsi(ai);
+          Reporter::line_search_inner(trace, a_low, ai, fi, true,
+                                      dpsi_i, a_high);
+          double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
+          if(test_val <= - c2 * dpsi_zero)
+            return true;
+
+          if(dpsi_i * (a_high - a_low) >= 0.)
+            a_high = a_low;
+
+          a_low = ai;
+          f_low = fi;
+        }
+
+        return false;
+      };
+
+    double fold(f0),
+         a_prev(0),
+             ai(.5);
+    bool found_ok_prev = false,
+         failed_once   = false;
+    double mult = 2;
+    for(size_t i = 0; i < max_it; ++i){
+      ai *= mult;
+      double fi = psi(ai);
+      Reporter::line_search_inner(trace, a_prev, ai, fi, false,
+                                  NaNv, NaNv);
+      if(!std::isfinite(fi)){
+        // handle inf/nan case
+        failed_once = true;
+        mult = .5;
+
+        if(!found_ok_prev)
+          // no valid previous value yet to use
+          continue;
+        else {
+          // the previous value was ok. Use that one
+          fi = fold;
+          ai = a_prev;
+        }
+      }
+
+      if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
+        intrapolate inter(f0, dpsi_zero, ai, fi);
+        bool const out = zoom(a_prev, ai, inter);
+        lp::copy(x0, x_mem, n_par);
+        return out;
+      }
+
+      double const dpsi_i = dpsi(ai);
+      Reporter::line_search_inner(trace, a_prev, ai, fi, false,
+                                  dpsi_i, NaNv);
+
+      double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
+      if(test_val <= - c2 * dpsi_zero){
+        lp::copy(x0, x_mem, n_par);
+        return true;
+      }
+
+      if(failed_once and fi < f0){
+        // effectively just line search
+        lp::copy(x0, x_mem, n_par);
+        return false;
+      }
+
+      if(dpsi_i >= 0){
+        intrapolate inter = ([&]() -> intrapolate {
+          if(found_ok_prev){
+            // we have two values that we can use
+            intrapolate out(f0, dpsi_zero, a_prev, fold);
+            out.update(ai, fi);
+            return out;
+          }
+
+          return intrapolate(f0, dpsi_zero, ai, fi);
+        })();
+        bool const out = zoom(ai, a_prev, inter);
+        lp::copy(x0, x_mem, n_par);
+        return out;
+      }
+
+      found_ok_prev = true;
+      a_prev = ai;
+      fold = fi;
+    }
+
+    return false;
+  }
+};
+
+/***
+ The reporter class can be used to report results during the optimization.
  */
 template<class EFunc, class Reporter = dummy_reporter,
          class interrupter = dummy_interrupter,
@@ -330,16 +634,10 @@ private:
         new double[n_mem[0] + n_mem[1] + max_threads * n_mem[2]]);
   /// pointer to temporary memory to use on the master thread
   double * const temp_mem = mem.get() + n_mem[0];
-  /// pointer to temporray memory to be used by the threads
+  /// pointer to temporary memory to be used by the threads
   double * const temp_thread_mem = temp_mem + n_mem[1];
   /// element functions
   std::vector<worker> funcs;
-  /// number of function evaluations
-  size_t n_eval = 0L;
-  /// number of gradient evaluations
-  size_t n_grad = 0L;
-  /// number of iterations of conjugate gradient
-  size_t n_cg = 0L;
   /// object to do computations prior to evaluating the element functions.
   T_caller caller = T_caller(([&](){
     std::vector<EFunc const*> ele_funcs;
@@ -348,15 +646,6 @@ private:
       ele_funcs.emplace_back(&f.func);
     return T_caller(ele_funcs);
   })());
-
-  /***
-   reset the counters for the number of evaluations
-   */
-  void reset_counters() {
-    n_eval = 0L;
-    n_grad = 0L;
-    n_cg = 0L;
-  }
 
   /// returns the thread number.
   int get_thread_num() const noexcept {
@@ -378,6 +667,38 @@ private:
 
   /// number of threads to use
   int n_threads = 1L;
+
+  // inner optimizer to use
+  std::unique_ptr<optimizer_internals<optimizer, Reporter> > opt_internals;
+  friend class optimizer_internals<optimizer, Reporter>;
+
+  // function need for optimizer_internals to get temporary memory
+  double * get_internals_mem() {
+    // need memory for B_start!
+    return temp_mem + (global_dim * (global_dim + 1)) / 2;
+  }
+
+  // class to compute B.x for optimizer_internals
+  class comp_B_vec_obj {
+    bool is_first_call = true;
+    double * B_start;
+    optimizer<EFunc, Reporter, interrupter, T_caller> &obj;
+  public:
+    comp_B_vec_obj(double * mem,
+                   optimizer<EFunc, Reporter, interrupter, T_caller> &obj):
+    B_start(mem), obj(obj) { }
+
+
+    void operator()(double const * const PSQN_RESTRICT val,
+                    double * const PSQN_RESTRICT res) noexcept {
+      obj.B_vec(val, res, B_start, is_first_call);
+      is_first_call = false;
+    }
+  };
+
+  inline comp_B_vec_obj get_comp_B_vec() {
+    return comp_B_vec_obj(temp_mem, *this);
+  }
 
 public:
   /// set the number of threads to use
@@ -458,7 +779,9 @@ public:
     }
 
     return out;
-  })()) { }
+  })()) {
+    opt_internals.reset(new optimizer_internals<optimizer, Reporter>(this));
+  }
 
   /***
    evalutes the partially separable and also the gradient if requested.
@@ -468,11 +791,6 @@ public:
    */
   double eval(double const * val, double * PSQN_RESTRICT gr,
               bool const comp_grad){
-    if(comp_grad)
-      n_grad++;
-    else
-      n_eval++;
-
     caller.setup(val, comp_grad);
 
     size_t const n_funcs = funcs.size();
@@ -661,93 +979,13 @@ public:
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
                  double const tol, size_t const max_cg,
                  int const trace, precondition const pre_method){
-    double * PSQN_RESTRICT r       = temp_mem,
-           * PSQN_RESTRICT p       = r      + n_par,
-           * PSQN_RESTRICT B_p     = p      + n_par,
-           * PSQN_RESTRICT v       = B_p    + n_par,
-           * PSQN_RESTRICT B_diag  = v      + n_par,
-           * PSQN_RESTRICT B_start = B_diag + n_par;
-    bool const do_pre = pre_method == 1L;
-
-    // setup before first iteration
-    if(do_pre){
-      get_diag(B_diag);
-      double *b = B_diag;
-      for(size_t i = 0; i < n_par; ++i, ++b)
-        *b = 1. / *b; // want to use multiplication rather than division
-    }
-
-    auto diag_solve = [&](double       * PSQN_RESTRICT vy,
-                          double const * PSQN_RESTRICT vx) -> void {
-      double * di = B_diag;
-      for(size_t i = 0; i < n_par; ++i)
-        *vy++ = *vx++ * *di++;
-    };
-
-    std::fill(y, y + n_par, 0.);
-    for(size_t i = 0; i < n_par; ++i){
-      r[i] = -x[i];
-      if(!do_pre)
-        p[i] = x[i];
-    }
-
-    if(do_pre){
-      diag_solve(v, r);
-      for(size_t i = 0; i < n_par; ++i)
-        p[i] = -v[i];
-    }
-
-    auto get_r_v_dot = [&]() -> double {
-      return do_pre ? lp::vec_dot(r, v, n_par) : lp::vec_dot(r, n_par);
-    };
-
-    double old_r_v_dot = get_r_v_dot();
-    for(size_t i = 0; i < max_cg; ++i){
-      ++n_cg;
-      std::fill(B_p, B_p + n_par, 0.);
-      B_vec(p, B_p, B_start, i == 0);
-
-      double const p_B_p = lp::vec_dot(p, B_p, n_par);
-      if(p_B_p <= 0){
-        // negative curvature. Thus, exit
-        if(i < 1L)
-          // set output to be the gradient
-          for(size_t j = 0; j < n_par; ++j)
-            y[j] = x[j];
-
-        break;
-      }
-      double const alpha = old_r_v_dot / p_B_p;
-
-      for(size_t j = 0; j < n_par; ++j){
-        y[j] += alpha *   p[j];
-        r[j] += alpha * B_p[j];
-      }
-
-      if(do_pre)
-        diag_solve(v, r);
-      double const r_v_dot = get_r_v_dot(),
-                   t_val   = do_pre ? sqrt(abs(lp::vec_dot(r, n_par))) :
-                                      sqrt(abs(r_v_dot));
-      Reporter::cg_it(trace, i, max_cg, t_val, tol);
-      if(t_val < tol)
-        break;
-
-      double const beta = r_v_dot / old_r_v_dot;
-      old_r_v_dot = r_v_dot;
-      for(size_t j = 0; j < n_par; ++j){
-        p[j] *= beta;
-        p[j] -= do_pre ? v[j] : r[j];
-      }
-    }
-
-    return true;
+    return opt_internals->conj_grad(x, y, tol, max_cg, trace, pre_method);
   }
 
   /***
    performs line search to satisfy the Wolfe condition.
    @param f0 value of the functions at the current value.
-   @param x0 value the function is evaluted.
+   @param x0 value the function is evaluated.
    @param gr0 value of the current gradient.
    @param dir direction to search in.
    @param fnew the function value at the found solution.
@@ -762,146 +1000,8 @@ public:
       double const f0, double * PSQN_RESTRICT x0, double * PSQN_RESTRICT gr0,
       double * PSQN_RESTRICT dir, double &fnew, double const c1,
       double const c2, bool const strong_wolfe, int const trace){
-    double * const x_mem = temp_mem;
-
-    // declare 1D functions
-    auto psi = [&](double const alpha) -> double {
-      for(size_t i = 0; i < n_par; ++i)
-        x_mem[i] = x0[i] + alpha * dir[i];
-
-      return eval(x_mem, nullptr, false);
-    };
-
-    // returns the function value and the gradient
-    auto dpsi = [&](double const alpha) -> double {
-      for(size_t i = 0; i < n_par; ++i)
-        x_mem[i] = x0[i] + alpha * dir[i];
-
-      fnew = eval(x_mem, gr0, true);
-      return lp::vec_dot(gr0, dir, n_par);
-    };
-
-    // the above at alpha = 0
-    double const dpsi_zero = lp::vec_dot(gr0, dir, n_par);
-    if(dpsi_zero > 0)
-      // not a descent direction
-      return false;
-
-    constexpr size_t const max_it = 20L;
-    static double const NaNv = std::numeric_limits<double>::quiet_NaN();
-    auto zoom =
-      [&](double a_low, double a_high, intrapolate &inter) -> bool {
-        double f_low = psi(a_low);
-        for(size_t i = 0; i < max_it; ++i){
-          double const ai = inter.get_value(a_low, a_high),
-                       fi = psi(ai);
-          if(!std::isfinite(fi)){
-            // this is very bad! We do not know in which direction to go.
-            // We try to go in a lower direction
-            if(a_low < a_high)
-              a_high = ai;
-            else
-              a_low = ai;
-            continue;
-          }
-
-          inter.update(ai, fi);
-          Reporter::line_search_inner(trace, a_low, ai, fi, true,
-                                      NaNv, a_high);
-
-          if(fi > f0 + c1 * ai * dpsi_zero or fi >= f_low){
-            a_high = ai;
-            continue;
-          }
-
-          double const dpsi_i = dpsi(ai);
-          Reporter::line_search_inner(trace, a_low, ai, fi, true,
-                                      dpsi_i, a_high);
-          double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
-          if(test_val <= - c2 * dpsi_zero)
-            return true;
-
-          if(dpsi_i * (a_high - a_low) >= 0.)
-            a_high = a_low;
-
-          a_low = ai;
-          f_low = fi;
-        }
-
-        return false;
-      };
-
-    double fold(f0),
-         a_prev(0),
-             ai(.5);
-    bool found_ok_prev = false,
-         failed_once   = false;
-    double mult = 2;
-    for(size_t i = 0; i < max_it; ++i){
-      ai *= mult;
-      double fi = psi(ai);
-      Reporter::line_search_inner(trace, a_prev, ai, fi, false,
-                                  NaNv, NaNv);
-      if(!std::isfinite(fi)){
-        // handle inf/nan case
-        failed_once = true;
-        mult = .5;
-
-        if(!found_ok_prev)
-          // no valid previous value yet to use
-          continue;
-        else {
-          // the previous value was ok. Use that one
-          fi = fold;
-          ai = a_prev;
-        }
-      }
-
-      if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
-        intrapolate inter(f0, dpsi_zero, ai, fi);
-        bool const out = zoom(a_prev, ai, inter);
-        lp::copy(x0, x_mem, n_par);
-        return out;
-      }
-
-      double const dpsi_i = dpsi(ai);
-      Reporter::line_search_inner(trace, a_prev, ai, fi, false,
-                                  dpsi_i, NaNv);
-
-      double const test_val = strong_wolfe ? abs(dpsi_i) : -dpsi_i;
-      if(test_val <= - c2 * dpsi_zero){
-        lp::copy(x0, x_mem, n_par);
-        return true;
-      }
-
-      if(failed_once and fi < f0){
-        // effectively just line search
-        lp::copy(x0, x_mem, n_par);
-        return false;
-      }
-
-      if(dpsi_i >= 0){
-        intrapolate inter = ([&]() -> intrapolate {
-          if(found_ok_prev){
-            // we have two values that we can use
-            intrapolate out(f0, dpsi_zero, a_prev, fold);
-            out.update(ai, fi);
-            return out;
-          }
-
-          return intrapolate(f0, dpsi_zero, ai, fi);
-        })();
-        bool const out = zoom(ai, a_prev, inter);
-        lp::copy(x0, x_mem, n_par);
-        return out;
-      }
-
-      found_ok_prev = true;
-      a_prev = ai;
-      fold = fi;
-    }
-
-    return false;
+    return opt_internals->line_search(f0, x0, gr0, dir, fnew, c1, c2,
+                                      strong_wolfe, trace);
   }
 
   /***
@@ -926,7 +1026,7 @@ public:
      double const cg_tol = .5, bool const strong_wolfe = true,
      size_t const max_cg = 0,
      precondition const pre_method = precondition::diag){
-    reset_counters();
+    opt_internals->reset_counters();
     for(auto &f : funcs){
       f.reset();
       f.use_bfgs = use_bfgs;
@@ -956,10 +1056,10 @@ public:
                     max_cg < 1 ? n_par : max_cg, trace,
                     pre_method)){
         info = info_code::conjugate_gradient_failed;
-        Reporter::cg(trace, i, n_cg, false);
+        Reporter::cg(trace, i, opt_internals->n_cg, false);
         break;
       } else
-        Reporter::cg(trace, i, n_cg, true);
+        Reporter::cg(trace, i, opt_internals->n_cg, true);
 
       for(double * d = dir.get(); d != dir.get() + n_par; ++d)
         *d *= -1;
@@ -969,16 +1069,16 @@ public:
                       strong_wolfe, trace)){
         info = info_code::line_search_failed;
         Reporter::line_search
-          (trace, i, n_eval, n_grad, fval_old, fval, false,
-           std::numeric_limits<double>::quiet_NaN(),
+          (trace, i, opt_internals->n_eval, opt_internals->n_grad, fval_old,
+           fval, false, std::numeric_limits<double>::quiet_NaN(),
            const_cast<double const *>(val), global_dim);
         if(++n_line_search_fail > 2)
           break;
       } else{
         n_line_search_fail = 0;
         Reporter::line_search
-          (trace, i, n_eval, n_grad, fval_old, fval, true,
-           (*val - x1) / *dir.get(), const_cast<double const *>(val),
+          (trace, i, opt_internals->n_eval, opt_internals->n_grad, fval_old, fval,
+           true, (*val - x1) / *dir.get(), const_cast<double const *>(val),
            global_dim);
 
       }
@@ -990,7 +1090,7 @@ public:
         break;
       }
 
-      // update the Hessian and take another iteation
+      // update the Hessian and take another iteration
       if(n_line_search_fail < 1){
 #ifdef _OPENMP
 #pragma omp parallel num_threads(n_threads)
@@ -1010,7 +1110,8 @@ public:
         }
     }
 
-    return { fval, info, n_eval, n_grad, n_cg };
+    return { fval, info, opt_internals->n_eval, opt_internals->n_grad,
+             opt_internals->n_cg };
   }
 
   /***
