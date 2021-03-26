@@ -22,6 +22,145 @@ using std::abs;
 using std::sqrt;
 
 /***
+ virtual base class for the element functions.
+ */
+class base_worker {
+  /// logical for whether it is the first call
+  bool first_call = true;
+
+public:
+  /// number of elements
+  size_t const n_ele;
+  /// memory for the Hessian approximation
+  double * const PSQN_RESTRICT B;
+  /// memory for the gradient
+  double * const PSQN_RESTRICT gr = B + (n_ele * (n_ele + 1)) / 2L;
+  /// memory for the old gradient
+  double * const PSQN_RESTRICT gr_old = gr + n_ele;
+  /// memory for the old value
+  double * const PSQN_RESTRICT x_old = gr_old + n_ele;
+  /// memory for the current value
+  double * const PSQN_RESTRICT x_new = x_old + n_ele;
+  /// bool for whether to use BFGS or SR1 updates
+  bool use_bfgs = true;
+
+  base_worker(size_t const n_ele, double * mem): n_ele(n_ele), B(mem) { }
+
+  /***
+   save the current parameter values and gradient in order to do update
+   the Hessian approximation.
+   */
+  void record() noexcept {
+    lp::copy(x_old , static_cast<double const*>(x_new), n_ele);
+    lp::copy(gr_old, static_cast<double const*>(gr   ), n_ele);
+  }
+
+  /***
+   resets the Hessian approximation.
+   */
+  void reset() noexcept {
+    first_call = true;
+
+    std::fill(B, B + n_ele * n_ele, 0.);
+    // set diagonal entries to one
+    double *b = B;
+    for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+      *b = 1.;
+  }
+
+  /***
+   updates the Hessian approximation. Assumes that x_new, x_old, gr, and gr_new
+   have all been set.
+   @param wmem working memory to use.
+   */
+  void update_Hes(double * const wmem){
+    // differences in parameters and gradient
+    double * const PSQN_RESTRICT s   = wmem,
+           * const PSQN_RESTRICT y   = s + n_ele,
+           * const PSQN_RESTRICT wrk = y + n_ele;
+
+    lp::vec_diff(x_new, x_old , s, n_ele);
+
+    bool all_unchanged(true);
+    for(size_t i = 0; i < n_ele; ++i)
+      if(abs(s[i]) > abs(x_new[i]) *
+         std::numeric_limits<double>::epsilon() * 100){
+        all_unchanged = false;
+        break;
+      }
+
+    if(!all_unchanged){
+      lp::vec_diff(gr, gr_old, y, n_ele);
+
+      if(use_bfgs){
+        double const s_y = lp::vec_dot(y, s, n_ele);
+        if(first_call){
+          first_call = false;
+          // make update on page 143
+          double const scal = lp::vec_dot(y, n_ele) / s_y;
+          double *b = B;
+          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+            *b = scal;
+        }
+
+        // perform BFGS update
+        std::fill(wrk, wrk + n_ele, 0.);
+        lp::mat_vec_dot(B, s, wrk, n_ele);
+        double const s_B_s = lp::vec_dot(s, wrk, n_ele);
+
+        lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
+
+        if(s_y < .2 * s_B_s){
+          // damped BFGS
+          double const theta = .8 * s_B_s / (s_B_s - s_y);
+          double *yi = y,
+            *wi = wrk;
+          for(size_t i = 0; i < n_ele; ++i, ++yi, ++wi)
+            *yi = theta * *yi + (1 - theta) * *wi;
+          double const s_r = lp::vec_dot(y, s, n_ele);
+          lp::rank_one_update(B, y, 1. / s_r, n_ele);
+
+        } else
+          // regular BFGS
+          lp::rank_one_update(B, y, 1. / s_y, n_ele);
+
+      } else {
+        if(first_call){
+          first_call = false;
+          // make update on page 143
+          double const scal =
+            lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
+          double *b = B;
+          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+            *b = scal;
+        }
+
+        /// maybe perform SR1
+        std::fill(wrk, wrk + n_ele, 0.);
+        lp::mat_vec_dot(B, s, wrk, n_ele);
+        for(size_t i = 0; i < n_ele; ++i){
+          wrk[i] *= -1;
+          wrk[i] += y[i];
+        }
+        double const s_w = lp::vec_dot(s, wrk, n_ele),
+          s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
+          wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
+        constexpr double const r = 1e-8;
+        if(abs(s_w) > r * s_norm * wrk_norm)
+          lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
+
+      }
+    } else
+      // essentially no change in the input. Reset the Hessian
+      // approximation
+      reset();
+
+    record();
+  }
+};
+
+
+/***
  virtual base class which computes an element function and its gradient. The
  virtual class is mainly used as a check to ensure that all the member
  fucntions are implemented.
@@ -93,57 +232,19 @@ template<class EFunc, class Reporter = dummy_reporter,
          class T_caller = default_caller<EFunc> >
 class optimizer {
   /***
-   worker class to hold an element function and the element function''s
+   worker class to hold an element function and the element function's
    Hessian approximation.
    */
-  class worker {
-    /// logical for whether it the first call
-    bool first_call = true;
-
+  class worker final : public base_worker {
   public:
     /// the element function for this worker
     EFunc const func;
-    /// number of elements
-    size_t const n_ele = func.global_dim() + func.private_dim();
-    /// memory for the Hessian approximation
-    double * const PSQN_RESTRICT B;
-    /// memory for the gradient
-    double * const PSQN_RESTRICT gr = B + (n_ele * (n_ele + 1)) / 2L;
-    /// memory for the old gradient
-    double * const PSQN_RESTRICT gr_old = gr + n_ele;
-    /// memory for the old value
-    double * const PSQN_RESTRICT x_old = gr_old + n_ele;
-    /// memory for the current value
-    double * const PSQN_RESTRICT x_new = x_old + n_ele;
     /// indices of first set of private parameters
     size_t const par_start;
-    /// bool for whether to use BFGS or SR1 updates
-    bool use_bfgs = true;
-
-    /***
-     save the current parameter values and gradient in order to do update
-     the Hessian approximation.
-     */
-    void record() noexcept {
-      lp::copy(x_old , static_cast<double const*>(x_new), n_ele);
-      lp::copy(gr_old, static_cast<double const*>(gr   ), n_ele);
-    }
-
-    /***
-     resets the Hessian approximation.
-     */
-    void reset() noexcept {
-      first_call = true;
-
-      std::fill(B, B + n_ele * n_ele, 0.);
-      // set diagonal entries to one
-      double *b = B;
-      for(size_t i = 0; i < n_ele; ++i, b += i + 1)
-        *b = 1.;
-    }
 
     worker(EFunc &&func, double * mem, size_t const par_start):
-      func(func), B(mem), par_start(par_start) {
+      base_worker(func.global_dim() + func.private_dim(), mem),
+      func(func), par_start(par_start) {
       reset();
     }
 
@@ -174,96 +275,6 @@ class optimizer {
         func, static_cast<double const *>(x_new), gr);
 
       return out;
-    }
-
-    /***
-     updates the Hessian approximation. Assumes that the () operator have
-     been called at-least twice at different values.
-     @param wmem working memory to use.
-     */
-    void update_Hes(double * const wmem){
-      // differences in parameters and gradient
-      double * const PSQN_RESTRICT s   = wmem,
-             * const PSQN_RESTRICT y   = s + n_ele,
-             * const PSQN_RESTRICT wrk = y + n_ele;
-
-      lp::vec_diff(x_new, x_old , s, n_ele);
-
-      bool all_unchanged(true);
-      for(size_t i = 0; i < n_ele; ++i)
-        if(abs(s[i]) > abs(x_new[i]) *
-           std::numeric_limits<double>::epsilon() * 100){
-          all_unchanged = false;
-          break;
-        }
-
-      if(!all_unchanged){
-        lp::vec_diff(gr, gr_old, y, n_ele);
-
-        if(use_bfgs){
-          double const s_y = lp::vec_dot(y, s, n_ele);
-          if(first_call){
-            first_call = false;
-            // make update on page 143
-            double const scal = lp::vec_dot(y, n_ele) / s_y;
-            double *b = B;
-            for(size_t i = 0; i < n_ele; ++i, b += i + 1)
-              *b = scal;
-          }
-
-          // perform BFGS update
-          std::fill(wrk, wrk + n_ele, 0.);
-          lp::mat_vec_dot(B, s, wrk, n_ele);
-          double const s_B_s = lp::vec_dot(s, wrk, n_ele);
-
-          lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
-
-          if(s_y < .2 * s_B_s){
-            // damped BFGS
-            double const theta = .8 * s_B_s / (s_B_s - s_y);
-            double *yi = y,
-                   *wi = wrk;
-            for(size_t i = 0; i < n_ele; ++i, ++yi, ++wi)
-              *yi = theta * *yi + (1 - theta) * *wi;
-            double const s_r = lp::vec_dot(y, s, n_ele);
-            lp::rank_one_update(B, y, 1. / s_r, n_ele);
-
-          } else
-            // regular BFGS
-            lp::rank_one_update(B, y, 1. / s_y, n_ele);
-
-        } else {
-          if(first_call){
-            first_call = false;
-            // make update on page 143
-            double const scal =
-              lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
-            double *b = B;
-            for(size_t i = 0; i < n_ele; ++i, b += i + 1)
-              *b = scal;
-          }
-
-          /// maybe perform SR1
-          std::fill(wrk, wrk + n_ele, 0.);
-          lp::mat_vec_dot(B, s, wrk, n_ele);
-          for(size_t i = 0; i < n_ele; ++i){
-            wrk[i] *= -1;
-            wrk[i] += y[i];
-          }
-          double const s_w = lp::vec_dot(s, wrk, n_ele),
-                    s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
-                  wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
-          constexpr double const r = 1e-8;
-          if(abs(s_w) > r * s_norm * wrk_norm)
-            lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
-
-        }
-      } else
-        // essentially no change in the input. Reset the Hessian
-        // approximation
-        reset();
-
-      record();
     }
   };
 
