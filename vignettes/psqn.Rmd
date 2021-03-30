@@ -30,7 +30,7 @@ $$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
 
 where $\vec x\in \mathbb R^l$,
 
-$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\}^l,$$
+$$\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\},$$
 and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix. 
 Each function $f_i$ is called an _element function_ and only depends on 
 $m_i \ll l$ parameters. This allows for an efficient quasi-Newton 
@@ -1009,11 +1009,11 @@ f(\vec x) &= \sum_{i = 1}^n
 \mathcal K_i &= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}.
 \end{align*}
 $$
-This is a special kind of a GLM with a Poison model with and log link. 
+This is a special kind of a GLM with a Poison model with the log link. 
 While there
 are other ways to estimate this model, we will compare the BFGS implementation 
 from `optim` with the psqn package.
-Notice for some $j\neq i$ we may have that 
+For some $j\neq i$, we will have that 
 $\mathcal K_i \cap \mathcal K_j \neq \emptyset$ without much structure in 
 their intersection unlike before. 
 
@@ -1028,6 +1028,8 @@ is in the `generic_example.cpp` file which is shown below:
 ```{cpp generic_example_code, code = readLines(system.file("generic_example.cpp", package = "psqn"))}
 ```
 
+The required member functions are very similar to those needed for the 
+`optimizer` class.
 We now simulate some data to work with this type of model:
 
 ```{r sim_generic_example_data}
@@ -1040,14 +1042,11 @@ n <- 5L * K
 truth_limit <- runif(K, -1, 1)
 dat <- replicate(
   n, {
-    # sample the indices and make it more likely to sample some close together
-    mid <- sample.int(K, 1L)
-    n_other <- sample.int(5L, 1L) + 1L
-    probs <- 1/(1 + (mid - seq_len(K)[-mid])^2)
-    probs <- probs / sum(probs)
-    other <- sample(seq_len(K)[-mid], n_other, prob = probs)
-    indices <- sort(c(mid, other))
-    
+    # sample the indices
+    n_samp <- sample.int(5L, 1L) + 1L
+    indices <- sort(sample.int(K, n_samp))
+
+    # sample the outcome, y, and return    
     list(y = rpois(1, exp(sum(truth_limit[indices]))), 
          indices = indices)
   }, simplify = FALSE)
@@ -1081,7 +1080,8 @@ R_func_gr <- function(x){
 }
 
 # find the optimum
-start <- numeric(K)
+set.seed(1)
+start <- truth_limit + rnorm(K, sd = .1)
 # all.equal(numDeriv::grad(R_func, start), R_func_gr(start))
 opt <- optim(start, R_func, R_func_gr, method = "BFGS", 
              control = list(maxit = 1000L))
@@ -1149,8 +1149,7 @@ opt     $counts
 The C++ version is much faster:
 
 ```{r speed_generic_example, cache=1}
-# TODO: replace with bench::mark 
-microbenchmark::microbenchmark(
+bench::mark(
   `R version` = optim(start, R_func, R_func_gr, method = "BFGS"), 
   `R w/ C++` = optim(
     start, 
@@ -1159,7 +1158,7 @@ microbenchmark::microbenchmark(
     method = "BFGS"), 
   psqn = psqn_func(start, n_threads = 1L), 
   `psqn 2 threads` = psqn_func(start, n_threads = 2L), 
-  times = 5)
+  min_iterations = 2L, check = FALSE)
 ```
 
 ## Details

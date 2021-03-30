@@ -338,7 +338,7 @@ img {
 <p>This package provides an optimization method for <em>partially separable</em> functions. Partially separable functions are of the following form:</p>
 <p><span class="math display">\[f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})\]</span></p>
 <p>where <span class="math inline">\(\vec x\in \mathbb R^l\)</span>,</p>
-<p><span class="math display">\[\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\}^l,\]</span> and <span class="math inline">\(\vec e_k\)</span> is the <span class="math inline">\(k\)</span>’th column of the <span class="math inline">\(l\)</span> dimensional identity matrix. Each function <span class="math inline">\(f_i\)</span> is called an <em>element function</em> and only depends on <span class="math inline">\(m_i \ll l\)</span> parameters. This allows for an efficient quasi-Newton method when all the <span class="math inline">\(m_i\)</span>’s are much smaller than the dimension of the parameter vector <span class="math inline">\(\vec x\)</span>, <span class="math inline">\(l\)</span>. The framework can be extended to allow for a linear combination of parameters but we do not cover such problems. This vignette closely follows <span class="citation">Nocedal and Wright (2006)</span> who cover the methods and alternatives in much greater detail.</p>
+<p><span class="math display">\[\vec x_{\mathcal I_i} =    (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\},\]</span> and <span class="math inline">\(\vec e_k\)</span> is the <span class="math inline">\(k\)</span>’th column of the <span class="math inline">\(l\)</span> dimensional identity matrix. Each function <span class="math inline">\(f_i\)</span> is called an <em>element function</em> and only depends on <span class="math inline">\(m_i \ll l\)</span> parameters. This allows for an efficient quasi-Newton method when all the <span class="math inline">\(m_i\)</span>’s are much smaller than the dimension of the parameter vector <span class="math inline">\(\vec x\)</span>, <span class="math inline">\(l\)</span>. The framework can be extended to allow for a linear combination of parameters but we do not cover such problems. This vignette closely follows <span class="citation">Nocedal and Wright (2006)</span> who cover the methods and alternatives in much greater detail.</p>
 <p>We only consider a more restricted form of the problem. Assume that each index set <span class="math inline">\(\mathcal I_i\)</span> is of the form:</p>
 <p><span class="math display">\[\begin{align*}   \mathcal I_i &amp;= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_j &amp;= \emptyset \qquad j\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &amp;= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.\]</span></p>
 <p>That is, each index set contains <span class="math inline">\(p\)</span> <em>global parameters</em> and <span class="math inline">\(q_i = \lvert\mathcal J_i\rvert\)</span> <em>private parameters</em> which are particular for each element function, <span class="math inline">\(f_i\)</span>. For implementation reason, we let:</p>
@@ -1476,7 +1476,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
   , \qquad \vec x\in\mathbb R^K \\
 \mathcal K_i &amp;= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}.
 \end{align*}
-\]</span> This is a special kind of a GLM with a Poison model with and log link. While there are other ways to estimate this model, we will compare the BFGS implementation from <code>optim</code> with the psqn package. Notice for some <span class="math inline">\(j\neq i\)</span> we may have that <span class="math inline">\(\mathcal K_i \cap \mathcal K_j \neq \emptyset\)</span> without much structure in their intersection unlike before.</p>
+\]</span> This is a special kind of a GLM with a Poison model with the log link. While there are other ways to estimate this model, we will compare the BFGS implementation from <code>optim</code> with the psqn package. For some <span class="math inline">\(j\neq i\)</span>, we will have that <span class="math inline">\(\mathcal K_i \cap \mathcal K_j \neq \emptyset\)</span> without much structure in their intersection unlike before.</p>
 <p>There is a class called <code>optimizer_generic</code> provided by the psqn package which can work with more general partially separable problems like the one above. This though yields some additional computational overhead. A C++ implementation to work with the function stated above using the <code>optimizer_generic</code> class is in the <code>generic_example.cpp</code> file which is shown below:</p>
 <div class="sourceCode" id="cb24"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb24-1"><a href="#cb24-1"></a><span class="co">// see `mlogit-ex.cpp` for an example with more comments</span></span>
 <span id="cb24-2"><a href="#cb24-2"></a></span>
@@ -1631,7 +1631,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb24-151"><a href="#cb24-151"></a></span>
 <span id="cb24-152"><a href="#cb24-152"></a>  <span class="cf">return</span> grad;</span>
 <span id="cb24-153"><a href="#cb24-153"></a>}</span></code></pre></div>
-<p>We now simulate some data to work with this type of model:</p>
+<p>The required member functions are very similar to those needed for the <code>optimizer</code> class. We now simulate some data to work with this type of model:</p>
 <div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a><span class="co"># parameters for the simulation</span></span>
 <span id="cb25-2"><a href="#cb25-2"></a><span class="kw">set.seed</span>(<span class="dv">1</span>)</span>
 <span id="cb25-3"><a href="#cb25-3"></a>K &lt;-<span class="st"> </span>2000L</span>
@@ -1641,22 +1641,19 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb25-7"><a href="#cb25-7"></a>truth_limit &lt;-<span class="st"> </span><span class="kw">runif</span>(K, <span class="dv">-1</span>, <span class="dv">1</span>)</span>
 <span id="cb25-8"><a href="#cb25-8"></a>dat &lt;-<span class="st"> </span><span class="kw">replicate</span>(</span>
 <span id="cb25-9"><a href="#cb25-9"></a>  n, {</span>
-<span id="cb25-10"><a href="#cb25-10"></a>    <span class="co"># sample the indices and make it more likely to sample some close together</span></span>
-<span id="cb25-11"><a href="#cb25-11"></a>    mid &lt;-<span class="st"> </span><span class="kw">sample.int</span>(K, 1L)</span>
-<span id="cb25-12"><a href="#cb25-12"></a>    n_other &lt;-<span class="st"> </span><span class="kw">sample.int</span>(5L, 1L) <span class="op">+</span><span class="st"> </span>1L</span>
-<span id="cb25-13"><a href="#cb25-13"></a>    probs &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">/</span>(<span class="dv">1</span> <span class="op">+</span><span class="st"> </span>(mid <span class="op">-</span><span class="st"> </span><span class="kw">seq_len</span>(K)[<span class="op">-</span>mid])<span class="op">^</span><span class="dv">2</span>)</span>
-<span id="cb25-14"><a href="#cb25-14"></a>    probs &lt;-<span class="st"> </span>probs <span class="op">/</span><span class="st"> </span><span class="kw">sum</span>(probs)</span>
-<span id="cb25-15"><a href="#cb25-15"></a>    other &lt;-<span class="st"> </span><span class="kw">sample</span>(<span class="kw">seq_len</span>(K)[<span class="op">-</span>mid], n_other, <span class="dt">prob =</span> probs)</span>
-<span id="cb25-16"><a href="#cb25-16"></a>    indices &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">c</span>(mid, other))</span>
-<span id="cb25-17"><a href="#cb25-17"></a>    </span>
-<span id="cb25-18"><a href="#cb25-18"></a>    <span class="kw">list</span>(<span class="dt">y =</span> <span class="kw">rpois</span>(<span class="dv">1</span>, <span class="kw">exp</span>(<span class="kw">sum</span>(truth_limit[indices]))), </span>
-<span id="cb25-19"><a href="#cb25-19"></a>         <span class="dt">indices =</span> indices)</span>
-<span id="cb25-20"><a href="#cb25-20"></a>  }, <span class="dt">simplify =</span> <span class="ot">FALSE</span>)</span>
-<span id="cb25-21"><a href="#cb25-21"></a></span>
-<span id="cb25-22"><a href="#cb25-22"></a><span class="co"># we need each variable to be present at least once</span></span>
-<span id="cb25-23"><a href="#cb25-23"></a><span class="kw">stopifnot</span>(<span class="kw">length</span>(<span class="kw">unique</span>(<span class="kw">unlist</span>(</span>
-<span id="cb25-24"><a href="#cb25-24"></a>  <span class="kw">lapply</span>(dat, <span class="st">`</span><span class="dt">[</span><span class="st">`</span>, <span class="st">&quot;indices&quot;</span>)</span>
-<span id="cb25-25"><a href="#cb25-25"></a>))) <span class="op">==</span><span class="st"> </span>K) <span class="co"># otherwise we need to change the code</span></span></code></pre></div>
+<span id="cb25-10"><a href="#cb25-10"></a>    <span class="co"># sample the indices</span></span>
+<span id="cb25-11"><a href="#cb25-11"></a>    n_samp &lt;-<span class="st"> </span><span class="kw">sample.int</span>(5L, 1L) <span class="op">+</span><span class="st"> </span>1L</span>
+<span id="cb25-12"><a href="#cb25-12"></a>    indices &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">sample.int</span>(K, n_samp))</span>
+<span id="cb25-13"><a href="#cb25-13"></a></span>
+<span id="cb25-14"><a href="#cb25-14"></a>    <span class="co"># sample the outcome, y, and return    </span></span>
+<span id="cb25-15"><a href="#cb25-15"></a>    <span class="kw">list</span>(<span class="dt">y =</span> <span class="kw">rpois</span>(<span class="dv">1</span>, <span class="kw">exp</span>(<span class="kw">sum</span>(truth_limit[indices]))), </span>
+<span id="cb25-16"><a href="#cb25-16"></a>         <span class="dt">indices =</span> indices)</span>
+<span id="cb25-17"><a href="#cb25-17"></a>  }, <span class="dt">simplify =</span> <span class="ot">FALSE</span>)</span>
+<span id="cb25-18"><a href="#cb25-18"></a></span>
+<span id="cb25-19"><a href="#cb25-19"></a><span class="co"># we need each variable to be present at least once</span></span>
+<span id="cb25-20"><a href="#cb25-20"></a><span class="kw">stopifnot</span>(<span class="kw">length</span>(<span class="kw">unique</span>(<span class="kw">unlist</span>(</span>
+<span id="cb25-21"><a href="#cb25-21"></a>  <span class="kw">lapply</span>(dat, <span class="st">`</span><span class="dt">[</span><span class="st">`</span>, <span class="st">&quot;indices&quot;</span>)</span>
+<span id="cb25-22"><a href="#cb25-22"></a>))) <span class="op">==</span><span class="st"> </span>K) <span class="co"># otherwise we need to change the code</span></span></code></pre></div>
 <p>We can minimize this problem using the following R code:</p>
 <div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a><span class="co"># define a version in R to compute the function and its gradient</span></span>
 <span id="cb26-2"><a href="#cb26-2"></a>R_func &lt;-<span class="st"> </span><span class="cf">function</span>(x){</span>
@@ -1678,12 +1675,13 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb26-18"><a href="#cb26-18"></a>}</span>
 <span id="cb26-19"><a href="#cb26-19"></a></span>
 <span id="cb26-20"><a href="#cb26-20"></a><span class="co"># find the optimum</span></span>
-<span id="cb26-21"><a href="#cb26-21"></a>start &lt;-<span class="st"> </span><span class="kw">numeric</span>(K)</span>
-<span id="cb26-22"><a href="#cb26-22"></a><span class="co"># all.equal(numDeriv::grad(R_func, start), R_func_gr(start))</span></span>
-<span id="cb26-23"><a href="#cb26-23"></a>opt &lt;-<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>, </span>
-<span id="cb26-24"><a href="#cb26-24"></a>             <span class="dt">control =</span> <span class="kw">list</span>(<span class="dt">maxit =</span> 1000L))</span>
-<span id="cb26-25"><a href="#cb26-25"></a>opt<span class="op">$</span>value <span class="co"># optimal solution</span></span>
-<span id="cb26-26"><a href="#cb26-26"></a><span class="co">#&gt; [1] -13517</span></span></code></pre></div>
+<span id="cb26-21"><a href="#cb26-21"></a><span class="kw">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb26-22"><a href="#cb26-22"></a>start &lt;-<span class="st"> </span>truth_limit <span class="op">+</span><span class="st"> </span><span class="kw">rnorm</span>(K, <span class="dt">sd =</span> <span class="fl">.1</span>)</span>
+<span id="cb26-23"><a href="#cb26-23"></a><span class="co"># all.equal(numDeriv::grad(R_func, start), R_func_gr(start))</span></span>
+<span id="cb26-24"><a href="#cb26-24"></a>opt &lt;-<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>, </span>
+<span id="cb26-25"><a href="#cb26-25"></a>             <span class="dt">control =</span> <span class="kw">list</span>(<span class="dt">maxit =</span> 1000L))</span>
+<span id="cb26-26"><a href="#cb26-26"></a>opt<span class="op">$</span>value <span class="co"># optimal solution</span></span>
+<span id="cb26-27"><a href="#cb26-27"></a><span class="co">#&gt; [1] -8621</span></span></code></pre></div>
 <p>The problem can also be solved with the C++ implementation using the following code:</p>
 <div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="co"># source the C++ version used in this package</span></span>
 <span id="cb27-2"><a href="#cb27-2"></a><span class="kw">library</span>(Rcpp)</span>
@@ -1727,54 +1725,55 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb27-40"><a href="#cb27-40"></a></span>
 <span id="cb27-41"><a href="#cb27-41"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start)</span>
 <span id="cb27-42"><a href="#cb27-42"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
-<span id="cb27-43"><a href="#cb27-43"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 0.00645&quot;</span></span>
+<span id="cb27-43"><a href="#cb27-43"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb27-44"><a href="#cb27-44"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
-<span id="cb27-45"><a href="#cb27-45"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 3.05e-07&quot;</span></span>
+<span id="cb27-45"><a href="#cb27-45"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb27-46"><a href="#cb27-46"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></span>
-<span id="cb27-47"><a href="#cb27-47"></a><span class="co">#&gt; [1] -0.00412</span></span>
+<span id="cb27-47"><a href="#cb27-47"></a><span class="co">#&gt; [1] -0.000102</span></span>
 <span id="cb27-48"><a href="#cb27-48"></a></span>
 <span id="cb27-49"><a href="#cb27-49"></a><span class="co"># compare counts</span></span>
 <span id="cb27-50"><a href="#cb27-50"></a>opt_psqn<span class="op">$</span>counts</span>
 <span id="cb27-51"><a href="#cb27-51"></a><span class="co">#&gt; function gradient     n_cg </span></span>
-<span id="cb27-52"><a href="#cb27-52"></a><span class="co">#&gt;      126       82      121</span></span>
+<span id="cb27-52"><a href="#cb27-52"></a><span class="co">#&gt;       93       58       67</span></span>
 <span id="cb27-53"><a href="#cb27-53"></a>opt     <span class="op">$</span>counts</span>
 <span id="cb27-54"><a href="#cb27-54"></a><span class="co">#&gt; function gradient </span></span>
-<span id="cb27-55"><a href="#cb27-55"></a><span class="co">#&gt;      953      229</span></span>
+<span id="cb27-55"><a href="#cb27-55"></a><span class="co">#&gt;      425      103</span></span>
 <span id="cb27-56"><a href="#cb27-56"></a></span>
 <span id="cb27-57"><a href="#cb27-57"></a><span class="co"># we can do the same with two threads</span></span>
 <span id="cb27-58"><a href="#cb27-58"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L)</span>
 <span id="cb27-59"><a href="#cb27-59"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
-<span id="cb27-60"><a href="#cb27-60"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 0.00645&quot;</span></span>
+<span id="cb27-60"><a href="#cb27-60"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb27-61"><a href="#cb27-61"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
-<span id="cb27-62"><a href="#cb27-62"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 3.05e-07&quot;</span></span>
+<span id="cb27-62"><a href="#cb27-62"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb27-63"><a href="#cb27-63"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></span>
-<span id="cb27-64"><a href="#cb27-64"></a><span class="co">#&gt; [1] -0.00412</span></span>
+<span id="cb27-64"><a href="#cb27-64"></a><span class="co">#&gt; [1] -0.000102</span></span>
 <span id="cb27-65"><a href="#cb27-65"></a></span>
 <span id="cb27-66"><a href="#cb27-66"></a><span class="co"># compare counts</span></span>
 <span id="cb27-67"><a href="#cb27-67"></a>opt_psqn<span class="op">$</span>counts</span>
 <span id="cb27-68"><a href="#cb27-68"></a><span class="co">#&gt; function gradient     n_cg </span></span>
-<span id="cb27-69"><a href="#cb27-69"></a><span class="co">#&gt;      126       82      121</span></span>
+<span id="cb27-69"><a href="#cb27-69"></a><span class="co">#&gt;       93       58       67</span></span>
 <span id="cb27-70"><a href="#cb27-70"></a>opt     <span class="op">$</span>counts</span>
 <span id="cb27-71"><a href="#cb27-71"></a><span class="co">#&gt; function gradient </span></span>
-<span id="cb27-72"><a href="#cb27-72"></a><span class="co">#&gt;      953      229</span></span></code></pre></div>
+<span id="cb27-72"><a href="#cb27-72"></a><span class="co">#&gt;      425      103</span></span></code></pre></div>
 <p>The C++ version is much faster:</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co">: replace with bench::mark </span></span>
-<span id="cb28-2"><a href="#cb28-2"></a>microbenchmark<span class="op">::</span><span class="kw">microbenchmark</span>(</span>
-<span id="cb28-3"><a href="#cb28-3"></a>  <span class="st">`</span><span class="dt">R version</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>), </span>
-<span id="cb28-4"><a href="#cb28-4"></a>  <span class="st">`</span><span class="dt">R w/ C++</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(</span>
-<span id="cb28-5"><a href="#cb28-5"></a>    start, </span>
-<span id="cb28-6"><a href="#cb28-6"></a>    <span class="cf">function</span>(x) <span class="kw">eval_generic_ex</span>(x, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L), </span>
-<span id="cb28-7"><a href="#cb28-7"></a>    <span class="cf">function</span>(x) <span class="kw">grad_generic_ex</span>(x, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L), </span>
-<span id="cb28-8"><a href="#cb28-8"></a>    <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>), </span>
-<span id="cb28-9"><a href="#cb28-9"></a>  <span class="dt">psqn =</span> <span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 1L), </span>
-<span id="cb28-10"><a href="#cb28-10"></a>  <span class="st">`</span><span class="dt">psqn 2 threads</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L), </span>
-<span id="cb28-11"><a href="#cb28-11"></a>  <span class="dt">times =</span> <span class="dv">5</span>)</span>
-<span id="cb28-12"><a href="#cb28-12"></a><span class="co">#&gt; Unit: milliseconds</span></span>
-<span id="cb28-13"><a href="#cb28-13"></a><span class="co">#&gt;            expr    min     lq   mean median     uq  max neval</span></span>
-<span id="cb28-14"><a href="#cb28-14"></a><span class="co">#&gt;       R version 7776.5 7821.8 7886.4 7822.0 7822.6 8189     5</span></span>
-<span id="cb28-15"><a href="#cb28-15"></a><span class="co">#&gt;        R w/ C++ 2010.7 2161.7 2196.1 2227.9 2286.1 2294     5</span></span>
-<span id="cb28-16"><a href="#cb28-16"></a><span class="co">#&gt;            psqn  138.7  139.0  140.1  139.3  140.3  143     5</span></span>
-<span id="cb28-17"><a href="#cb28-17"></a><span class="co">#&gt;  psqn 2 threads   75.1   76.2   76.5   76.2   76.9   78     5</span></span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a>bench<span class="op">::</span><span class="kw">mark</span>(</span>
+<span id="cb28-2"><a href="#cb28-2"></a>  <span class="st">`</span><span class="dt">R version</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>), </span>
+<span id="cb28-3"><a href="#cb28-3"></a>  <span class="st">`</span><span class="dt">R w/ C++</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(</span>
+<span id="cb28-4"><a href="#cb28-4"></a>    start, </span>
+<span id="cb28-5"><a href="#cb28-5"></a>    <span class="cf">function</span>(x) <span class="kw">eval_generic_ex</span>(x, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L), </span>
+<span id="cb28-6"><a href="#cb28-6"></a>    <span class="cf">function</span>(x) <span class="kw">grad_generic_ex</span>(x, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L), </span>
+<span id="cb28-7"><a href="#cb28-7"></a>    <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>), </span>
+<span id="cb28-8"><a href="#cb28-8"></a>  <span class="dt">psqn =</span> <span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 1L), </span>
+<span id="cb28-9"><a href="#cb28-9"></a>  <span class="st">`</span><span class="dt">psqn 2 threads</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L), </span>
+<span id="cb28-10"><a href="#cb28-10"></a>  <span class="dt">min_iterations =</span> 2L, <span class="dt">check =</span> <span class="ot">FALSE</span>)</span>
+<span id="cb28-11"><a href="#cb28-11"></a><span class="co">#&gt; Warning: Some expressions had a GC in every iteration; so filtering is disabled.</span></span>
+<span id="cb28-12"><a href="#cb28-12"></a><span class="co">#&gt; # A tibble: 4 x 6</span></span>
+<span id="cb28-13"><a href="#cb28-13"></a><span class="co">#&gt;   expression          min   median `itr/sec` mem_alloc `gc/sec`</span></span>
+<span id="cb28-14"><a href="#cb28-14"></a><span class="co">#&gt;   &lt;bch:expr&gt;     &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
+<span id="cb28-15"><a href="#cb28-15"></a><span class="co">#&gt; 1 R version         7.56s    7.62s     0.131    55.1MB   10.4  </span></span>
+<span id="cb28-16"><a href="#cb28-16"></a><span class="co">#&gt; 2 R w/ C++          1.96s    1.98s     0.506      26MB    0.253</span></span>
+<span id="cb28-17"><a href="#cb28-17"></a><span class="co">#&gt; 3 psqn            83.05ms   83.1ms    12.0      18.2KB    0    </span></span>
+<span id="cb28-18"><a href="#cb28-18"></a><span class="co">#&gt; 4 psqn 2 threads  46.15ms  46.66ms    21.2      18.2KB    0</span></span></code></pre></div>
 </div>
 </div>
 <div id="details" class="section level2">
@@ -1824,8 +1823,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb29-35"><a href="#cb29-35"></a><span class="co">#&gt; # A tibble: 2 x 6</span></span>
 <span id="cb29-36"><a href="#cb29-36"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb29-37"><a href="#cb29-37"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb29-38"><a href="#cb29-38"></a><span class="co">#&gt; 1 optim       112.8µs  125.7µs     7869.      384B     12.6</span></span>
-<span id="cb29-39"><a href="#cb29-39"></a><span class="co">#&gt; 2 psqn_bfgs    85.1µs   96.4µs    10318.    2.49KB     13.0</span></span></code></pre></div>
+<span id="cb29-38"><a href="#cb29-38"></a><span class="co">#&gt; 1 optim         112µs  118.9µs     8092.      384B     22.1</span></span>
+<span id="cb29-39"><a href="#cb29-39"></a><span class="co">#&gt; 2 psqn_bfgs      84µs   88.9µs    10675.    2.49KB     24.2</span></span></code></pre></div>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>
