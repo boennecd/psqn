@@ -1467,16 +1467,17 @@ f(\vec x) &amp;= (\vec x_{\mathcal G} - \vec\mu_{\mathcal G})^\top
 </div>
 <div id="generic-example" class="section level3">
 <h3>Generic Example</h3>
-<p>We will provide a toy example of a problem which is partially separable but which does not have the same structure as the problem we have shown before. The problem we consider is:</p>
+<p>We will provide a toy example of a problem which is partially separable but which does not have the same structure as the problems we have shown before. The problem we consider is:</p>
 <p><span class="math display">\[
 \begin{align*}
-f(\vec x) &amp;= \sum_{i = 1}^n 
-  \left(\exp\left(\sum_{j = 1}^{L_i} x_{k_{ij}}\right) - \mu_i
-  \right)^2, \qquad \vec x\in\mathbb R^K \\
-\mathcal K_i &amp;= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}
+f(\vec x) &amp;= \sum_{i = 1}^n
+  -y_i \sum_{j = 1}^{L_i} x_{k_{ij}}
+  +\exp\left(\sum_{j = 1}^{L_i} x_{k_{ij}}\right)
+  , \qquad \vec x\in\mathbb R^K \\
+\mathcal K_i &amp;= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}.
 \end{align*}
-\]</span></p>
-<p>Notice for some <span class="math inline">\(j\neq i\)</span> we may have that <span class="math inline">\(\mathcal K_i \cap \mathcal K_j \neq \emptyset\)</span>. There is a class called <code>optimizer_generic</code> provided by the psqn package which can work with more general partially separable problems like the one above. A C++ implementation to work with the function stated above using the <code>optimizer_generic</code> class is in the <code>generic_example.cpp</code> file which is shown below:</p>
+\]</span> This is a special kind of a GLM with a Poison model with and log link. While there are other ways to estimate this model, we will compare the BFGS implementation from <code>optim</code> with the psqn package. Notice for some <span class="math inline">\(j\neq i\)</span> we may have that <span class="math inline">\(\mathcal K_i \cap \mathcal K_j \neq \emptyset\)</span> without much structure in their intersection unlike before.</p>
+<p>There is a class called <code>optimizer_generic</code> provided by the psqn package which can work with more general partially separable problems like the one above. This though yields some additional computational overhead. A C++ implementation to work with the function stated above using the <code>optimizer_generic</code> class is in the <code>generic_example.cpp</code> file which is shown below:</p>
 <div class="sourceCode" id="cb24"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb24-1"><a href="#cb24-1"></a><span class="co">// see `mlogit-ex.cpp` for an example with more comments</span></span>
 <span id="cb24-2"><a href="#cb24-2"></a></span>
 <span id="cb24-3"><a href="#cb24-3"></a><span class="co">// we will use OpenMP to perform the computation in parallel</span></span>
@@ -1495,8 +1496,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb24-16"><a href="#cb24-16"></a>  <span class="dt">size_t</span> <span class="at">const</span> n_args_val;</span>
 <span id="cb24-17"><a href="#cb24-17"></a>  <span class="co">/// indices of the element function parameters</span></span>
 <span id="cb24-18"><a href="#cb24-18"></a>  <span class="bu">std::</span>unique_ptr&lt;<span class="dt">size_t</span>[]&gt; indices_array;</span>
-<span id="cb24-19"><a href="#cb24-19"></a>  <span class="co">/// centroid point</span></span>
-<span id="cb24-20"><a href="#cb24-20"></a>  <span class="dt">double</span> <span class="at">const</span> mu;</span>
+<span id="cb24-19"><a href="#cb24-19"></a>  <span class="co">/// y point</span></span>
+<span id="cb24-20"><a href="#cb24-20"></a>  <span class="dt">double</span> <span class="at">const</span> y;</span>
 <span id="cb24-21"><a href="#cb24-21"></a></span>
 <span id="cb24-22"><a href="#cb24-22"></a><span class="kw">public</span>:</span>
 <span id="cb24-23"><a href="#cb24-23"></a>  generic_example(List data):</span>
@@ -1508,7 +1509,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb24-29"><a href="#cb24-29"></a>      out[i] = indices[i];</span>
 <span id="cb24-30"><a href="#cb24-30"></a>    <span class="cf">return</span> out;</span>
 <span id="cb24-31"><a href="#cb24-31"></a>  })()),</span>
-<span id="cb24-32"><a href="#cb24-32"></a>  mu(as&lt;<span class="dt">double</span>&gt;(data[<span class="st">&quot;mu&quot;</span>]))</span>
+<span id="cb24-32"><a href="#cb24-32"></a>  y(as&lt;<span class="dt">double</span>&gt;(data[<span class="st">&quot;y&quot;</span>]))</span>
 <span id="cb24-33"><a href="#cb24-33"></a>  { }</span>
 <span id="cb24-34"><a href="#cb24-34"></a></span>
 <span id="cb24-35"><a href="#cb24-35"></a>  <span class="co">// we need to make a copy constructor because of the unique_ptr</span></span>
@@ -1520,7 +1521,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb24-41"><a href="#cb24-41"></a>      out[i] = other.indices_array[i];</span>
 <span id="cb24-42"><a href="#cb24-42"></a>    <span class="cf">return</span> out;</span>
 <span id="cb24-43"><a href="#cb24-43"></a>  })()),</span>
-<span id="cb24-44"><a href="#cb24-44"></a>  mu(other.mu) { }</span>
+<span id="cb24-44"><a href="#cb24-44"></a>  y(other.y) { }</span>
 <span id="cb24-45"><a href="#cb24-45"></a></span>
 <span id="cb24-46"><a href="#cb24-46"></a>  <span class="dt">size_t</span> n_args() <span class="at">const</span> {</span>
 <span id="cb24-47"><a href="#cb24-47"></a>    <span class="cf">return</span> n_args_val;</span>
@@ -1534,142 +1535,155 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb24-55"><a href="#cb24-55"></a>    <span class="dt">double</span> sum(<span class="fl">0.</span>);</span>
 <span id="cb24-56"><a href="#cb24-56"></a>    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; n_args_val; ++i)</span>
 <span id="cb24-57"><a href="#cb24-57"></a>      sum += point[i];</span>
-<span id="cb24-58"><a href="#cb24-58"></a>    <span class="dt">double</span> <span class="at">const</span> delta = <span class="bu">std::</span>exp(sum) - mu;</span>
-<span id="cb24-59"><a href="#cb24-59"></a>    <span class="cf">return</span> delta * delta;</span>
-<span id="cb24-60"><a href="#cb24-60"></a>  }</span>
-<span id="cb24-61"><a href="#cb24-61"></a></span>
-<span id="cb24-62"><a href="#cb24-62"></a>  <span class="dt">double</span> grad</span>
-<span id="cb24-63"><a href="#cb24-63"></a>  (<span class="dt">double</span> <span class="at">const</span> * point, <span class="dt">double</span> * gr) <span class="at">const</span> {</span>
-<span id="cb24-64"><a href="#cb24-64"></a>    <span class="dt">double</span> sum(<span class="fl">0.</span>);</span>
-<span id="cb24-65"><a href="#cb24-65"></a>    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; n_args_val; ++i)</span>
-<span id="cb24-66"><a href="#cb24-66"></a>      sum += point[i];</span>
-<span id="cb24-67"><a href="#cb24-67"></a>    sum = <span class="bu">std::</span>exp(sum);</span>
-<span id="cb24-68"><a href="#cb24-68"></a>    <span class="dt">double</span> <span class="at">const</span> delta = sum - mu,</span>
-<span id="cb24-69"><a href="#cb24-69"></a>                 fact  = <span class="dv">2</span> * delta * sum;</span>
-<span id="cb24-70"><a href="#cb24-70"></a>    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; n_args_val; ++i)</span>
-<span id="cb24-71"><a href="#cb24-71"></a>      gr[i] = fact;</span>
-<span id="cb24-72"><a href="#cb24-72"></a></span>
-<span id="cb24-73"><a href="#cb24-73"></a>    <span class="cf">return</span> delta * delta;</span>
-<span id="cb24-74"><a href="#cb24-74"></a>  }</span>
-<span id="cb24-75"><a href="#cb24-75"></a></span>
-<span id="cb24-76"><a href="#cb24-76"></a>  <span class="dt">bool</span> thread_safe() <span class="at">const</span> {</span>
-<span id="cb24-77"><a href="#cb24-77"></a>    <span class="cf">return</span> <span class="kw">true</span>;</span>
-<span id="cb24-78"><a href="#cb24-78"></a>  }</span>
-<span id="cb24-79"><a href="#cb24-79"></a>};</span>
-<span id="cb24-80"><a href="#cb24-80"></a></span>
-<span id="cb24-81"><a href="#cb24-81"></a><span class="kw">using</span> generic_opt =</span>
-<span id="cb24-82"><a href="#cb24-82"></a>  PSQN::optimizer_generic&lt;generic_example, PSQN::R_reporter,</span>
-<span id="cb24-83"><a href="#cb24-83"></a>                          PSQN::R_interrupter&gt;;</span>
-<span id="cb24-84"><a href="#cb24-84"></a></span>
-<span id="cb24-85"><a href="#cb24-85"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb24-86"><a href="#cb24-86"></a>SEXP get_generic_ex_obj(List data, <span class="dt">unsigned</span> <span class="at">const</span> max_threads){</span>
-<span id="cb24-87"><a href="#cb24-87"></a>  <span class="dt">size_t</span> <span class="at">const</span> n_elem_funcs = data.size();</span>
-<span id="cb24-88"><a href="#cb24-88"></a>  <span class="bu">std::</span>vector&lt;generic_example&gt; funcs;</span>
-<span id="cb24-89"><a href="#cb24-89"></a>  funcs.reserve(n_elem_funcs);</span>
-<span id="cb24-90"><a href="#cb24-90"></a>  <span class="cf">for</span>(<span class="kw">auto</span> dat : data)</span>
-<span id="cb24-91"><a href="#cb24-91"></a>    funcs.emplace_back(List(dat));</span>
-<span id="cb24-92"><a href="#cb24-92"></a></span>
-<span id="cb24-93"><a href="#cb24-93"></a>  <span class="co">// create an XPtr to the object we will need</span></span>
-<span id="cb24-94"><a href="#cb24-94"></a>  XPtr&lt;generic_opt&gt;ptr(<span class="kw">new</span> generic_opt(funcs, max_threads));</span>
-<span id="cb24-95"><a href="#cb24-95"></a></span>
-<span id="cb24-96"><a href="#cb24-96"></a>  <span class="co">// return the pointer to be used later</span></span>
-<span id="cb24-97"><a href="#cb24-97"></a>  <span class="cf">return</span> ptr;</span>
-<span id="cb24-98"><a href="#cb24-98"></a>}</span>
-<span id="cb24-99"><a href="#cb24-99"></a></span>
-<span id="cb24-100"><a href="#cb24-100"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb24-101"><a href="#cb24-101"></a>List optim_generic_ex</span>
-<span id="cb24-102"><a href="#cb24-102"></a>  (NumericVector val, SEXP ptr, <span class="dt">double</span> <span class="at">const</span> rel_eps, <span class="dt">unsigned</span> <span class="at">const</span> max_it,</span>
-<span id="cb24-103"><a href="#cb24-103"></a>   <span class="dt">unsigned</span> <span class="at">const</span> n_threads, <span class="dt">double</span> <span class="at">const</span> c1,</span>
-<span id="cb24-104"><a href="#cb24-104"></a>   <span class="dt">double</span> <span class="at">const</span> c2, <span class="dt">bool</span> <span class="at">const</span> use_bfgs = <span class="kw">true</span>, <span class="dt">int</span> <span class="at">const</span> trace = <span class="dv">0</span><span class="bu">L</span>,</span>
-<span id="cb24-105"><a href="#cb24-105"></a>   <span class="dt">double</span> <span class="at">const</span> cg_tol = <span class="fl">.5</span>, <span class="dt">bool</span> <span class="at">const</span> strong_wolfe = <span class="kw">true</span>,</span>
-<span id="cb24-106"><a href="#cb24-106"></a>   <span class="dt">size_t</span> <span class="at">const</span> max_cg = <span class="dv">0</span><span class="bu">L</span>, <span class="dt">int</span> <span class="at">const</span> pre_method = <span class="dv">1</span><span class="bu">L</span>){</span>
-<span id="cb24-107"><a href="#cb24-107"></a>  XPtr&lt;generic_opt&gt; optim(ptr);</span>
-<span id="cb24-108"><a href="#cb24-108"></a></span>
-<span id="cb24-109"><a href="#cb24-109"></a>  <span class="co">// check that we pass a parameter value of the right length</span></span>
-<span id="cb24-110"><a href="#cb24-110"></a>  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</span>
-<span id="cb24-111"><a href="#cb24-111"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;optim_generic_ex: invalid parameter size&quot;</span>);</span>
-<span id="cb24-112"><a href="#cb24-112"></a></span>
-<span id="cb24-113"><a href="#cb24-113"></a>  NumericVector par = clone(val);</span>
-<span id="cb24-114"><a href="#cb24-114"></a>  optim-&gt;set_n_threads(n_threads);</span>
-<span id="cb24-115"><a href="#cb24-115"></a>  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it, c1, c2,</span>
-<span id="cb24-116"><a href="#cb24-116"></a>                          use_bfgs, trace, cg_tol, strong_wolfe, max_cg,</span>
-<span id="cb24-117"><a href="#cb24-117"></a>                          <span class="kw">static_cast</span>&lt;PSQN::precondition&gt;(pre_method));</span>
-<span id="cb24-118"><a href="#cb24-118"></a>  NumericVector counts = NumericVector::create(</span>
-<span id="cb24-119"><a href="#cb24-119"></a>    res.n_eval, res.n_grad,  res.n_cg);</span>
-<span id="cb24-120"><a href="#cb24-120"></a>  counts.names() = CharacterVector::create(<span class="st">&quot;function&quot;</span>, <span class="st">&quot;gradient&quot;</span>, <span class="st">&quot;n_cg&quot;</span>);</span>
-<span id="cb24-121"><a href="#cb24-121"></a></span>
-<span id="cb24-122"><a href="#cb24-122"></a>  <span class="dt">int</span> <span class="at">const</span> info = <span class="kw">static_cast</span>&lt;<span class="dt">int</span>&gt;(res.info);</span>
-<span id="cb24-123"><a href="#cb24-123"></a>  <span class="cf">return</span> List::create(</span>
-<span id="cb24-124"><a href="#cb24-124"></a>    _[<span class="st">&quot;par&quot;</span>] = par, _[<span class="st">&quot;value&quot;</span>] = res.value, _[<span class="st">&quot;info&quot;</span>] = info,</span>
-<span id="cb24-125"><a href="#cb24-125"></a>      _[<span class="st">&quot;counts&quot;</span>] = counts,</span>
-<span id="cb24-126"><a href="#cb24-126"></a>      _[<span class="st">&quot;convergence&quot;</span>] =  res.info == PSQN::info_code::converged);</span>
-<span id="cb24-127"><a href="#cb24-127"></a>}</span>
-<span id="cb24-128"><a href="#cb24-128"></a></span>
-<span id="cb24-129"><a href="#cb24-129"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb24-130"><a href="#cb24-130"></a><span class="dt">double</span> eval_generic_ex(NumericVector val, SEXP ptr, <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</span>
-<span id="cb24-131"><a href="#cb24-131"></a>  XPtr&lt;generic_opt&gt; optim(ptr);</span>
-<span id="cb24-132"><a href="#cb24-132"></a></span>
-<span id="cb24-133"><a href="#cb24-133"></a>  <span class="co">// check that we pass a parameter value of the right length</span></span>
-<span id="cb24-134"><a href="#cb24-134"></a>  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</span>
-<span id="cb24-135"><a href="#cb24-135"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_generic_ex: invalid parameter size&quot;</span>);</span>
-<span id="cb24-136"><a href="#cb24-136"></a></span>
-<span id="cb24-137"><a href="#cb24-137"></a>  optim-&gt;set_n_threads(n_threads);</span>
-<span id="cb24-138"><a href="#cb24-138"></a>  <span class="cf">return</span> optim-&gt;eval(&amp;val[<span class="dv">0</span>], <span class="kw">nullptr</span>, <span class="kw">false</span>);</span>
-<span id="cb24-139"><a href="#cb24-139"></a>}</span>
-<span id="cb24-140"><a href="#cb24-140"></a></span>
-<span id="cb24-141"><a href="#cb24-141"></a><span class="co">// [[Rcpp::export]]</span></span>
-<span id="cb24-142"><a href="#cb24-142"></a>NumericVector grad_generic_ex(NumericVector val, SEXP ptr,</span>
-<span id="cb24-143"><a href="#cb24-143"></a>                              <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</span>
-<span id="cb24-144"><a href="#cb24-144"></a>  XPtr&lt;generic_opt&gt; optim(ptr);</span>
-<span id="cb24-145"><a href="#cb24-145"></a></span>
-<span id="cb24-146"><a href="#cb24-146"></a>  <span class="co">// check that we pass a parameter value of the right length</span></span>
-<span id="cb24-147"><a href="#cb24-147"></a>  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</span>
-<span id="cb24-148"><a href="#cb24-148"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;grad_generic_ex: invalid parameter size&quot;</span>);</span>
-<span id="cb24-149"><a href="#cb24-149"></a></span>
-<span id="cb24-150"><a href="#cb24-150"></a>  NumericVector grad(val.size());</span>
-<span id="cb24-151"><a href="#cb24-151"></a>  optim-&gt;set_n_threads(n_threads);</span>
-<span id="cb24-152"><a href="#cb24-152"></a>  grad.attr(<span class="st">&quot;value&quot;</span>) = optim-&gt;eval(&amp;val[<span class="dv">0</span>], &amp;grad[<span class="dv">0</span>], <span class="kw">true</span>);</span>
-<span id="cb24-153"><a href="#cb24-153"></a></span>
-<span id="cb24-154"><a href="#cb24-154"></a>  <span class="cf">return</span> grad;</span>
-<span id="cb24-155"><a href="#cb24-155"></a>}</span></code></pre></div>
+<span id="cb24-58"><a href="#cb24-58"></a>    <span class="cf">return</span> -y * sum + <span class="bu">std::</span>exp(sum);</span>
+<span id="cb24-59"><a href="#cb24-59"></a>  }</span>
+<span id="cb24-60"><a href="#cb24-60"></a></span>
+<span id="cb24-61"><a href="#cb24-61"></a>  <span class="dt">double</span> grad</span>
+<span id="cb24-62"><a href="#cb24-62"></a>  (<span class="dt">double</span> <span class="at">const</span> * point, <span class="dt">double</span> * gr) <span class="at">const</span> {</span>
+<span id="cb24-63"><a href="#cb24-63"></a>    <span class="dt">double</span> sum(<span class="fl">0.</span>);</span>
+<span id="cb24-64"><a href="#cb24-64"></a>    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; n_args_val; ++i)</span>
+<span id="cb24-65"><a href="#cb24-65"></a>      sum += point[i];</span>
+<span id="cb24-66"><a href="#cb24-66"></a>    <span class="dt">double</span> <span class="at">const</span> exp_sum = <span class="bu">std::</span>exp(sum),</span>
+<span id="cb24-67"><a href="#cb24-67"></a>                    fact = -y + exp_sum;</span>
+<span id="cb24-68"><a href="#cb24-68"></a>    <span class="cf">for</span>(<span class="dt">size_t</span> i = <span class="dv">0</span>; i &lt; n_args_val; ++i)</span>
+<span id="cb24-69"><a href="#cb24-69"></a>      gr[i] = fact;</span>
+<span id="cb24-70"><a href="#cb24-70"></a></span>
+<span id="cb24-71"><a href="#cb24-71"></a>    <span class="cf">return</span> -y * sum + <span class="bu">std::</span>exp(sum);</span>
+<span id="cb24-72"><a href="#cb24-72"></a>  }</span>
+<span id="cb24-73"><a href="#cb24-73"></a></span>
+<span id="cb24-74"><a href="#cb24-74"></a>  <span class="dt">bool</span> thread_safe() <span class="at">const</span> {</span>
+<span id="cb24-75"><a href="#cb24-75"></a>    <span class="cf">return</span> <span class="kw">true</span>;</span>
+<span id="cb24-76"><a href="#cb24-76"></a>  }</span>
+<span id="cb24-77"><a href="#cb24-77"></a>};</span>
+<span id="cb24-78"><a href="#cb24-78"></a></span>
+<span id="cb24-79"><a href="#cb24-79"></a><span class="kw">using</span> generic_opt =</span>
+<span id="cb24-80"><a href="#cb24-80"></a>  PSQN::optimizer_generic&lt;generic_example, PSQN::R_reporter,</span>
+<span id="cb24-81"><a href="#cb24-81"></a>                          PSQN::R_interrupter&gt;;</span>
+<span id="cb24-82"><a href="#cb24-82"></a></span>
+<span id="cb24-83"><a href="#cb24-83"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb24-84"><a href="#cb24-84"></a>SEXP get_generic_ex_obj(List data, <span class="dt">unsigned</span> <span class="at">const</span> max_threads){</span>
+<span id="cb24-85"><a href="#cb24-85"></a>  <span class="dt">size_t</span> <span class="at">const</span> n_elem_funcs = data.size();</span>
+<span id="cb24-86"><a href="#cb24-86"></a>  <span class="bu">std::</span>vector&lt;generic_example&gt; funcs;</span>
+<span id="cb24-87"><a href="#cb24-87"></a>  funcs.reserve(n_elem_funcs);</span>
+<span id="cb24-88"><a href="#cb24-88"></a>  <span class="cf">for</span>(<span class="kw">auto</span> dat : data)</span>
+<span id="cb24-89"><a href="#cb24-89"></a>    funcs.emplace_back(List(dat));</span>
+<span id="cb24-90"><a href="#cb24-90"></a></span>
+<span id="cb24-91"><a href="#cb24-91"></a>  <span class="co">// create an XPtr to the object we will need</span></span>
+<span id="cb24-92"><a href="#cb24-92"></a>  XPtr&lt;generic_opt&gt;ptr(<span class="kw">new</span> generic_opt(funcs, max_threads));</span>
+<span id="cb24-93"><a href="#cb24-93"></a></span>
+<span id="cb24-94"><a href="#cb24-94"></a>  <span class="co">// return the pointer to be used later</span></span>
+<span id="cb24-95"><a href="#cb24-95"></a>  <span class="cf">return</span> ptr;</span>
+<span id="cb24-96"><a href="#cb24-96"></a>}</span>
+<span id="cb24-97"><a href="#cb24-97"></a></span>
+<span id="cb24-98"><a href="#cb24-98"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb24-99"><a href="#cb24-99"></a>List optim_generic_ex</span>
+<span id="cb24-100"><a href="#cb24-100"></a>  (NumericVector val, SEXP ptr, <span class="dt">double</span> <span class="at">const</span> rel_eps, <span class="dt">unsigned</span> <span class="at">const</span> max_it,</span>
+<span id="cb24-101"><a href="#cb24-101"></a>   <span class="dt">unsigned</span> <span class="at">const</span> n_threads, <span class="dt">double</span> <span class="at">const</span> c1,</span>
+<span id="cb24-102"><a href="#cb24-102"></a>   <span class="dt">double</span> <span class="at">const</span> c2, <span class="dt">bool</span> <span class="at">const</span> use_bfgs = <span class="kw">true</span>, <span class="dt">int</span> <span class="at">const</span> trace = <span class="dv">0</span><span class="bu">L</span>,</span>
+<span id="cb24-103"><a href="#cb24-103"></a>   <span class="dt">double</span> <span class="at">const</span> cg_tol = <span class="fl">.5</span>, <span class="dt">bool</span> <span class="at">const</span> strong_wolfe = <span class="kw">true</span>,</span>
+<span id="cb24-104"><a href="#cb24-104"></a>   <span class="dt">size_t</span> <span class="at">const</span> max_cg = <span class="dv">0</span><span class="bu">L</span>, <span class="dt">int</span> <span class="at">const</span> pre_method = <span class="dv">1</span><span class="bu">L</span>){</span>
+<span id="cb24-105"><a href="#cb24-105"></a>  XPtr&lt;generic_opt&gt; optim(ptr);</span>
+<span id="cb24-106"><a href="#cb24-106"></a></span>
+<span id="cb24-107"><a href="#cb24-107"></a>  <span class="co">// check that we pass a parameter value of the right length</span></span>
+<span id="cb24-108"><a href="#cb24-108"></a>  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</span>
+<span id="cb24-109"><a href="#cb24-109"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;optim_generic_ex: invalid parameter size&quot;</span>);</span>
+<span id="cb24-110"><a href="#cb24-110"></a></span>
+<span id="cb24-111"><a href="#cb24-111"></a>  NumericVector par = clone(val);</span>
+<span id="cb24-112"><a href="#cb24-112"></a>  optim-&gt;set_n_threads(n_threads);</span>
+<span id="cb24-113"><a href="#cb24-113"></a>  <span class="kw">auto</span> res = optim-&gt;optim(&amp;par[<span class="dv">0</span>], rel_eps, max_it, c1, c2,</span>
+<span id="cb24-114"><a href="#cb24-114"></a>                          use_bfgs, trace, cg_tol, strong_wolfe, max_cg,</span>
+<span id="cb24-115"><a href="#cb24-115"></a>                          <span class="kw">static_cast</span>&lt;PSQN::precondition&gt;(pre_method));</span>
+<span id="cb24-116"><a href="#cb24-116"></a>  NumericVector counts = NumericVector::create(</span>
+<span id="cb24-117"><a href="#cb24-117"></a>    res.n_eval, res.n_grad,  res.n_cg);</span>
+<span id="cb24-118"><a href="#cb24-118"></a>  counts.names() = CharacterVector::create(<span class="st">&quot;function&quot;</span>, <span class="st">&quot;gradient&quot;</span>, <span class="st">&quot;n_cg&quot;</span>);</span>
+<span id="cb24-119"><a href="#cb24-119"></a></span>
+<span id="cb24-120"><a href="#cb24-120"></a>  <span class="dt">int</span> <span class="at">const</span> info = <span class="kw">static_cast</span>&lt;<span class="dt">int</span>&gt;(res.info);</span>
+<span id="cb24-121"><a href="#cb24-121"></a>  <span class="cf">return</span> List::create(</span>
+<span id="cb24-122"><a href="#cb24-122"></a>    _[<span class="st">&quot;par&quot;</span>] = par, _[<span class="st">&quot;value&quot;</span>] = res.value, _[<span class="st">&quot;info&quot;</span>] = info,</span>
+<span id="cb24-123"><a href="#cb24-123"></a>      _[<span class="st">&quot;counts&quot;</span>] = counts,</span>
+<span id="cb24-124"><a href="#cb24-124"></a>      _[<span class="st">&quot;convergence&quot;</span>] =  res.info == PSQN::info_code::converged);</span>
+<span id="cb24-125"><a href="#cb24-125"></a>}</span>
+<span id="cb24-126"><a href="#cb24-126"></a></span>
+<span id="cb24-127"><a href="#cb24-127"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb24-128"><a href="#cb24-128"></a><span class="dt">double</span> eval_generic_ex(NumericVector val, SEXP ptr, <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</span>
+<span id="cb24-129"><a href="#cb24-129"></a>  XPtr&lt;generic_opt&gt; optim(ptr);</span>
+<span id="cb24-130"><a href="#cb24-130"></a></span>
+<span id="cb24-131"><a href="#cb24-131"></a>  <span class="co">// check that we pass a parameter value of the right length</span></span>
+<span id="cb24-132"><a href="#cb24-132"></a>  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</span>
+<span id="cb24-133"><a href="#cb24-133"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;eval_generic_ex: invalid parameter size&quot;</span>);</span>
+<span id="cb24-134"><a href="#cb24-134"></a></span>
+<span id="cb24-135"><a href="#cb24-135"></a>  optim-&gt;set_n_threads(n_threads);</span>
+<span id="cb24-136"><a href="#cb24-136"></a>  <span class="cf">return</span> optim-&gt;eval(&amp;val[<span class="dv">0</span>], <span class="kw">nullptr</span>, <span class="kw">false</span>);</span>
+<span id="cb24-137"><a href="#cb24-137"></a>}</span>
+<span id="cb24-138"><a href="#cb24-138"></a></span>
+<span id="cb24-139"><a href="#cb24-139"></a><span class="co">// [[Rcpp::export]]</span></span>
+<span id="cb24-140"><a href="#cb24-140"></a>NumericVector grad_generic_ex(NumericVector val, SEXP ptr,</span>
+<span id="cb24-141"><a href="#cb24-141"></a>                              <span class="dt">unsigned</span> <span class="at">const</span> n_threads){</span>
+<span id="cb24-142"><a href="#cb24-142"></a>  XPtr&lt;generic_opt&gt; optim(ptr);</span>
+<span id="cb24-143"><a href="#cb24-143"></a></span>
+<span id="cb24-144"><a href="#cb24-144"></a>  <span class="co">// check that we pass a parameter value of the right length</span></span>
+<span id="cb24-145"><a href="#cb24-145"></a>  <span class="cf">if</span>(optim-&gt;n_par != <span class="kw">static_cast</span>&lt;<span class="dt">size_t</span>&gt;(val.size()))</span>
+<span id="cb24-146"><a href="#cb24-146"></a>    <span class="cf">throw</span> <span class="bu">std::</span>invalid_argument(<span class="st">&quot;grad_generic_ex: invalid parameter size&quot;</span>);</span>
+<span id="cb24-147"><a href="#cb24-147"></a></span>
+<span id="cb24-148"><a href="#cb24-148"></a>  NumericVector grad(val.size());</span>
+<span id="cb24-149"><a href="#cb24-149"></a>  optim-&gt;set_n_threads(n_threads);</span>
+<span id="cb24-150"><a href="#cb24-150"></a>  grad.attr(<span class="st">&quot;value&quot;</span>) = optim-&gt;eval(&amp;val[<span class="dv">0</span>], &amp;grad[<span class="dv">0</span>], <span class="kw">true</span>);</span>
+<span id="cb24-151"><a href="#cb24-151"></a></span>
+<span id="cb24-152"><a href="#cb24-152"></a>  <span class="cf">return</span> grad;</span>
+<span id="cb24-153"><a href="#cb24-153"></a>}</span></code></pre></div>
 <p>We now simulate some data to work with this type of model:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a><span class="kw">set.seed</span>(<span class="dv">1</span>)</span>
-<span id="cb25-2"><a href="#cb25-2"></a>K &lt;-<span class="st"> </span>1000L</span>
-<span id="cb25-3"><a href="#cb25-3"></a>n &lt;-<span class="st"> </span>4L <span class="op">*</span><span class="st"> </span>K</span>
-<span id="cb25-4"><a href="#cb25-4"></a></span>
-<span id="cb25-5"><a href="#cb25-5"></a>dat &lt;-<span class="st"> </span><span class="kw">replicate</span>(</span>
-<span id="cb25-6"><a href="#cb25-6"></a>  n, </span>
-<span id="cb25-7"><a href="#cb25-7"></a>  <span class="kw">list</span>(<span class="dt">mu =</span> <span class="kw">abs</span>(<span class="kw">rnorm</span>(<span class="dv">1</span>)), </span>
-<span id="cb25-8"><a href="#cb25-8"></a>       <span class="dt">indices =</span> <span class="kw">sample.int</span>(K, 3L)), </span>
-<span id="cb25-9"><a href="#cb25-9"></a>  <span class="dt">simplify =</span> <span class="ot">FALSE</span>)</span>
-<span id="cb25-10"><a href="#cb25-10"></a></span>
-<span id="cb25-11"><a href="#cb25-11"></a><span class="co"># we need each variable to be present at least once</span></span>
-<span id="cb25-12"><a href="#cb25-12"></a><span class="kw">stopifnot</span>(<span class="kw">length</span>(<span class="kw">unique</span>(<span class="kw">unlist</span>(</span>
-<span id="cb25-13"><a href="#cb25-13"></a>  <span class="kw">lapply</span>(dat, <span class="st">`</span><span class="dt">[</span><span class="st">`</span>, <span class="st">&quot;indices&quot;</span>)</span>
-<span id="cb25-14"><a href="#cb25-14"></a>))) <span class="op">==</span><span class="st"> </span>K) <span class="co"># otherwise we need to change the code</span></span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a><span class="co"># parameters for the simulation</span></span>
+<span id="cb25-2"><a href="#cb25-2"></a><span class="kw">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb25-3"><a href="#cb25-3"></a>K &lt;-<span class="st"> </span>2000L</span>
+<span id="cb25-4"><a href="#cb25-4"></a>n &lt;-<span class="st"> </span>5L <span class="op">*</span><span class="st"> </span>K</span>
+<span id="cb25-5"><a href="#cb25-5"></a></span>
+<span id="cb25-6"><a href="#cb25-6"></a><span class="co"># simulate the data</span></span>
+<span id="cb25-7"><a href="#cb25-7"></a>truth_limit &lt;-<span class="st"> </span><span class="kw">runif</span>(K, <span class="dv">-1</span>, <span class="dv">1</span>)</span>
+<span id="cb25-8"><a href="#cb25-8"></a>dat &lt;-<span class="st"> </span><span class="kw">replicate</span>(</span>
+<span id="cb25-9"><a href="#cb25-9"></a>  n, {</span>
+<span id="cb25-10"><a href="#cb25-10"></a>    <span class="co"># sample the indices and make it more likely to sample some close together</span></span>
+<span id="cb25-11"><a href="#cb25-11"></a>    mid &lt;-<span class="st"> </span><span class="kw">sample.int</span>(K, 1L)</span>
+<span id="cb25-12"><a href="#cb25-12"></a>    n_other &lt;-<span class="st"> </span><span class="kw">sample.int</span>(5L, 1L) <span class="op">+</span><span class="st"> </span>1L</span>
+<span id="cb25-13"><a href="#cb25-13"></a>    probs &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">/</span>(<span class="dv">1</span> <span class="op">+</span><span class="st"> </span>(mid <span class="op">-</span><span class="st"> </span><span class="kw">seq_len</span>(K)[<span class="op">-</span>mid])<span class="op">^</span><span class="dv">2</span>)</span>
+<span id="cb25-14"><a href="#cb25-14"></a>    probs &lt;-<span class="st"> </span>probs <span class="op">/</span><span class="st"> </span><span class="kw">sum</span>(probs)</span>
+<span id="cb25-15"><a href="#cb25-15"></a>    other &lt;-<span class="st"> </span><span class="kw">sample</span>(<span class="kw">seq_len</span>(K)[<span class="op">-</span>mid], n_other, <span class="dt">prob =</span> probs)</span>
+<span id="cb25-16"><a href="#cb25-16"></a>    indices &lt;-<span class="st"> </span><span class="kw">sort</span>(<span class="kw">c</span>(mid, other))</span>
+<span id="cb25-17"><a href="#cb25-17"></a>    </span>
+<span id="cb25-18"><a href="#cb25-18"></a>    <span class="kw">list</span>(<span class="dt">y =</span> <span class="kw">rpois</span>(<span class="dv">1</span>, <span class="kw">exp</span>(<span class="kw">sum</span>(truth_limit[indices]))), </span>
+<span id="cb25-19"><a href="#cb25-19"></a>         <span class="dt">indices =</span> indices)</span>
+<span id="cb25-20"><a href="#cb25-20"></a>  }, <span class="dt">simplify =</span> <span class="ot">FALSE</span>)</span>
+<span id="cb25-21"><a href="#cb25-21"></a></span>
+<span id="cb25-22"><a href="#cb25-22"></a><span class="co"># we need each variable to be present at least once</span></span>
+<span id="cb25-23"><a href="#cb25-23"></a><span class="kw">stopifnot</span>(<span class="kw">length</span>(<span class="kw">unique</span>(<span class="kw">unlist</span>(</span>
+<span id="cb25-24"><a href="#cb25-24"></a>  <span class="kw">lapply</span>(dat, <span class="st">`</span><span class="dt">[</span><span class="st">`</span>, <span class="st">&quot;indices&quot;</span>)</span>
+<span id="cb25-25"><a href="#cb25-25"></a>))) <span class="op">==</span><span class="st"> </span>K) <span class="co"># otherwise we need to change the code</span></span></code></pre></div>
 <p>We can minimize this problem using the following R code:</p>
 <div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a><span class="co"># define a version in R to compute the function and its gradient</span></span>
 <span id="cb26-2"><a href="#cb26-2"></a>R_func &lt;-<span class="st"> </span><span class="cf">function</span>(x){</span>
-<span id="cb26-3"><a href="#cb26-3"></a>  out &lt;-<span class="st"> </span><span class="kw">vapply</span>(dat, <span class="cf">function</span>(z) (<span class="kw">exp</span>(<span class="kw">sum</span>(x[z<span class="op">$</span>indices])) <span class="op">-</span><span class="st"> </span>z<span class="op">$</span>mu)<span class="op">^</span><span class="dv">2</span>, <span class="fl">0.</span>)</span>
-<span id="cb26-4"><a href="#cb26-4"></a>  <span class="kw">sum</span>(out)</span>
-<span id="cb26-5"><a href="#cb26-5"></a>}</span>
-<span id="cb26-6"><a href="#cb26-6"></a></span>
-<span id="cb26-7"><a href="#cb26-7"></a>R_func_gr &lt;-<span class="st"> </span><span class="cf">function</span>(x){</span>
-<span id="cb26-8"><a href="#cb26-8"></a>  out &lt;-<span class="st"> </span><span class="kw">numeric</span>(<span class="kw">length</span>(x))</span>
-<span id="cb26-9"><a href="#cb26-9"></a>  <span class="cf">for</span>(z <span class="cf">in</span> dat){</span>
-<span id="cb26-10"><a href="#cb26-10"></a>    exp_x_sum &lt;-<span class="st"> </span><span class="kw">exp</span>(<span class="kw">sum</span>(x[z<span class="op">$</span>indices]))</span>
-<span id="cb26-11"><a href="#cb26-11"></a>    delta &lt;-<span class="st"> </span><span class="dv">2</span> <span class="op">*</span><span class="st"> </span>(exp_x_sum <span class="op">-</span><span class="st"> </span>z<span class="op">$</span>mu) <span class="op">*</span><span class="st"> </span>exp_x_sum</span>
-<span id="cb26-12"><a href="#cb26-12"></a>    out[z<span class="op">$</span>indices] &lt;-<span class="st"> </span>out[z<span class="op">$</span>indices] <span class="op">+</span><span class="st"> </span>delta</span>
-<span id="cb26-13"><a href="#cb26-13"></a>  }</span>
-<span id="cb26-14"><a href="#cb26-14"></a>  out</span>
-<span id="cb26-15"><a href="#cb26-15"></a>}</span>
-<span id="cb26-16"><a href="#cb26-16"></a></span>
-<span id="cb26-17"><a href="#cb26-17"></a><span class="co"># find the optimum</span></span>
-<span id="cb26-18"><a href="#cb26-18"></a>start &lt;-<span class="st"> </span><span class="kw">numeric</span>(K)</span>
-<span id="cb26-19"><a href="#cb26-19"></a><span class="co"># all.equal(numDeriv::grad(R_func, start), R_func_gr(start))</span></span>
-<span id="cb26-20"><a href="#cb26-20"></a>opt &lt;-<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>)</span>
-<span id="cb26-21"><a href="#cb26-21"></a>opt<span class="op">$</span>value <span class="co"># optimal solution</span></span>
-<span id="cb26-22"><a href="#cb26-22"></a><span class="co">#&gt; [1] 982</span></span></code></pre></div>
+<span id="cb26-3"><a href="#cb26-3"></a>  out &lt;-<span class="st"> </span><span class="kw">vapply</span>(dat, <span class="cf">function</span>(z){</span>
+<span id="cb26-4"><a href="#cb26-4"></a>    eta &lt;-<span class="st"> </span><span class="kw">sum</span>(x[z<span class="op">$</span>indices])</span>
+<span id="cb26-5"><a href="#cb26-5"></a>    <span class="op">-</span>z<span class="op">$</span>y <span class="op">*</span><span class="st"> </span>eta <span class="op">+</span><span class="st"> </span><span class="kw">exp</span>(eta)</span>
+<span id="cb26-6"><a href="#cb26-6"></a>  }, <span class="fl">0.</span>)</span>
+<span id="cb26-7"><a href="#cb26-7"></a>  <span class="kw">sum</span>(out)</span>
+<span id="cb26-8"><a href="#cb26-8"></a>}</span>
+<span id="cb26-9"><a href="#cb26-9"></a></span>
+<span id="cb26-10"><a href="#cb26-10"></a>R_func_gr &lt;-<span class="st"> </span><span class="cf">function</span>(x){</span>
+<span id="cb26-11"><a href="#cb26-11"></a>  out &lt;-<span class="st"> </span><span class="kw">numeric</span>(<span class="kw">length</span>(x))</span>
+<span id="cb26-12"><a href="#cb26-12"></a>  <span class="cf">for</span>(z <span class="cf">in</span> dat){</span>
+<span id="cb26-13"><a href="#cb26-13"></a>    idx_i &lt;-<span class="st"> </span>z<span class="op">$</span>indices </span>
+<span id="cb26-14"><a href="#cb26-14"></a>    eta &lt;-<span class="st"> </span><span class="kw">sum</span>(x[idx_i])</span>
+<span id="cb26-15"><a href="#cb26-15"></a>    out[idx_i] &lt;-<span class="st"> </span>out[idx_i] <span class="op">-</span>z<span class="op">$</span>y <span class="op">+</span><span class="st"> </span><span class="kw">exp</span>(eta) </span>
+<span id="cb26-16"><a href="#cb26-16"></a>  }</span>
+<span id="cb26-17"><a href="#cb26-17"></a>  out</span>
+<span id="cb26-18"><a href="#cb26-18"></a>}</span>
+<span id="cb26-19"><a href="#cb26-19"></a></span>
+<span id="cb26-20"><a href="#cb26-20"></a><span class="co"># find the optimum</span></span>
+<span id="cb26-21"><a href="#cb26-21"></a>start &lt;-<span class="st"> </span><span class="kw">numeric</span>(K)</span>
+<span id="cb26-22"><a href="#cb26-22"></a><span class="co"># all.equal(numDeriv::grad(R_func, start), R_func_gr(start))</span></span>
+<span id="cb26-23"><a href="#cb26-23"></a>opt &lt;-<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>, </span>
+<span id="cb26-24"><a href="#cb26-24"></a>             <span class="dt">control =</span> <span class="kw">list</span>(<span class="dt">maxit =</span> 1000L))</span>
+<span id="cb26-25"><a href="#cb26-25"></a>opt<span class="op">$</span>value <span class="co"># optimal solution</span></span>
+<span id="cb26-26"><a href="#cb26-26"></a><span class="co">#&gt; [1] -13517</span></span></code></pre></div>
 <p>The problem can also be solved with the C++ implementation using the following code:</p>
 <div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="co"># source the C++ version used in this package</span></span>
 <span id="cb27-2"><a href="#cb27-2"></a><span class="kw">library</span>(Rcpp)</span>
@@ -1707,42 +1721,42 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb27-34"><a href="#cb27-34"></a></span>
 <span id="cb27-35"><a href="#cb27-35"></a><span class="co"># optimize and compare the result with one thread</span></span>
 <span id="cb27-36"><a href="#cb27-36"></a>psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 1L, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, <span class="dt">c2 =</span> <span class="fl">.1</span>, <span class="dt">trace =</span> 0L)</span>
-<span id="cb27-37"><a href="#cb27-37"></a>  <span class="kw">optim_generic_ex</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> ptr, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L, </span>
+<span id="cb27-37"><a href="#cb27-37"></a>  <span class="kw">optim_generic_ex</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> ptr, <span class="dt">rel_eps =</span> <span class="fl">1e-9</span>, <span class="dt">max_it =</span> 1000L, </span>
 <span id="cb27-38"><a href="#cb27-38"></a>                   <span class="dt">n_threads =</span> n_threads, <span class="dt">c1 =</span> c1, <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace, </span>
 <span id="cb27-39"><a href="#cb27-39"></a>                   <span class="dt">cg_tol =</span> <span class="fl">.5</span>)</span>
 <span id="cb27-40"><a href="#cb27-40"></a></span>
 <span id="cb27-41"><a href="#cb27-41"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start)</span>
 <span id="cb27-42"><a href="#cb27-42"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
-<span id="cb27-43"><a href="#cb27-43"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb27-43"><a href="#cb27-43"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 0.00645&quot;</span></span>
 <span id="cb27-44"><a href="#cb27-44"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
-<span id="cb27-45"><a href="#cb27-45"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 1.25e-07&quot;</span></span>
-<span id="cb27-46"><a href="#cb27-46"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (lower implies better solution)</span></span>
-<span id="cb27-47"><a href="#cb27-47"></a><span class="co">#&gt; [1] 0.000123</span></span>
+<span id="cb27-45"><a href="#cb27-45"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 3.05e-07&quot;</span></span>
+<span id="cb27-46"><a href="#cb27-46"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></span>
+<span id="cb27-47"><a href="#cb27-47"></a><span class="co">#&gt; [1] -0.00412</span></span>
 <span id="cb27-48"><a href="#cb27-48"></a></span>
 <span id="cb27-49"><a href="#cb27-49"></a><span class="co"># compare counts</span></span>
 <span id="cb27-50"><a href="#cb27-50"></a>opt_psqn<span class="op">$</span>counts</span>
 <span id="cb27-51"><a href="#cb27-51"></a><span class="co">#&gt; function gradient     n_cg </span></span>
-<span id="cb27-52"><a href="#cb27-52"></a><span class="co">#&gt;      307      153      411</span></span>
+<span id="cb27-52"><a href="#cb27-52"></a><span class="co">#&gt;      126       82      121</span></span>
 <span id="cb27-53"><a href="#cb27-53"></a>opt     <span class="op">$</span>counts</span>
 <span id="cb27-54"><a href="#cb27-54"></a><span class="co">#&gt; function gradient </span></span>
-<span id="cb27-55"><a href="#cb27-55"></a><span class="co">#&gt;      261       81</span></span>
+<span id="cb27-55"><a href="#cb27-55"></a><span class="co">#&gt;      953      229</span></span>
 <span id="cb27-56"><a href="#cb27-56"></a></span>
 <span id="cb27-57"><a href="#cb27-57"></a><span class="co"># we can do the same with two threads</span></span>
 <span id="cb27-58"><a href="#cb27-58"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L)</span>
 <span id="cb27-59"><a href="#cb27-59"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
-<span id="cb27-60"><a href="#cb27-60"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb27-60"><a href="#cb27-60"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 0.00645&quot;</span></span>
 <span id="cb27-61"><a href="#cb27-61"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
-<span id="cb27-62"><a href="#cb27-62"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 6.17e-07&quot;</span></span>
-<span id="cb27-63"><a href="#cb27-63"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (lower implies better solution)</span></span>
-<span id="cb27-64"><a href="#cb27-64"></a><span class="co">#&gt; [1] 0.000606</span></span>
+<span id="cb27-62"><a href="#cb27-62"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 3.05e-07&quot;</span></span>
+<span id="cb27-63"><a href="#cb27-63"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></span>
+<span id="cb27-64"><a href="#cb27-64"></a><span class="co">#&gt; [1] -0.00412</span></span>
 <span id="cb27-65"><a href="#cb27-65"></a></span>
 <span id="cb27-66"><a href="#cb27-66"></a><span class="co"># compare counts</span></span>
 <span id="cb27-67"><a href="#cb27-67"></a>opt_psqn<span class="op">$</span>counts</span>
 <span id="cb27-68"><a href="#cb27-68"></a><span class="co">#&gt; function gradient     n_cg </span></span>
-<span id="cb27-69"><a href="#cb27-69"></a><span class="co">#&gt;      216      105      274</span></span>
+<span id="cb27-69"><a href="#cb27-69"></a><span class="co">#&gt;      126       82      121</span></span>
 <span id="cb27-70"><a href="#cb27-70"></a>opt     <span class="op">$</span>counts</span>
 <span id="cb27-71"><a href="#cb27-71"></a><span class="co">#&gt; function gradient </span></span>
-<span id="cb27-72"><a href="#cb27-72"></a><span class="co">#&gt;      261       81</span></span></code></pre></div>
+<span id="cb27-72"><a href="#cb27-72"></a><span class="co">#&gt;      953      229</span></span></code></pre></div>
 <p>The C++ version is much faster:</p>
 <div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co">: replace with bench::mark </span></span>
 <span id="cb28-2"><a href="#cb28-2"></a>microbenchmark<span class="op">::</span><span class="kw">microbenchmark</span>(</span>
@@ -1756,11 +1770,11 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb28-10"><a href="#cb28-10"></a>  <span class="st">`</span><span class="dt">psqn 2 threads</span><span class="st">`</span> =<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L), </span>
 <span id="cb28-11"><a href="#cb28-11"></a>  <span class="dt">times =</span> <span class="dv">5</span>)</span>
 <span id="cb28-12"><a href="#cb28-12"></a><span class="co">#&gt; Unit: milliseconds</span></span>
-<span id="cb28-13"><a href="#cb28-13"></a><span class="co">#&gt;            expr    min     lq   mean median     uq    max neval</span></span>
-<span id="cb28-14"><a href="#cb28-14"></a><span class="co">#&gt;       R version 1437.0 1467.5 1484.4 1467.7 1481.8 1568.2     5</span></span>
-<span id="cb28-15"><a href="#cb28-15"></a><span class="co">#&gt;        R w/ C++  263.5  265.6  270.2  267.5  270.0  284.1     5</span></span>
-<span id="cb28-16"><a href="#cb28-16"></a><span class="co">#&gt;            psqn   80.6   80.9   81.4   81.0   81.3   83.0     5</span></span>
-<span id="cb28-17"><a href="#cb28-17"></a><span class="co">#&gt;  psqn 2 threads   33.4   33.5   33.8   33.8   33.8   34.7     5</span></span></code></pre></div>
+<span id="cb28-13"><a href="#cb28-13"></a><span class="co">#&gt;            expr    min     lq   mean median     uq  max neval</span></span>
+<span id="cb28-14"><a href="#cb28-14"></a><span class="co">#&gt;       R version 7776.5 7821.8 7886.4 7822.0 7822.6 8189     5</span></span>
+<span id="cb28-15"><a href="#cb28-15"></a><span class="co">#&gt;        R w/ C++ 2010.7 2161.7 2196.1 2227.9 2286.1 2294     5</span></span>
+<span id="cb28-16"><a href="#cb28-16"></a><span class="co">#&gt;            psqn  138.7  139.0  140.1  139.3  140.3  143     5</span></span>
+<span id="cb28-17"><a href="#cb28-17"></a><span class="co">#&gt;  psqn 2 threads   75.1   76.2   76.5   76.2   76.9   78     5</span></span></code></pre></div>
 </div>
 </div>
 <div id="details" class="section level2">
@@ -1810,8 +1824,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb29-35"><a href="#cb29-35"></a><span class="co">#&gt; # A tibble: 2 x 6</span></span>
 <span id="cb29-36"><a href="#cb29-36"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb29-37"><a href="#cb29-37"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb29-38"><a href="#cb29-38"></a><span class="co">#&gt; 1 optim       112.7µs  124.9µs     7590.      384B     12.8</span></span>
-<span id="cb29-39"><a href="#cb29-39"></a><span class="co">#&gt; 2 psqn_bfgs    88.1µs   95.9µs    10299.    2.49KB     14.9</span></span></code></pre></div>
+<span id="cb29-38"><a href="#cb29-38"></a><span class="co">#&gt; 1 optim       112.8µs  125.7µs     7869.      384B     12.6</span></span>
+<span id="cb29-39"><a href="#cb29-39"></a><span class="co">#&gt; 2 psqn_bfgs    85.1µs   96.4µs    10318.    2.49KB     13.0</span></span></code></pre></div>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>

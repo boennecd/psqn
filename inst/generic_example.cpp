@@ -16,8 +16,8 @@ class generic_example final : public PSQN::element_function_generic {
   size_t const n_args_val;
   /// indices of the element function parameters
   std::unique_ptr<size_t[]> indices_array;
-  /// centroid point
-  double const mu;
+  /// y point
+  double const y;
 
 public:
   generic_example(List data):
@@ -29,7 +29,7 @@ public:
       out[i] = indices[i];
     return out;
   })()),
-  mu(as<double>(data["mu"]))
+  y(as<double>(data["y"]))
   { }
 
   // we need to make a copy constructor because of the unique_ptr
@@ -41,7 +41,7 @@ public:
       out[i] = other.indices_array[i];
     return out;
   })()),
-  mu(other.mu) { }
+  y(other.y) { }
 
   size_t n_args() const {
     return n_args_val;
@@ -55,8 +55,7 @@ public:
     double sum(0.);
     for(size_t i = 0; i < n_args_val; ++i)
       sum += point[i];
-    double const delta = std::exp(sum) - mu;
-    return delta * delta;
+    return -y * sum + std::exp(sum);
   }
 
   double grad
@@ -64,13 +63,12 @@ public:
     double sum(0.);
     for(size_t i = 0; i < n_args_val; ++i)
       sum += point[i];
-    sum = std::exp(sum);
-    double const delta = sum - mu,
-                 fact  = 2 * delta * sum;
+    double const exp_sum = std::exp(sum),
+                    fact = -y + exp_sum;
     for(size_t i = 0; i < n_args_val; ++i)
       gr[i] = fact;
 
-    return delta * delta;
+    return -y * sum + std::exp(sum);
   }
 
   bool thread_safe() const {

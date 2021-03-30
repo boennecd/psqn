@@ -997,22 +997,30 @@ all.equal(exp_res, R_res$par)
 ### Generic Example
 
 We will provide a toy example of a problem which is partially separable but 
-which does not have the same structure as the problem we have shown before. 
+which does not have the same structure as the problems we have shown before. 
 The problem we consider is:
 
 $$
 \begin{align*}
-f(\vec x) &= \sum_{i = 1}^n 
-  \left(\exp\left(\sum_{j = 1}^{L_i} x_{k_{ij}}\right) - \mu_i
-  \right)^2, \qquad \vec x\in\mathbb R^K \\
-\mathcal K_i &= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}
+f(\vec x) &= \sum_{i = 1}^n
+  -y_i \sum_{j = 1}^{L_i} x_{k_{ij}}
+  +\exp\left(\sum_{j = 1}^{L_i} x_{k_{ij}}\right)
+  , \qquad \vec x\in\mathbb R^K \\
+\mathcal K_i &= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}.
 \end{align*}
 $$
-
+This is a special kind of a GLM with a Poison model with and log link. 
+While there
+are other ways to estimate this model, we will compare the BFGS implementation 
+from `optim` with the psqn package.
 Notice for some $j\neq i$ we may have that 
-$\mathcal K_i \cap \mathcal K_j \neq \emptyset$. There is a class called 
+$\mathcal K_i \cap \mathcal K_j \neq \emptyset$ without much structure in 
+their intersection unlike before. 
+
+There is a class called 
 `optimizer_generic` provided by the psqn package which can work with more 
-general partially separable problems like the one above. 
+general partially separable problems like the one above. This though yields 
+some additional computational overhead.
 A C++ implementation to work with the function stated above using the 
 `optimizer_generic` class
 is in the `generic_example.cpp` file which is shown below:
@@ -1023,15 +1031,26 @@ is in the `generic_example.cpp` file which is shown below:
 We now simulate some data to work with this type of model:
 
 ```{r sim_generic_example_data}
+# parameters for the simulation
 set.seed(1)
-K <- 1000L
-n <- 4L * K
+K <- 2000L
+n <- 5L * K
 
+# simulate the data
+truth_limit <- runif(K, -1, 1)
 dat <- replicate(
-  n, 
-  list(mu = abs(rnorm(1)), 
-       indices = sample.int(K, 3L)), 
-  simplify = FALSE)
+  n, {
+    # sample the indices and make it more likely to sample some close together
+    mid <- sample.int(K, 1L)
+    n_other <- sample.int(5L, 1L) + 1L
+    probs <- 1/(1 + (mid - seq_len(K)[-mid])^2)
+    probs <- probs / sum(probs)
+    other <- sample(seq_len(K)[-mid], n_other, prob = probs)
+    indices <- sort(c(mid, other))
+    
+    list(y = rpois(1, exp(sum(truth_limit[indices]))), 
+         indices = indices)
+  }, simplify = FALSE)
 
 # we need each variable to be present at least once
 stopifnot(length(unique(unlist(
@@ -1044,16 +1063,19 @@ We can minimize this problem using the following R code:
 ```{r R_code_generic_example}
 # define a version in R to compute the function and its gradient
 R_func <- function(x){
-  out <- vapply(dat, function(z) (exp(sum(x[z$indices])) - z$mu)^2, 0.)
+  out <- vapply(dat, function(z){
+    eta <- sum(x[z$indices])
+    -z$y * eta + exp(eta)
+  }, 0.)
   sum(out)
 }
 
 R_func_gr <- function(x){
   out <- numeric(length(x))
   for(z in dat){
-    exp_x_sum <- exp(sum(x[z$indices]))
-    delta <- 2 * (exp_x_sum - z$mu) * exp_x_sum
-    out[z$indices] <- out[z$indices] + delta
+    idx_i <- z$indices 
+    eta <- sum(x[idx_i])
+    out[idx_i] <- out[idx_i] -z$y + exp(eta) 
   }
   out
 }
@@ -1061,7 +1083,8 @@ R_func_gr <- function(x){
 # find the optimum
 start <- numeric(K)
 # all.equal(numDeriv::grad(R_func, start), R_func_gr(start))
-opt <- optim(start, R_func, R_func_gr, method = "BFGS")
+opt <- optim(start, R_func, R_func_gr, method = "BFGS", 
+             control = list(maxit = 1000L))
 opt$value # optimal solution
 ```
 
@@ -1099,14 +1122,14 @@ all.equal(attr(gv, "value"), R_func(noise))
 
 # optimize and compare the result with one thread
 psqn_func <- function(par, n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L)
-  optim_generic_ex(val = par, ptr = ptr, rel_eps = 1e-8, max_it = 1000L, 
+  optim_generic_ex(val = par, ptr = ptr, rel_eps = 1e-9, max_it = 1000L, 
                    n_threads = n_threads, c1 = c1, c2 = c2, trace = trace, 
                    cg_tol = .5)
 
 opt_psqn <- psqn_func(start)
 all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
 all.equal(opt_psqn$value, opt$value)
-opt_psqn$value - opt$value # (lower implies better solution)
+opt_psqn$value - opt$value # (negative values implies a better solution)
 
 # compare counts
 opt_psqn$counts
@@ -1116,7 +1139,7 @@ opt     $counts
 opt_psqn <- psqn_func(start, n_threads = 2L)
 all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
 all.equal(opt_psqn$value, opt$value)
-opt_psqn$value - opt$value # (lower implies better solution)
+opt_psqn$value - opt$value # (negative values implies a better solution)
 
 # compare counts
 opt_psqn$counts
