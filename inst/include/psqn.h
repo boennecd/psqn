@@ -45,6 +45,7 @@ public:
   bool use_bfgs = true;
 
   base_worker(size_t const n_ele, double * mem): n_ele(n_ele), B(mem) { }
+  virtual ~base_worker() = default;
 
   /***
    save the current parameter values and gradient in order to do update
@@ -159,11 +160,10 @@ public:
   }
 };
 
-
 /***
  virtual base class which computes an element function and its gradient. The
  virtual class is mainly used as a check to ensure that all the member
- fucntions are implemented.
+ functions are implemented.
  */
 class element_function {
 public:
@@ -639,7 +639,7 @@ private:
   /// element functions
   std::vector<worker> funcs;
   /// object to do computations prior to evaluating the element functions.
-  T_caller caller = T_caller(([&](){
+  T_caller caller = T_caller(([&]() -> T_caller {
     std::vector<EFunc const*> ele_funcs;
     ele_funcs.reserve(funcs.size());
     for(auto &f : funcs)
@@ -771,8 +771,7 @@ public:
     double * mem_ptr = mem.get();
     size_t i_start(global_dim);
     for(size_t i = 0; i < n_ele; ++i){
-      worker new_func(std::move(funcs_in[i]), mem_ptr, i_start);
-      out.emplace_back(std::move(new_func));
+      out.emplace_back(std::move(funcs_in[i]), mem_ptr, i_start);
       size_t const n_ele = out.back().n_ele;
       mem_ptr += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
       i_start += out.back().func.private_dim();
@@ -784,7 +783,8 @@ public:
   }
 
   /***
-   evalutes the partially separable and also the gradient if requested.
+   evaluates the partially separable function and also the gradient if
+   requested.
    @param val pointer to the value to evaluate the function at.
    @param gr pointer to store gradient in.
    @param comp_grad boolean for whether to compute the gradient.
@@ -947,7 +947,7 @@ public:
   }
 
   /**
-    computes the diagonl of diag(B).
+    computes the diagonal of B.
    */
   void get_diag(double * x){
     std::fill(x, x + global_dim, 0.);
@@ -1193,7 +1193,558 @@ public:
   }
 
   /**
-   returns a pointers to the element function objects.
+   returns a pointers to the element function objects.  This may be useful if
+   the element functions hold data.
+   */
+  std::vector<EFunc const *> get_ele_funcs() const {
+    std::vector<EFunc const *> out;
+    out.reserve(funcs.size());
+    for(auto &o : funcs)
+      out.emplace_back(&o.func);
+    return out;
+  }
+};
+
+/***
+ same as element_function but for the generic interface.
+ */
+class element_function_generic {
+public:
+  /// indices of the element function
+  virtual size_t const * indices() const = 0;
+  /// number of element in induces
+  virtual size_t n_args() const = 0;
+
+  /***
+   computes the element function.
+   @param point point to compute function at.
+   */
+  virtual double func(double const *point) const = 0;
+
+  /***
+   computes the element function and its gradient.
+   @param point point to compute function at.
+   @param gr gradient vector with respect to global and private parameters.
+   */
+  virtual double grad
+    (double const * PSQN_RESTRICT point, double * PSQN_RESTRICT gr)
+    const = 0;
+
+  /***
+   returns true if the member functions are thread-safe.
+   */
+  virtual bool thread_safe() const = 0;
+
+  virtual ~element_function_generic() = default;
+};
+
+/***
+ similar to optimizer but for generic partially separable functions. This has
+ some extra overhead.
+ */
+template<class EFunc, class Reporter = dummy_reporter,
+         class interrupter = dummy_interrupter,
+         class T_caller = default_caller<EFunc> >
+class optimizer_generic {
+  /***
+   worker class to hold an element function and the element function's
+   Hessian approximation.
+   */
+  class worker final : public base_worker {
+  public:
+    /// the element function for this worker
+    EFunc const func;
+    /// number of argument to func
+    size_t const n_args = func.n_args();
+    /// indices of the arguments to pass to func
+    size_t const * indices() const {
+      return func.indices();
+    }
+
+    worker(EFunc &&func, double * mem):
+      base_worker(func.n_args(), mem),
+      func(func) {
+      reset();
+    }
+
+    /***
+     computes the element function and possibly its gradient.
+
+     @param point values of all parameters at which to evalute the element
+                  function.
+     @param comp_grad logical for whether to compute the gradient
+     @param call_obj object to evaluate the function or gradient given an
+                     EFunc object.
+     */
+    double operator()
+      (double const * PSQN_RESTRICT point, bool const comp_grad,
+       T_caller &call_obj){
+      // copy values
+      size_t const * idx_i = indices();
+      for(size_t i = 0; i < n_args; ++i, ++idx_i)
+        x_new[i] = point[*idx_i];
+
+      if(!comp_grad)
+        return call_obj.eval_func(func, static_cast<double const *>(x_new));
+
+      double const out = call_obj.eval_grad(
+        func, static_cast<double const *>(x_new), gr);
+
+      return out;
+    }
+  };
+
+public:
+  /// true if the element functions are thread-safe
+  bool const is_ele_func_thread_safe;
+  /// total number of parameters
+  size_t const n_par;
+
+private:
+  /***
+   size of the allocated working memory. The first element is needed for
+   the workers. The second element is needed during the computation for the
+   master thread. The third element is number required per thread.
+  */
+  std::array<size_t, 3L> const n_mem;
+  /// maximum number of threads to use
+  size_t const max_threads;
+  /// working memory
+  std::unique_ptr<double[]> mem =
+    std::unique_ptr<double[]>(
+        new double[n_mem[0] + n_mem[1] + max_threads * n_mem[2]]);
+  /// pointer to temporary memory to use on the master thread
+  double * const temp_mem = mem.get() + n_mem[0];
+  /// pointer to temporary memory to be used by the threads
+  double * const temp_thread_mem = temp_mem + n_mem[1];
+  /// element functions
+  std::vector<worker> funcs;
+  /// object to do computations prior to evaluating the element functions.
+  T_caller caller = T_caller(([&]() -> T_caller {
+    std::vector<EFunc const*> ele_funcs;
+    ele_funcs.reserve(funcs.size());
+    for(auto &f : funcs)
+      ele_funcs.emplace_back(&f.func);
+    return T_caller(ele_funcs);
+  })());
+
+  /// returns the thread number.
+  int get_thread_num() const noexcept {
+#ifdef _OPENMP
+    return omp_get_thread_num();
+#else
+    return 0L;
+#endif
+  }
+
+  /// returns working memory for this thread
+  double * get_thread_mem(int const thread_num) const noexcept {
+    return temp_thread_mem + thread_num * n_mem[2];
+  }
+
+  double * get_thread_mem() const noexcept {
+    return get_thread_mem(get_thread_num());
+  }
+
+  /// number of threads to use
+  int n_threads = 1L;
+
+  // inner optimizer to use
+  std::unique_ptr<optimizer_internals<optimizer_generic, Reporter> >
+    opt_internals;
+  friend class optimizer_internals<optimizer_generic, Reporter>;
+
+  // function need for optimizer_internals to get temporary memory
+  double * get_internals_mem() {
+    return temp_mem;
+  }
+
+  // class to compute B.x for optimizer_internals
+  class comp_B_vec_obj {
+    optimizer_generic<EFunc, Reporter, interrupter, T_caller> &obj;
+  public:
+    comp_B_vec_obj
+    (optimizer_generic<EFunc, Reporter, interrupter, T_caller> &obj):
+    obj(obj) { }
+
+    void operator()(double const * const PSQN_RESTRICT val,
+                    double * const PSQN_RESTRICT res) noexcept {
+      obj.B_vec(val, res);
+    }
+  };
+
+  inline comp_B_vec_obj get_comp_B_vec() {
+    return comp_B_vec_obj(*this);
+  }
+
+public:
+  /// set the number of threads to use
+  void set_n_threads(size_t const n_threads_new) noexcept {
+#ifdef _OPENMP
+    n_threads = std::max(
+      static_cast<size_t>(1L), std::min(n_threads_new, max_threads));
+    omp_set_num_threads(n_threads);
+    omp_set_dynamic(0L);
+#endif
+  }
+
+  /***
+   takes in a vector with element functions and constructs the optimizer.
+   The members are moved out of the vector.
+   @param funcs_in vector with element functions.
+   @param max_threads maximum number of threads to use.
+   */
+  optimizer_generic(std::vector<EFunc> &funcs_in, size_t const max_threads):
+  is_ele_func_thread_safe(funcs_in[0].thread_safe()),
+  n_par(([&]() -> size_t {
+    size_t out(0L);
+    for(auto &f : funcs_in){
+      size_t const * idx_i = f.indices();
+      for(size_t i = 0; i < f.n_args(); ++i, ++idx_i)
+        if(*idx_i > out)
+          out = *idx_i;
+    }
+    return out + 1L;
+  })()),
+  n_mem(([&]() -> std::array<size_t, 3L> {
+    size_t out(0L),
+           max_args(0L);
+    for(auto &f : funcs_in){
+      if(f.thread_safe() != is_ele_func_thread_safe)
+        throw std::invalid_argument(
+            "optimizer_generic<EFunc>::optimizer: thread_safe differs");
+      size_t const n_args = f.n_args();
+      if(max_args < n_args)
+        max_args = n_args;
+
+      out += n_args * 4L + (n_args * (n_args + 1L)) / 2L;
+    }
+
+    constexpr size_t const mult = cacheline_size() / sizeof(double),
+                       min_size = 2L * mult;
+
+    size_t thread_mem = std::max(n_par + 1L, min_size);
+    thread_mem = std::max(thread_mem, 3L * max_args);
+    thread_mem = (thread_mem + mult - 1L) / mult;
+    thread_mem *= mult;
+
+    std::array<size_t, 3L> ret = {
+      out,
+      5L * n_par,
+      thread_mem };
+    return ret;
+  })()),
+  max_threads(max_threads > 0 ? max_threads : 1L),
+  funcs(([&]() -> std::vector<worker> {
+    std::vector<worker> out;
+    size_t const n_ele(funcs_in.size());
+    out.reserve(funcs_in.size());
+
+    double * mem_ptr = mem.get();
+    for(size_t i = 0; i < n_ele; ++i){
+      out.emplace_back(std::move(funcs_in[i]), mem_ptr);
+      size_t const n_args = out.back().n_args;
+      mem_ptr += n_args * 4L + (n_args * (n_args + 1L)) / 2L;
+    }
+
+    return out;
+  })()) {
+    opt_internals.reset(
+      new optimizer_internals<optimizer_generic, Reporter>(this));
+  }
+
+  /***
+   evaluates the partially separable function and also the gradient if
+   requested.
+   @param val pointer to the value to evaluate the function at.
+   @param gr pointer to store gradient in.
+   @param comp_grad boolean for whether to compute the gradient.
+   */
+  double eval(double const * val, double * PSQN_RESTRICT gr,
+              bool const comp_grad){
+    caller.setup(val, comp_grad);
+
+    size_t const n_funcs = funcs.size();
+    auto serial_version = [&]() -> double {
+      double out(0.);
+      for(size_t i = 0; i < n_funcs; ++i){
+        auto &f = funcs[i];
+        out += f(val, comp_grad, caller);
+      }
+
+      if(comp_grad){
+        // add the gradients
+        std::fill(gr, gr + n_par, 0.);
+        for(auto const &f : funcs){
+          size_t const * idx_j = f.indices();
+          for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+            gr[*idx_j] += f.gr[j];
+        }
+      }
+
+      return out;
+    };
+
+    if(n_threads < 2L or !is_ele_func_thread_safe)
+      return serial_version();
+
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+    {
+    double * r_mem = get_thread_mem();
+    if(comp_grad)
+      std::fill(r_mem, r_mem + n_par, 0.);
+
+    double &thread_terms = *(r_mem + n_par);
+    thread_terms = 0;
+#pragma omp for schedule(static)
+    for(size_t i = 0; i < n_funcs; ++i){
+      auto &f = funcs[i];
+      thread_terms += f(val, comp_grad, caller);
+
+      if(comp_grad){
+        // add the gradient terms
+        size_t const * idx_j = f.indices();
+        for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+          r_mem[*idx_j] += f.gr[j];
+      }
+    }
+    }
+
+    if(comp_grad)
+      // reset
+      std::fill(gr, gr + n_par, 0.);
+
+    // aggregate the results and possibly add to the gradients
+    double out(0.);
+    for (int t = 0; t < n_threads; t++){
+      double const *r_mem = get_thread_mem(t);
+      if(comp_grad)
+        for(size_t i = 0; i < n_par; ++i)
+          gr[i] += r_mem[i];
+      out += r_mem[n_par];
+    }
+
+    return out;
+#else
+    return serial_version();
+#endif
+  }
+
+  /***
+   computes y <- y + B.x where B is the current Hessian approximation.
+   @param val vector on the right-hand side.
+   @param res output vector on the left-hand side.
+   ***/
+  void B_vec(double const * const PSQN_RESTRICT val,
+             double * const PSQN_RESTRICT res) const noexcept {
+    size_t const n_funcs = funcs.size();
+
+    // the serial version
+    auto serial_version = [&]() -> void {
+      for(size_t i = 0; i < n_funcs; ++i){
+        auto &f = funcs[i];
+
+        lp::mat_vec_dot(f.B, val, res, f.n_args, f.indices());
+      }
+    };
+
+    if(n_threads < 2L){
+      serial_version();
+      return;
+    }
+
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+    {
+    double * r_mem = get_thread_mem();
+    std::fill(r_mem, r_mem + n_par, 0.);
+
+#pragma omp for schedule(static)
+    for(size_t i = 0; i < n_funcs; ++i){
+      auto &f = funcs[i];
+      lp::mat_vec_dot(f.B, val, r_mem, f.n_args, f.indices());
+    }
+    }
+
+    // add all the elements
+    for (int t = 0; t < n_threads; t++){
+      double const *r_mem = get_thread_mem(t);
+      for(size_t i = 0; i < n_par; ++i)
+        res[i] += r_mem[i];
+    }
+
+#else
+    serial_version();
+#endif
+  }
+
+  /**
+    computes the diagonal of B.
+   */
+  void get_diag(double * x){
+    std::fill(x, x + n_par, 0.);
+
+    for(size_t i = 0; i < funcs.size(); ++i){
+      auto &f = funcs[i];
+
+      // add the diagonal entries
+      double const * b_diag = f.B;
+      size_t const n_args = f.n_args;
+      size_t const * idx_j = f.indices();
+      for(size_t j = 0; j < n_args; ++j, b_diag += j + 1, ++idx_j)
+        x[*idx_j] += *b_diag;
+    }
+  }
+
+  /***
+    conjugate gradient method with diagonal preconditioning. Solves B.y = x
+    where B is the Hessian approximation.
+    @param tol convergence threshold.
+    @param max_cg maximum number of conjugate gradient iterations.
+    @param trace controls the amount of tracing information.
+    @param pre_method preconditioning method.
+   */
+  bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
+                 double const tol, size_t const max_cg,
+                 int const trace, precondition const pre_method){
+    return opt_internals->conj_grad(x, y, tol, max_cg, trace, pre_method);
+  }
+
+  /***
+   performs line search to satisfy the Wolfe condition.
+   @param f0 value of the functions at the current value.
+   @param x0 value the function is evaluated.
+   @param gr0 value of the current gradient.
+   @param dir direction to search in.
+   @param fnew the function value at the found solution.
+   @param c1,c2 thresholds for Wolfe condition.
+   @param strong_wolfe true if the strong Wolfe condition should be used.
+   @param trace controls the amount of tracing information.
+
+   x0 and gr0 contains the new value and gradient on return. The method
+   returns false if the line search fails.
+   */
+  bool line_search(
+      double const f0, double * PSQN_RESTRICT x0, double * PSQN_RESTRICT gr0,
+      double * PSQN_RESTRICT dir, double &fnew, double const c1,
+      double const c2, bool const strong_wolfe, int const trace){
+    return opt_internals->line_search(f0, x0, gr0, dir, fnew, c1, c2,
+                                      strong_wolfe, trace);
+  }
+
+  /***
+   optimizes the partially separable function.
+   @param val pointer to starting value. Set to the final estimate at the
+   end.
+   @param rel_eps relative convergence threshold.
+   @param max_it maximum number of iterations.
+   @param c1,c2 thresholds for Wolfe condition.
+   @param use_bfgs bool for whether to use BFGS updates or SR1 updates.
+   @param trace integer with info level passed to reporter.
+   @param cg_tol threshold for conjugate gradient method.
+   @param strong_wolfe true if the strong Wolfe condition should be used.
+   @param max_cg maximum number of conjugate gradient iterations in each
+   iteration. Use zero if there should not be a limit.
+   @param pre_method preconditioning method.
+   */
+  optim_info optim
+    (double * val, double const rel_eps, size_t const max_it,
+     double const c1, double const c2,
+     bool const use_bfgs = true, int const trace = 0,
+     double const cg_tol = .5, bool const strong_wolfe = true,
+     size_t const max_cg = 0,
+     precondition const pre_method = precondition::diag){
+    opt_internals->reset_counters();
+    for(auto &f : funcs){
+      f.reset();
+      f.use_bfgs = use_bfgs;
+    }
+
+    std::unique_ptr<double[]> gr(new double[n_par]),
+                             dir(new double[n_par]);
+
+    // evaluate the gradient at the current value
+    double fval = eval(val, gr.get(), true);
+    for(auto &f : funcs)
+      f.record();
+
+    info_code info = info_code::max_it_reached;
+    int n_line_search_fail = 0;
+    for(size_t i = 0; i < max_it; ++i){
+      if(i % 10 == 0)
+        if(interrupter::check_interrupt()){
+          info = info_code::user_interrupt;
+          break;
+        }
+
+      double const fval_old = fval,
+                     gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
+                 cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
+      if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
+                    max_cg < 1 ? n_par : max_cg, trace,
+                    pre_method)){
+        info = info_code::conjugate_gradient_failed;
+        Reporter::cg(trace, i, opt_internals->n_cg, false);
+        break;
+      } else
+        Reporter::cg(trace, i, opt_internals->n_cg, true);
+
+      for(double * d = dir.get(); d != dir.get() + n_par; ++d)
+        *d *= -1;
+
+      double const x1 = *val;
+      if(!line_search(fval_old, val, gr.get(), dir.get(), fval, c1, c2,
+                      strong_wolfe, trace)){
+        info = info_code::line_search_failed;
+        Reporter::line_search
+          (trace, i, opt_internals->n_eval, opt_internals->n_grad, fval_old,
+           fval, false, std::numeric_limits<double>::quiet_NaN(),
+           const_cast<double const *>(val), 0L);
+        if(++n_line_search_fail > 2)
+          break;
+      } else{
+        n_line_search_fail = 0;
+        Reporter::line_search
+          (trace, i, opt_internals->n_eval, opt_internals->n_grad, fval_old, fval,
+           true, (*val - x1) / *dir.get(), const_cast<double const *>(val), 0L);
+
+      }
+
+      bool const has_converged =
+        abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
+      if(has_converged){
+        info = info_code::converged;
+        break;
+      }
+
+      // update the Hessian and take another iteration
+      if(n_line_search_fail < 1){
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+#endif
+        {
+          double * const tmp_mem_use = get_thread_mem();
+#ifdef _OPENMP
+#pragma omp for schedule(static)
+#endif
+          for(size_t i = 0; i < funcs.size(); ++i)
+            funcs[i].update_Hes(tmp_mem_use);
+        }
+      } else
+        for(size_t i = 0; i < funcs.size(); ++i){
+          funcs[i].reset();
+          funcs[i].record();
+        }
+    }
+
+    return { fval, info, opt_internals->n_eval, opt_internals->n_grad,
+             opt_internals->n_cg };
+  }
+
+  /**
+   returns a pointers to the element function objects. This may be useful if
+   the element functions hold data.
    */
   std::vector<EFunc const *> get_ele_funcs() const {
     std::vector<EFunc const *> out;

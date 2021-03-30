@@ -66,6 +66,35 @@ context("testing lp namespace") {
       expect_true(std::abs(res[i] - ex[i]) < 1e-8);
   }
 
+  test_that("mat_vec_dot works (with indices)") {
+    /*
+     x <- c(1.04, -1.31, -1.22, 0.84, 0.26, -0.45, -0.77, 1.2, 2, 0.63)
+     b <- c(1, -0.58, 1.42, -0.39, 0.82, -1.48, -0.55, 1.15, 1.41, -0.34)
+     X <- structure(c(1.84, -0.31, 2.62, -0.24, -0.31, 0.99, -0.43, -0.64,
+     2.62, -0.43, 6.09, 1.83, -0.24, -0.64, 1.83, 3.09),
+      .Dim = c(4L, 4L))
+     idx <- c(4L, 2L, 9L, 1L)
+
+     res <- b
+     res[idx] <- res[idx] + X %*% x[idx]
+     dput(res)
+     dput(X[upper.tri(X, TRUE)])
+     */
+    constexpr size_t const n = 10L,
+                      n_args = 4L;
+
+    constexpr double const
+      X[(n_args * (n_args + 1)) / 2L] = { 1.84, -0.31, 0.99, 2.62, -0.43, 6.09, -0.24, -0.64, 1.83, 3.09 },
+      x[n]                            = { 1.04, -1.31, -1.22, 0.84, 0.26, -0.45, -0.77, 1.2, 2, 0.63 },
+      ex[n]                           = { 8.5104, -3.6629, 1.42, 6.5521, 0.82, -1.48, -0.55, 1.15, 18.2573, -0.34 };
+    constexpr size_t const idx[n_args] = { 3L, 1L, 8L, 0L };
+    double res[n] = { 1, -0.58, 1.42, -0.39, 0.82, -1.48, -0.55, 1.15, 1.41, -0.34 };
+
+    lp::mat_vec_dot(X, x, res, n_args, idx);
+    for(size_t i = 0; i < n; ++i)
+      expect_true(std::abs(res[i] - ex[i]) < 1e-8);
+  }
+
   test_that("mat_vec_dot_excl_first works") {
     /*
      X <- c(0.58, -2.21, 0.82, -1.99, -0.48, -2.21, 1.12, 0.59, 0.62, 0.42, 0.82, 0.59, 0.92, -0.06, 1.36, -1.99, 0.62, -0.06, -0.16, -0.1, -0.48, 0.42, 1.36, -0.1, 0.39)

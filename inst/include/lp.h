@@ -57,7 +57,27 @@ inline void mat_vec_dot
 }
 
 /**
- computes b <- b + Xx where b and x are seperated into an nb1 and bn2
+ computes b[idx] <- b[idx] + Xx[idx] where is is a q x q symmetric matrix
+ containing only the upper triangular and x is a n-dimensional vector and
+ idx is a q-dimensional vector of indices in the range of 1 to n.
+ */
+inline void mat_vec_dot
+(double const * PSQN_RESTRICT  X, double const * const PSQN_RESTRICT x,
+ double * const PSQN_RESTRICT res, size_t const n, size_t const *idx) noexcept {
+  size_t const * idx_j = idx;
+  for(size_t j = 0; j < n; ++j, ++idx_j){
+    size_t const * idx_i = idx;
+
+    for(size_t i = 0L; i < j; ++i, ++X, ++idx_i){
+      res[*idx_i] += *X * x[*idx_j];
+      res[*idx_j] += *X * x[*idx_i];
+    }
+    res[*idx_j] += *X++ * x[*idx_i];
+  }
+}
+
+/**
+ computes b <- b + Xx where b and x are separated into an nb1 and bn2
  dimensional vector.
  */
 inline void mat_vec_dot
@@ -109,7 +129,7 @@ inline void mat_vec_dot
 }
 
 /**
- computes b <- b + Xx where b and x are seperated into an nb1 and bn2
+ computes b <- b + Xx where b and x are separated into an nb1 and bn2
  dimensional vector but excluding the first n1 x n1 block of X.
  */
 inline void mat_vec_dot_excl_first
@@ -166,7 +186,7 @@ inline void mat_vec_dot_excl_first
 
 /**
  performs a rank one update X <- X + scal * x.x^T where X is a symmetric
- matrix contaning only the upper triangular.
+ matrix containing only the upper triangular.
  */
 inline void rank_one_update
 (double * PSQN_RESTRICT X, double const * PSQN_RESTRICT x,

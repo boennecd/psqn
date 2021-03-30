@@ -1,4 +1,4 @@
-// we will use openMP to perform the comptutation in parallel
+// we will use OpenMP to perform the computation in parallel
 // [[Rcpp::plugins(openmp, cpp11)]]
 
 // we use RcppArmadillo to simplify the code

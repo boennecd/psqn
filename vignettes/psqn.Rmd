@@ -994,6 +994,147 @@ R_res <- r_psqn_func(numeric(idx_start))
 all.equal(exp_res, R_res$par)
 ```
 
+### Generic Example
+
+We will provide a toy example of a problem which is partially separable but 
+which does not have the same structure as the problem we have shown before. 
+The problem we consider is:
+
+$$
+\begin{align*}
+f(\vec x) &= \sum_{i = 1}^n 
+  \left(\exp\left(\sum_{j = 1}^{L_i} x_{k_{ij}}\right) - \mu_i
+  \right)^2, \qquad \vec x\in\mathbb R^K \\
+\mathcal K_i &= \{k_{i1} , \dots, k_{iL_i}\} \subseteq \{1, \dots, K\}
+\end{align*}
+$$
+
+Notice for some $j\neq i$ we may have that 
+$\mathcal K_i \cap \mathcal K_j \neq \emptyset$. There is a class called 
+`optimizer_generic` provided by the psqn package which can work with more 
+general partially separable problems like the one above. 
+A C++ implementation to work with the function stated above using the 
+`optimizer_generic` class
+is in the `generic_example.cpp` file which is shown below:
+
+```{cpp generic_example_code, code = readLines(system.file("generic_example.cpp", package = "psqn"))}
+```
+
+We now simulate some data to work with this type of model:
+
+```{r sim_generic_example_data}
+set.seed(1)
+K <- 1000L
+n <- 4L * K
+
+dat <- replicate(
+  n, 
+  list(mu = abs(rnorm(1)), 
+       indices = sample.int(K, 3L)), 
+  simplify = FALSE)
+
+# we need each variable to be present at least once
+stopifnot(length(unique(unlist(
+  lapply(dat, `[`, "indices")
+))) == K) # otherwise we need to change the code
+```
+
+We can minimize this problem using the following R code:
+
+```{r R_code_generic_example}
+# define a version in R to compute the function and its gradient
+R_func <- function(x){
+  out <- vapply(dat, function(z) (exp(sum(x[z$indices])) - z$mu)^2, 0.)
+  sum(out)
+}
+
+R_func_gr <- function(x){
+  out <- numeric(length(x))
+  for(z in dat){
+    exp_x_sum <- exp(sum(x[z$indices]))
+    delta <- 2 * (exp_x_sum - z$mu) * exp_x_sum
+    out[z$indices] <- out[z$indices] + delta
+  }
+  out
+}
+
+# find the optimum
+start <- numeric(K)
+# all.equal(numDeriv::grad(R_func, start), R_func_gr(start))
+opt <- optim(start, R_func, R_func_gr, method = "BFGS")
+opt$value # optimal solution
+```
+
+The problem can also be solved with the C++ implementation using the following 
+code:
+
+```{r cpp_generic_example}
+# source the C++ version used in this package
+library(Rcpp)
+sourceCpp(system.file("generic_example.cpp", package = "psqn"))
+
+# create the list to pass to C++
+cpp_arg <- lapply(dat, function(x){
+  x$indices <- x$indices - 1L # C++ needs zero-based indices
+  x
+})
+ptr <- get_generic_ex_obj(cpp_arg, max_threads = 4L)
+
+# check that we get the same
+noise <- rnorm(K)
+all.equal(eval_generic_ex(noise, ptr = ptr, n_threads = 1L),
+          R_func         (noise))
+all.equal(gv <- grad_generic_ex(noise, ptr = ptr, n_threads = 1L),
+          R_func_gr            (noise), 
+          check.attributes = FALSE)
+all.equal(attr(gv, "value"), R_func(noise))
+
+# also gives the same with two threads
+all.equal(eval_generic_ex(noise, ptr = ptr, n_threads = 2L),
+          R_func         (noise))
+all.equal(gv <- grad_generic_ex(noise, ptr = ptr, n_threads = 2L),
+          R_func_gr            (noise), 
+          check.attributes = FALSE)
+all.equal(attr(gv, "value"), R_func(noise))
+
+# TODO: delete
+delta <- grad_generic_ex(noise, ptr = ptr, n_threads = 1L) - 
+  grad_generic_ex(noise, ptr = ptr, n_threads = 2L)
+
+# optimize and compare the result with one thread
+psqn_func <- function(par, n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L)
+  optim_generic_ex(val = par, ptr = ptr, rel_eps = 1e-8, max_it = 1000L, 
+                   n_threads = n_threads, c1 = c1, c2 = c2, trace = trace, 
+                   cg_tol = .5)
+
+opt_psqn <- psqn_func(start)
+all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
+all.equal(opt_psqn$value, opt$value)
+opt_psqn$value - opt$value # (lower implies better solution)
+
+# we can do the same with two threads
+opt_psqn <- psqn_func(start, n_threads = 3L)
+all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
+all.equal(opt_psqn$value, opt$value)
+opt_psqn$value - opt$value # (lower implies better solution)
+```
+
+The C++ version is much faster:
+
+```{r speed_generic_example, cache=1}
+# TODO: replace with bench::mark
+microbenchmark::microbenchmark(
+  `R version` = optim(start, R_func, R_func_gr, method = "BFGS"), 
+  `R w/ C++` = optim(
+    start, 
+    function(x) eval_generic_ex(x, ptr = ptr, n_threads = 1L), 
+    function(x) grad_generic_ex(x, ptr = ptr, n_threads = 1L), 
+    method = "BFGS"), 
+  psqn = psqn_func(start, n_threads = 1L), 
+  `psqn 2 threads` = psqn_func(start, n_threads = 2L), 
+  times = 5)
+```
+
 ## Details
 ### Using the Code in a Package
 The main part of this packages is a header-only library. Thus, the code can 
