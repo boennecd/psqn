@@ -1422,8 +1422,9 @@ public:
 
     constexpr size_t const mult = cacheline_size() / sizeof(double),
                        min_size = 2L * mult;
+    size_t const n_extra = std::min(static_cast<size_t>(2L), max_args);
 
-    size_t thread_mem = std::max(n_par + 1L, min_size);
+    size_t thread_mem = std::max(2L * n_par + n_extra, min_size);
     thread_mem = std::max(thread_mem, 3L * max_args);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
@@ -1466,19 +1467,22 @@ public:
 
     size_t const n_funcs = funcs.size();
     auto serial_version = [&]() -> double {
-      double out(0.);
+      double out(0.), out_comp(0.);
       for(size_t i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
-        out += f(val, comp_grad, caller);
+        lp::Kahan(out, out_comp, f(val, comp_grad, caller));
       }
 
       if(comp_grad){
         // add the gradients
-        std::fill(gr, gr + n_par, 0.);
+        double * comp_mem = get_thread_mem();
+        std::fill(gr      , gr       + n_par, 0.);
+        std::fill(comp_mem, comp_mem + n_par, 0.);
+
         for(auto const &f : funcs){
           size_t const * idx_j = f.indices();
           for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
-            gr[*idx_j] += f.gr[j];
+            lp::Kahan(gr[*idx_j], comp_mem[*idx_j], f.gr[j]);
         }
       }
 
@@ -1491,41 +1495,60 @@ public:
 #ifdef _OPENMP
 #pragma omp parallel num_threads(n_threads)
     {
-    double * r_mem = get_thread_mem();
+    double * gr_mem = get_thread_mem();
     if(comp_grad)
-      std::fill(r_mem, r_mem + n_par, 0.);
+      std::fill(gr_mem, gr_mem + 2L * n_par, 0.);
 
-    double &thread_terms = *(r_mem + n_par);
-    thread_terms = 0;
+    double &th_out  = *(gr_mem + 2L * n_par),
+           &th_comp = *(gr_mem + 2L * n_par + 1L);
+    th_out = 0;
+    th_comp = 0;
 #pragma omp for schedule(static)
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      thread_terms += f(val, comp_grad, caller);
+      lp::Kahan(th_out, th_comp, f(val, comp_grad, caller));
 
       if(comp_grad){
         // add the gradient terms
         size_t const * idx_j = f.indices();
         for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
-          r_mem[*idx_j] += f.gr[j];
+          lp::Kahan(gr_mem + 2L * *idx_j, f.gr[j]);
       }
     }
     }
 
-    if(comp_grad)
+    // aggregate the results and possibly add to the gradient
+    double *r_mem[n_threads];
+    for (int t = 0; t < n_threads; t++)
+      r_mem[t] = get_thread_mem(t);
+
+    double out(0.), out_comp(0.);
+    {
+      size_t const inc = 2L * n_par;
+      for(int t = 0; t < n_threads; t++){
+        out      += r_mem[t][inc];
+        out_comp += r_mem[t][inc + 1L];
+      }
+    }
+
+    if(comp_grad){
       // reset
       std::fill(gr, gr + n_par, 0.);
 
-    // aggregate the results and possibly add to the gradients
-    double out(0.);
-    for (int t = 0; t < n_threads; t++){
-      double const *r_mem = get_thread_mem(t);
-      if(comp_grad)
-        for(size_t i = 0; i < n_par; ++i)
-          gr[i] += r_mem[i];
-      out += r_mem[n_par];
+      // fill the gradient. See
+      //    https://stackoverflow.com/a/18016809/5861244
+      for(size_t i = 0; i < n_par; ++i){
+        double val(0.), val_comp(0.);
+        for(int t = 0; t < n_threads; t++){
+          val      += *r_mem[t]++;
+          val_comp += *r_mem[t]++;
+        }
+
+        gr[i] += val - val_comp;
+      }
     }
 
-    return out;
+    return out - out_comp;
 #else
     return serial_version();
 #endif
@@ -1542,10 +1565,19 @@ public:
 
     // the serial version
     auto serial_version = [&]() -> void {
+      double * const cmp_mem = get_thread_mem(),
+             * const tmp_mem = cmp_mem + n_par;
+      std::fill(cmp_mem, cmp_mem + n_par, 0.);
+
       for(size_t i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
 
-        lp::mat_vec_dot(f.B, val, res, f.n_args, f.indices());
+        std::fill(tmp_mem, tmp_mem + f.n_args, 0.);
+        lp::mat_vec_dot(f.B, val, tmp_mem, f.n_args, f.indices());
+
+        size_t const * idx_j = f.indices();
+        for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+          lp::Kahan(res[*idx_j], cmp_mem[*idx_j], tmp_mem[j]);
       }
     };
 
@@ -1557,21 +1589,36 @@ public:
 #ifdef _OPENMP
 #pragma omp parallel num_threads(n_threads)
     {
-    double * r_mem = get_thread_mem();
-    std::fill(r_mem, r_mem + n_par, 0.);
+    double * const gr_mem  = get_thread_mem(),
+           * const tmp_mem = gr_mem + 2L * n_par;
+    std::fill(gr_mem, gr_mem + 2L * n_par, 0.);
 
 #pragma omp for schedule(static)
     for(size_t i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      lp::mat_vec_dot(f.B, val, r_mem, f.n_args, f.indices());
+      std::fill(tmp_mem, tmp_mem + f.n_args, 0.);
+      lp::mat_vec_dot(f.B, val, tmp_mem, f.n_args, f.indices());
+
+      size_t const * idx_j = f.indices();
+      for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+        lp::Kahan(gr_mem + 2L * *idx_j, tmp_mem[j]);
     }
     }
 
-    // add all the elements
-    for (int t = 0; t < n_threads; t++){
-      double const *r_mem = get_thread_mem(t);
-      for(size_t i = 0; i < n_par; ++i)
-        res[i] += r_mem[i];
+    // fill the result. See
+    //    https://stackoverflow.com/a/18016809/5861244
+    double *r_mem[n_threads];
+    for (int t = 0; t < n_threads; t++)
+      r_mem[t] = get_thread_mem(t);
+
+    for(size_t i = 0; i < n_par; ++i){
+      double val(0.), val_comp(0.);
+      for(int t = 0; t < n_threads; t++){
+        val      += *r_mem[t]++;
+        val_comp += *r_mem[t]++;
+      }
+
+      res[i] += val - val_comp;
     }
 
 #else

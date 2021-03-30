@@ -1705,34 +1705,46 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb27-32"><a href="#cb27-32"></a><span class="kw">all.equal</span>(<span class="kw">attr</span>(gv, <span class="st">&quot;value&quot;</span>), <span class="kw">R_func</span>(noise))</span>
 <span id="cb27-33"><a href="#cb27-33"></a><span class="co">#&gt; [1] TRUE</span></span>
 <span id="cb27-34"><a href="#cb27-34"></a></span>
-<span id="cb27-35"><a href="#cb27-35"></a><span class="co"># </span><span class="al">TODO</span><span class="co">: delete</span></span>
-<span id="cb27-36"><a href="#cb27-36"></a>delta &lt;-<span class="st"> </span><span class="kw">grad_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L) <span class="op">-</span><span class="st"> </span></span>
-<span id="cb27-37"><a href="#cb27-37"></a><span class="st">  </span><span class="kw">grad_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 2L)</span>
-<span id="cb27-38"><a href="#cb27-38"></a></span>
-<span id="cb27-39"><a href="#cb27-39"></a><span class="co"># optimize and compare the result with one thread</span></span>
-<span id="cb27-40"><a href="#cb27-40"></a>psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 1L, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, <span class="dt">c2 =</span> <span class="fl">.1</span>, <span class="dt">trace =</span> 0L)</span>
-<span id="cb27-41"><a href="#cb27-41"></a>  <span class="kw">optim_generic_ex</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> ptr, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L, </span>
-<span id="cb27-42"><a href="#cb27-42"></a>                   <span class="dt">n_threads =</span> n_threads, <span class="dt">c1 =</span> c1, <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace, </span>
-<span id="cb27-43"><a href="#cb27-43"></a>                   <span class="dt">cg_tol =</span> <span class="fl">.5</span>)</span>
-<span id="cb27-44"><a href="#cb27-44"></a></span>
-<span id="cb27-45"><a href="#cb27-45"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start)</span>
-<span id="cb27-46"><a href="#cb27-46"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
-<span id="cb27-47"><a href="#cb27-47"></a><span class="co">#&gt; [1] TRUE</span></span>
-<span id="cb27-48"><a href="#cb27-48"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
-<span id="cb27-49"><a href="#cb27-49"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 3.24e-08&quot;</span></span>
-<span id="cb27-50"><a href="#cb27-50"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (lower implies better solution)</span></span>
-<span id="cb27-51"><a href="#cb27-51"></a><span class="co">#&gt; [1] 3.19e-05</span></span>
-<span id="cb27-52"><a href="#cb27-52"></a></span>
-<span id="cb27-53"><a href="#cb27-53"></a><span class="co"># we can do the same with two threads</span></span>
-<span id="cb27-54"><a href="#cb27-54"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 3L)</span>
-<span id="cb27-55"><a href="#cb27-55"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
-<span id="cb27-56"><a href="#cb27-56"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 0.00277&quot;</span></span>
-<span id="cb27-57"><a href="#cb27-57"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
-<span id="cb27-58"><a href="#cb27-58"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 1.1e-05&quot;</span></span>
-<span id="cb27-59"><a href="#cb27-59"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (lower implies better solution)</span></span>
-<span id="cb27-60"><a href="#cb27-60"></a><span class="co">#&gt; [1] 0.0108</span></span></code></pre></div>
+<span id="cb27-35"><a href="#cb27-35"></a><span class="co"># optimize and compare the result with one thread</span></span>
+<span id="cb27-36"><a href="#cb27-36"></a>psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 1L, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, <span class="dt">c2 =</span> <span class="fl">.1</span>, <span class="dt">trace =</span> 0L)</span>
+<span id="cb27-37"><a href="#cb27-37"></a>  <span class="kw">optim_generic_ex</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> ptr, <span class="dt">rel_eps =</span> <span class="fl">1e-8</span>, <span class="dt">max_it =</span> 1000L, </span>
+<span id="cb27-38"><a href="#cb27-38"></a>                   <span class="dt">n_threads =</span> n_threads, <span class="dt">c1 =</span> c1, <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace, </span>
+<span id="cb27-39"><a href="#cb27-39"></a>                   <span class="dt">cg_tol =</span> <span class="fl">.5</span>)</span>
+<span id="cb27-40"><a href="#cb27-40"></a></span>
+<span id="cb27-41"><a href="#cb27-41"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start)</span>
+<span id="cb27-42"><a href="#cb27-42"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
+<span id="cb27-43"><a href="#cb27-43"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb27-44"><a href="#cb27-44"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
+<span id="cb27-45"><a href="#cb27-45"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 1.25e-07&quot;</span></span>
+<span id="cb27-46"><a href="#cb27-46"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (lower implies better solution)</span></span>
+<span id="cb27-47"><a href="#cb27-47"></a><span class="co">#&gt; [1] 0.000123</span></span>
+<span id="cb27-48"><a href="#cb27-48"></a></span>
+<span id="cb27-49"><a href="#cb27-49"></a><span class="co"># compare counts</span></span>
+<span id="cb27-50"><a href="#cb27-50"></a>opt_psqn<span class="op">$</span>counts</span>
+<span id="cb27-51"><a href="#cb27-51"></a><span class="co">#&gt; function gradient     n_cg </span></span>
+<span id="cb27-52"><a href="#cb27-52"></a><span class="co">#&gt;      307      153      411</span></span>
+<span id="cb27-53"><a href="#cb27-53"></a>opt     <span class="op">$</span>counts</span>
+<span id="cb27-54"><a href="#cb27-54"></a><span class="co">#&gt; function gradient </span></span>
+<span id="cb27-55"><a href="#cb27-55"></a><span class="co">#&gt;      261       81</span></span>
+<span id="cb27-56"><a href="#cb27-56"></a></span>
+<span id="cb27-57"><a href="#cb27-57"></a><span class="co"># we can do the same with two threads</span></span>
+<span id="cb27-58"><a href="#cb27-58"></a>opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L)</span>
+<span id="cb27-59"><a href="#cb27-59"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</span>
+<span id="cb27-60"><a href="#cb27-60"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb27-61"><a href="#cb27-61"></a><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</span>
+<span id="cb27-62"><a href="#cb27-62"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 6.17e-07&quot;</span></span>
+<span id="cb27-63"><a href="#cb27-63"></a>opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (lower implies better solution)</span></span>
+<span id="cb27-64"><a href="#cb27-64"></a><span class="co">#&gt; [1] 0.000606</span></span>
+<span id="cb27-65"><a href="#cb27-65"></a></span>
+<span id="cb27-66"><a href="#cb27-66"></a><span class="co"># compare counts</span></span>
+<span id="cb27-67"><a href="#cb27-67"></a>opt_psqn<span class="op">$</span>counts</span>
+<span id="cb27-68"><a href="#cb27-68"></a><span class="co">#&gt; function gradient     n_cg </span></span>
+<span id="cb27-69"><a href="#cb27-69"></a><span class="co">#&gt;      216      105      274</span></span>
+<span id="cb27-70"><a href="#cb27-70"></a>opt     <span class="op">$</span>counts</span>
+<span id="cb27-71"><a href="#cb27-71"></a><span class="co">#&gt; function gradient </span></span>
+<span id="cb27-72"><a href="#cb27-72"></a><span class="co">#&gt;      261       81</span></span></code></pre></div>
 <p>The C++ version is much faster:</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co">: replace with bench::mark</span></span>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a><span class="co"># </span><span class="al">TODO</span><span class="co">: replace with bench::mark </span></span>
 <span id="cb28-2"><a href="#cb28-2"></a>microbenchmark<span class="op">::</span><span class="kw">microbenchmark</span>(</span>
 <span id="cb28-3"><a href="#cb28-3"></a>  <span class="st">`</span><span class="dt">R version</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>), </span>
 <span id="cb28-4"><a href="#cb28-4"></a>  <span class="st">`</span><span class="dt">R w/ C++</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(</span>
@@ -1745,10 +1757,10 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb28-11"><a href="#cb28-11"></a>  <span class="dt">times =</span> <span class="dv">5</span>)</span>
 <span id="cb28-12"><a href="#cb28-12"></a><span class="co">#&gt; Unit: milliseconds</span></span>
 <span id="cb28-13"><a href="#cb28-13"></a><span class="co">#&gt;            expr    min     lq   mean median     uq    max neval</span></span>
-<span id="cb28-14"><a href="#cb28-14"></a><span class="co">#&gt;       R version 1404.2 1443.0 1466.5 1469.6 1470.8 1545.0     5</span></span>
-<span id="cb28-15"><a href="#cb28-15"></a><span class="co">#&gt;        R w/ C++  257.8  259.1  259.9  259.7  261.2  261.7     5</span></span>
-<span id="cb28-16"><a href="#cb28-16"></a><span class="co">#&gt;            psqn   44.9   45.2   45.4   45.5   45.6   45.8     5</span></span>
-<span id="cb28-17"><a href="#cb28-17"></a><span class="co">#&gt;  psqn 2 threads   28.9   30.2   30.7   31.2   31.4   31.6     5</span></span></code></pre></div>
+<span id="cb28-14"><a href="#cb28-14"></a><span class="co">#&gt;       R version 1437.0 1467.5 1484.4 1467.7 1481.8 1568.2     5</span></span>
+<span id="cb28-15"><a href="#cb28-15"></a><span class="co">#&gt;        R w/ C++  263.5  265.6  270.2  267.5  270.0  284.1     5</span></span>
+<span id="cb28-16"><a href="#cb28-16"></a><span class="co">#&gt;            psqn   80.6   80.9   81.4   81.0   81.3   83.0     5</span></span>
+<span id="cb28-17"><a href="#cb28-17"></a><span class="co">#&gt;  psqn 2 threads   33.4   33.5   33.8   33.8   33.8   34.7     5</span></span></code></pre></div>
 </div>
 </div>
 <div id="details" class="section level2">
@@ -1798,8 +1810,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb29-35"><a href="#cb29-35"></a><span class="co">#&gt; # A tibble: 2 x 6</span></span>
 <span id="cb29-36"><a href="#cb29-36"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb29-37"><a href="#cb29-37"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb29-38"><a href="#cb29-38"></a><span class="co">#&gt; 1 optim       112.1µs  126.5µs     7353.      384B     10.4</span></span>
-<span id="cb29-39"><a href="#cb29-39"></a><span class="co">#&gt; 2 psqn_bfgs    84.6µs   93.3µs    10675.    2.49KB     12.6</span></span></code></pre></div>
+<span id="cb29-38"><a href="#cb29-38"></a><span class="co">#&gt; 1 optim       112.7µs  124.9µs     7590.      384B     12.8</span></span>
+<span id="cb29-39"><a href="#cb29-39"></a><span class="co">#&gt; 2 psqn_bfgs    88.1µs   95.9µs    10299.    2.49KB     14.9</span></span></code></pre></div>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>

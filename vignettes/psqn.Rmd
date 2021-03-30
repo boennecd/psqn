@@ -1097,10 +1097,6 @@ all.equal(gv <- grad_generic_ex(noise, ptr = ptr, n_threads = 2L),
           check.attributes = FALSE)
 all.equal(attr(gv, "value"), R_func(noise))
 
-# TODO: delete
-delta <- grad_generic_ex(noise, ptr = ptr, n_threads = 1L) - 
-  grad_generic_ex(noise, ptr = ptr, n_threads = 2L)
-
 # optimize and compare the result with one thread
 psqn_func <- function(par, n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L)
   optim_generic_ex(val = par, ptr = ptr, rel_eps = 1e-8, max_it = 1000L, 
@@ -1112,17 +1108,25 @@ all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
 all.equal(opt_psqn$value, opt$value)
 opt_psqn$value - opt$value # (lower implies better solution)
 
+# compare counts
+opt_psqn$counts
+opt     $counts
+
 # we can do the same with two threads
-opt_psqn <- psqn_func(start, n_threads = 3L)
+opt_psqn <- psqn_func(start, n_threads = 2L)
 all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
 all.equal(opt_psqn$value, opt$value)
 opt_psqn$value - opt$value # (lower implies better solution)
+
+# compare counts
+opt_psqn$counts
+opt     $counts
 ```
 
 The C++ version is much faster:
 
 ```{r speed_generic_example, cache=1}
-# TODO: replace with bench::mark
+# TODO: replace with bench::mark 
 microbenchmark::microbenchmark(
   `R version` = optim(start, R_func, R_func_gr, method = "BFGS"), 
   `R w/ C++` = optim(

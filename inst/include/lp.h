@@ -57,22 +57,24 @@ inline void mat_vec_dot
 }
 
 /**
- computes b[idx] <- b[idx] + Xx[idx] where is is a q x q symmetric matrix
- containing only the upper triangular and x is a n-dimensional vector and
- idx is a q-dimensional vector of indices in the range of 1 to n.
+ computes b <- b + Xx[idx] where X is a q x q symmetric matrix
+ containing only the upper triangular and x is a n-dimensional vector (n greater
+ than q) and idx is a q-dimensional vector of indices in the range of 1 to n.
  */
 inline void mat_vec_dot
 (double const * PSQN_RESTRICT  X, double const * const PSQN_RESTRICT x,
  double * const PSQN_RESTRICT res, size_t const n, size_t const *idx) noexcept {
   size_t const * idx_j = idx;
-  for(size_t j = 0; j < n; ++j, ++idx_j){
+  double * res_j = res;
+  for(size_t j = 0; j < n; ++j, ++idx_j, ++res_j){
     size_t const * idx_i = idx;
+    double * res_i = res;
 
-    for(size_t i = 0L; i < j; ++i, ++X, ++idx_i){
-      res[*idx_i] += *X * x[*idx_j];
-      res[*idx_j] += *X * x[*idx_i];
+    for(size_t i = 0L; i < j; ++i, ++X, ++idx_i, ++res_i){
+      *res_i += *X * x[*idx_j];
+      *res_j += *X * x[*idx_i];
     }
-    res[*idx_j] += *X++ * x[*idx_i];
+    *res_j += *X++ * x[*idx_i];
   }
 }
 
@@ -223,6 +225,23 @@ inline void bfgs_update
     }
   }
 }
+
+// Kahan summation algorithm
+inline void Kahan(double &sum, double &comp, double const new_val) noexcept {
+  double const y = new_val - comp,
+               t = sum + y;
+  comp = (t - sum) - y;
+  sum = t;
+}
+
+/***
+ Kahan summation algorithm where the summation and the compensation lies in
+ consecutive memory starting with the summation.
+ */
+inline void Kahan(double * sum_n_comp, double const new_val) noexcept {
+  Kahan(*sum_n_comp, sum_n_comp[1], new_val);
+}
+
 } // namespace lp
 
 #endif
