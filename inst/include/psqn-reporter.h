@@ -9,8 +9,8 @@
 namespace PSQN {
 /** class used to print to the console during estimation */
 struct R_reporter {
-  static void cg_it(int const trace, size_t const iteration,
-                    size_t const maxit, double const r_norm,
+  static void cg_it(int const trace, psqn_uint const iteration,
+                    psqn_uint const maxit, double const r_norm,
                     double const threshold) {
     if(trace > 3L and iteration % (maxit / 5L) == 0L)
       Rcpp::Rcout << "      Conjugate gradient iteration " << iteration
@@ -18,8 +18,8 @@ struct R_reporter {
                   << " (threshold is " << threshold << ")\n";
   }
 
-  static void cg(int const trace, size_t const iteration,
-                 size_t const n_cg, bool const successful) {
+  static void cg(int const trace, psqn_uint const iteration,
+                 psqn_uint const n_cg, bool const successful) {
     if(trace > 0)
       Rcpp::Rcout << "Conjugate gradient "
                   << (successful ? "succeeded" : "failed")
@@ -32,10 +32,10 @@ struct R_reporter {
   }
 
   static void line_search
-  (int const trace, size_t const iteration, size_t const n_eval,
-   size_t const n_grad, double const fval_old,
+  (int const trace, psqn_uint const iteration, psqn_uint const n_eval,
+   psqn_uint const n_grad, double const fval_old,
    double const fval, bool const successful, double const step_size,
-   double const *new_x, size_t const n_global) {
+   double const *new_x, psqn_uint const n_global) {
     if(trace > 0)
       Rcpp::Rcout << "Line search "
                   << (successful ? "succeeded" : "failed")
@@ -57,7 +57,7 @@ struct R_reporter {
     if(trace > 2L){
       Rcpp::Rcout << "    step size is " << step_size
                   << " and new global parameters are\n      ";
-      for(size_t i = 0; i < n_global; ++i)
+      for(psqn_uint i = 0; i < n_global; ++i)
         Rcpp::Rcout << new_x[i] << " ";
 
       Rcpp::Rcout << "\n    " << n_eval

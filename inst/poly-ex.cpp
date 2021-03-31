@@ -12,9 +12,10 @@
 #include "psqn-reporter.h"
 
 using namespace Rcpp;
+using PSQN::psqn_uint; // the unsigned integer type used in the package
 
 /// simple function to avoid copying a vector. You can ignore this
-inline arma::vec vec_no_cp(double const * x, size_t const n_ele){
+inline arma::vec vec_no_cp(double const * x, psqn_uint const n_ele){
   return arma::vec(const_cast<double *>(x), n_ele, false);
 }
 
@@ -26,7 +27,7 @@ class poly_func final : public PSQN::element_function {
   /// matrix used to transform subset of global parameters
   arma::mat const Psi;
   /// number of global parameters
-  size_t const n_global;
+  psqn_uint const n_global;
   /// global parameter centroid vector
   arma::vec const mu_global;
   /**
@@ -44,10 +45,10 @@ public:
   comp_global(comp_global)
   { }
 
-  size_t global_dim() const {
+  psqn_uint global_dim() const {
     return n_global;
   }
-  size_t private_dim() const {
+  psqn_uint private_dim() const {
     return mu_cluster.n_elem;
   }
 
@@ -103,7 +104,7 @@ using poly_optim = PSQN::optimizer<poly_func, PSQN::R_reporter,
 // [[Rcpp::export]]
 SEXP get_poly_optimizer(List data, arma::vec const &mu_global,
                         unsigned const max_threads){
-  size_t const n_elem_funcs = data.size();
+  psqn_uint const n_elem_funcs = data.size();
   std::vector<poly_func> funcs;
   funcs.reserve(n_elem_funcs);
   bool comp_global(true);
@@ -125,11 +126,11 @@ List optim_poly
    unsigned const n_threads, double const c1,
    double const c2, bool const use_bfgs = true, int const trace = 0L,
    double const cg_tol = .5, bool const strong_wolfe = true,
-   size_t const max_cg = 0L, int const pre_method = 1L){
+   psqn_uint const max_cg = 0L, int const pre_method = 1L){
   XPtr<poly_optim> optim(ptr);
 
   // check that we pass a parameter value of the right length
-  if(optim->n_par != static_cast<size_t>(val.size()))
+  if(optim->n_par != static_cast<psqn_uint>(val.size()))
     throw std::invalid_argument("optim_poly: invalid parameter size");
 
   NumericVector par = clone(val);
@@ -153,7 +154,7 @@ double eval_poly(NumericVector val, SEXP ptr, unsigned const n_threads){
   XPtr<poly_optim> optim(ptr);
 
   // check that we pass a parameter value of the right length
-  if(optim->n_par != static_cast<size_t>(val.size()))
+  if(optim->n_par != static_cast<psqn_uint>(val.size()))
     throw std::invalid_argument("eval_poly: invalid parameter size");
 
   optim->set_n_threads(n_threads);
@@ -166,7 +167,7 @@ NumericVector grad_poly(NumericVector val, SEXP ptr,
   XPtr<poly_optim> optim(ptr);
 
   // check that we pass a parameter value of the right length
-  if(optim->n_par != static_cast<size_t>(val.size()))
+  if(optim->n_par != static_cast<psqn_uint>(val.size()))
     throw std::invalid_argument("grad_poly: invalid parameter size");
 
   NumericVector grad(val.size());

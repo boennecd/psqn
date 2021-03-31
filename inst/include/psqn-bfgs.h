@@ -19,7 +19,7 @@ using std::sqrt;
 class problem {
 public:
   /** returns the number of parameters. */
-  virtual size_t size() const = 0;
+  virtual psqn_uint size() const = 0;
   /** returns evalutes the function at val. */
   virtual double func(double const *val) = 0;
   /** evaluates the function and compute the gradient. */
@@ -42,12 +42,12 @@ template<class Reporter = dummy_reporter,
          class interrupter = dummy_interrupter>
 optim_info bfgs(
     problem &prob, double *val, double const rel_eps = .00000001,
-    size_t const max_it = 100, double const c1 = .0001,
+    psqn_uint const max_it = 100, double const c1 = .0001,
     double const c2 = .9, int const trace = 0L){
   // allocate the memory we need
   /* non-const due to
    *    https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg531670.html */
-  size_t n_ele = prob.size();
+  psqn_uint n_ele = prob.size();
   std::unique_ptr<double[]>
     mem(new double[7 * n_ele + (n_ele * (n_ele + 1)) / 2]);
   double * PSQN_RESTRICT const v_old  = mem.get(),
@@ -65,12 +65,12 @@ optim_info bfgs(
     std::fill(H, H + (n_ele * (n_ele + 1)) / 2, 0.);
     // set diagonals to 1
     double * h = H;
-    for(size_t i = 0; i < n_ele; ++i, h += i + 1)
+    for(psqn_uint i = 0; i < n_ele; ++i, h += i + 1)
       *h = 1.;
     first_call = true;
   };
   reset();
-  size_t n_eval(0),
+  psqn_uint n_eval(0),
          n_grad(0);
   double fval = prob.grad(const_cast<double const*>(val), gr);
   n_grad++;
@@ -88,7 +88,7 @@ optim_info bfgs(
 
     // check if there is any changes in the input
     bool all_unchanged(true);
-    for(size_t i = 0; i < n_ele; ++i)
+    for(psqn_uint i = 0; i < n_ele; ++i)
       if(abs(s[i]) > abs(val[i]) *
           std::numeric_limits<double>::epsilon() * 100){
         all_unchanged = false;
@@ -106,7 +106,7 @@ optim_info bfgs(
           // make update on page 143
           double const scal = s_y / lp::vec_dot(y, n_ele);
           double *h = H;
-          for(size_t i = 0; i < n_ele; ++i, h += i + 1)
+          for(psqn_uint i = 0; i < n_ele; ++i, h += i + 1)
             *h = scal;
         }
 
@@ -134,7 +134,7 @@ optim_info bfgs(
 
     // declare 1D functions
     auto psi = [&](double const alpha) -> double {
-      for(size_t i = 0; i < n_ele; ++i)
+      for(psqn_uint i = 0; i < n_ele; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_eval;
       return prob.func(const_cast<double const *>(x_mem));
@@ -142,7 +142,7 @@ optim_info bfgs(
 
     // returns the function value and the gradient
     auto dpsi = [&](double const alpha) -> double {
-      for(size_t i = 0; i < n_ele; ++i)
+      for(psqn_uint i = 0; i < n_ele; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_grad;
       fnew = prob.grad(const_cast<double const *>(x_mem), gr0);
@@ -159,7 +159,7 @@ optim_info bfgs(
     auto zoom =
       [&](double a_low, double a_high, intrapolate &inter) -> bool {
         double f_low = psi(a_low);
-        for(size_t i = 0; i < 25L; ++i){
+        for(psqn_uint i = 0; i < 25L; ++i){
           double const ai = inter.get_value(a_low, a_high),
                        fi = psi(ai);
           if(!std::isfinite(fi)){
@@ -203,7 +203,7 @@ optim_info bfgs(
     bool found_ok_prev = false,
            failed_once = false;
     double mult = 2;
-    for(size_t i = 0; i < 25L; ++i){
+    for(psqn_uint i = 0; i < 25L; ++i){
       ai *= mult;
       double fi = psi(ai);
       Reporter::line_search_inner(trace, a_prev, ai, fi, false,
@@ -271,7 +271,7 @@ optim_info bfgs(
 
   // main loop
   int n_line_search_fail = 0;
-  for(size_t i = 0; i < max_it; ++i){
+  for(psqn_uint i = 0; i < max_it; ++i){
     if(i % 10 == 0)
       interrupter::check_interrupt();
 
@@ -282,7 +282,7 @@ optim_info bfgs(
       *d *= -1;
 
     double const x1 = *val;
-    constexpr size_t const n_print(100L);
+    constexpr psqn_uint const n_print(100L);
     if(!line_search(fval_old, val, gr, dir, fval)){
       info = info_code::line_search_failed;
       Reporter::line_search

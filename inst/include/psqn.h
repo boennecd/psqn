@@ -30,7 +30,7 @@ class base_worker {
 
 public:
   /// number of elements
-  size_t const n_ele;
+  psqn_uint const n_ele;
   /// memory for the Hessian approximation
   double * const PSQN_RESTRICT B;
   /// memory for the gradient
@@ -44,7 +44,7 @@ public:
   /// bool for whether to use BFGS or SR1 updates
   bool use_bfgs = true;
 
-  base_worker(size_t const n_ele, double * mem): n_ele(n_ele), B(mem) { }
+  base_worker(psqn_uint const n_ele, double * mem): n_ele(n_ele), B(mem) { }
   virtual ~base_worker() = default;
 
   /***
@@ -65,7 +65,7 @@ public:
     std::fill(B, B + n_ele * n_ele, 0.);
     // set diagonal entries to one
     double *b = B;
-    for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+    for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
       *b = 1.;
   }
 
@@ -83,7 +83,7 @@ public:
     lp::vec_diff(x_new, x_old , s, n_ele);
 
     bool all_unchanged(true);
-    for(size_t i = 0; i < n_ele; ++i)
+    for(psqn_uint i = 0; i < n_ele; ++i)
       if(abs(s[i]) > abs(x_new[i]) *
          std::numeric_limits<double>::epsilon() * 100){
         all_unchanged = false;
@@ -100,7 +100,7 @@ public:
           // make update on page 143
           double const scal = lp::vec_dot(y, n_ele) / s_y;
           double *b = B;
-          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+          for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
             *b = scal;
         }
 
@@ -116,7 +116,7 @@ public:
           double const theta = .8 * s_B_s / (s_B_s - s_y);
           double *yi = y,
             *wi = wrk;
-          for(size_t i = 0; i < n_ele; ++i, ++yi, ++wi)
+          for(psqn_uint i = 0; i < n_ele; ++i, ++yi, ++wi)
             *yi = theta * *yi + (1 - theta) * *wi;
           double const s_r = lp::vec_dot(y, s, n_ele);
           lp::rank_one_update(B, y, 1. / s_r, n_ele);
@@ -132,14 +132,14 @@ public:
           double const scal =
             lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
           double *b = B;
-          for(size_t i = 0; i < n_ele; ++i, b += i + 1)
+          for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
             *b = scal;
         }
 
         /// maybe perform SR1
         std::fill(wrk, wrk + n_ele, 0.);
         lp::mat_vec_dot(B, s, wrk, n_ele);
-        for(size_t i = 0; i < n_ele; ++i){
+        for(psqn_uint i = 0; i < n_ele; ++i){
           wrk[i] *= -1;
           wrk[i] += y[i];
         }
@@ -168,9 +168,9 @@ public:
 class element_function {
 public:
   /// dimension of the global parameters
-  virtual size_t global_dim() const = 0;
+  virtual psqn_uint global_dim() const = 0;
   /// dimension of the private parameters
-  virtual size_t private_dim() const = 0;
+  virtual psqn_uint private_dim() const = 0;
 
   /***
    computes the element function.
@@ -233,14 +233,14 @@ template<class OptT, class Reporter = dummy_reporter>
 class optimizer_internals {
   OptT * const opt_obj = nullptr;
   double * const temp_mem = nullptr;
-  size_t const n_par = 0L;
+  psqn_uint const n_par = 0L;
 public:
   /// number of function evaluations
-  size_t n_eval = 0L;
+  psqn_uint n_eval = 0L;
   /// number of gradient evaluations
-  size_t n_grad = 0L;
+  psqn_uint n_grad = 0L;
   /// number of iterations of conjugate gradient
-  size_t n_cg = 0L;
+  psqn_uint n_cg = 0L;
 
   /***
    reset the counters for the number of evaluations
@@ -281,7 +281,7 @@ public:
     @param pre_method preconditioning method.
    */
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
-                 double const tol, size_t const max_cg,
+                 double const tol, psqn_uint const max_cg,
                  int const trace, precondition const pre_method){
     double * PSQN_RESTRICT r       = temp_mem,
            * PSQN_RESTRICT p       = r      + n_par,
@@ -294,19 +294,19 @@ public:
     if(do_pre){
       opt_obj->get_diag(B_diag);
       double *b = B_diag;
-      for(size_t i = 0; i < n_par; ++i, ++b)
+      for(psqn_uint i = 0; i < n_par; ++i, ++b)
         *b = 1. / *b; // want to use multiplication rather than division
     }
 
     auto diag_solve = [&](double       * PSQN_RESTRICT vy,
                           double const * PSQN_RESTRICT vx) -> void {
       double * di = B_diag;
-      for(size_t i = 0; i < n_par; ++i)
+      for(psqn_uint i = 0; i < n_par; ++i)
         *vy++ = *vx++ * *di++;
     };
 
     std::fill(y, y + n_par, 0.);
-    for(size_t i = 0; i < n_par; ++i){
+    for(psqn_uint i = 0; i < n_par; ++i){
       r[i] = -x[i];
       if(!do_pre)
         p[i] = x[i];
@@ -314,7 +314,7 @@ public:
 
     if(do_pre){
       diag_solve(v, r);
-      for(size_t i = 0; i < n_par; ++i)
+      for(psqn_uint i = 0; i < n_par; ++i)
         p[i] = -v[i];
     }
 
@@ -325,7 +325,7 @@ public:
     auto comp_B_vec = opt_obj->get_comp_B_vec();
 
     double old_r_v_dot = get_r_v_dot();
-    for(size_t i = 0; i < max_cg; ++i){
+    for(psqn_uint i = 0; i < max_cg; ++i){
       ++n_cg;
       std::fill(B_p, B_p + n_par, 0.);
       comp_B_vec(p, B_p);
@@ -335,14 +335,14 @@ public:
         // negative curvature. Thus, exit
         if(i < 1L)
           // set output to be the gradient
-          for(size_t j = 0; j < n_par; ++j)
+          for(psqn_uint j = 0; j < n_par; ++j)
             y[j] = x[j];
 
         break;
       }
       double const alpha = old_r_v_dot / p_B_p;
 
-      for(size_t j = 0; j < n_par; ++j){
+      for(psqn_uint j = 0; j < n_par; ++j){
         y[j] += alpha *   p[j];
         r[j] += alpha * B_p[j];
       }
@@ -358,7 +358,7 @@ public:
 
       double const beta = r_v_dot / old_r_v_dot;
       old_r_v_dot = r_v_dot;
-      for(size_t j = 0; j < n_par; ++j){
+      for(psqn_uint j = 0; j < n_par; ++j){
         p[j] *= beta;
         p[j] -= do_pre ? v[j] : r[j];
       }
@@ -389,7 +389,7 @@ public:
 
     // declare 1D functions
     auto psi = [&](double const alpha) -> double {
-      for(size_t i = 0; i < n_par; ++i)
+      for(psqn_uint i = 0; i < n_par; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
       return eval(x_mem, nullptr, false);
@@ -397,7 +397,7 @@ public:
 
     // returns the function value and the gradient
     auto dpsi = [&](double const alpha) -> double {
-      for(size_t i = 0; i < n_par; ++i)
+      for(psqn_uint i = 0; i < n_par; ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
       fnew = eval(x_mem, gr0, true);
@@ -410,12 +410,12 @@ public:
       // not a descent direction
       return false;
 
-    constexpr size_t const max_it = 20L;
+    constexpr psqn_uint const max_it = 20L;
     static double const NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom =
       [&](double a_low, double a_high, intrapolate &inter) -> bool {
         double f_low = psi(a_low);
-        for(size_t i = 0; i < max_it; ++i){
+        for(psqn_uint i = 0; i < max_it; ++i){
           double const ai = inter.get_value(a_low, a_high),
                        fi = psi(ai);
           if(!std::isfinite(fi)){
@@ -460,7 +460,7 @@ public:
     bool found_ok_prev = false,
          failed_once   = false;
     double mult = 2;
-    for(size_t i = 0; i < max_it; ++i){
+    for(psqn_uint i = 0; i < max_it; ++i){
       ai *= mult;
       double fi = psi(ai);
       Reporter::line_search_inner(trace, a_prev, ai, fi, false,
@@ -544,9 +544,9 @@ class optimizer {
     /// the element function for this worker
     EFunc const func;
     /// indices of first set of private parameters
-    size_t const par_start;
+    psqn_uint const par_start;
 
-    worker(EFunc &&func, double * mem, size_t const par_start):
+    worker(EFunc &&func, double * mem, psqn_uint const par_start):
       base_worker(func.global_dim() + func.private_dim(), mem),
       func(func), par_start(par_start) {
       reset();
@@ -566,8 +566,8 @@ class optimizer {
        double const * PSQN_RESTRICT vprivate, bool const comp_grad,
        T_caller &call_obj){
       // copy values
-      size_t const d_global  = func.global_dim(),
-                   d_private = func.private_dim();
+      psqn_uint const d_global  = func.global_dim(),
+                      d_private = func.private_dim();
 
       lp::copy(x_new           , global  , d_global);
       lp::copy(x_new + d_global, vprivate, d_private);
@@ -588,15 +588,15 @@ class optimizer {
   class sub_problem final : public problem {
     worker &w;
     double const * g_val;
-    size_t const p_dim = w.func.private_dim(),
-                 g_dim = w.func.global_dim();
+    psqn_uint const p_dim = w.func.private_dim(),
+                    g_dim = w.func.global_dim();
     T_caller &call_obj;
 
   public:
     sub_problem(worker &w, double const *g_val, T_caller &call_obj):
     w(w), g_val(g_val), call_obj(call_obj) { }
 
-    size_t size() const {
+    psqn_uint size() const {
       return p_dim;
     }
     double func(double const *val){
@@ -605,7 +605,7 @@ class optimizer {
     double grad(double const * PSQN_RESTRICT val,
                 double       * PSQN_RESTRICT gr){
       double const out = w(g_val, val, true, call_obj);
-      for(size_t i = 0; i < p_dim; ++i)
+      for(psqn_uint i = 0; i < p_dim; ++i)
         gr[i] = w.gr[i + g_dim];
       return out;
     }
@@ -613,11 +613,11 @@ class optimizer {
 
 public:
   /// dimension of the global parameters
-  size_t const global_dim;
+  psqn_uint const global_dim;
   /// true if the element functions are thread-safe
   bool const is_ele_func_thread_safe;
   /// total number of parameters
-  size_t const n_par;
+  psqn_uint const n_par;
 
 private:
   /***
@@ -625,9 +625,9 @@ private:
    the workers. The second element is needed during the computation for the
    master thread. The third element is number required per thread.
   */
-  std::array<size_t, 3L> const n_mem;
+  std::array<std::size_t, 3L> const n_mem;
   /// maximum number of threads to use
-  size_t const max_threads;
+  psqn_uint const max_threads;
   /// working memory
   std::unique_ptr<double[]> mem =
     std::unique_ptr<double[]>(
@@ -702,10 +702,10 @@ private:
 
 public:
   /// set the number of threads to use
-  void set_n_threads(size_t const n_threads_new) noexcept {
+  void set_n_threads(psqn_uint const n_threads_new) noexcept {
 #ifdef _OPENMP
     n_threads = std::max(
-      static_cast<size_t>(1L), std::min(n_threads_new, max_threads));
+      static_cast<psqn_uint>(1L), std::min(n_threads_new, max_threads));
     omp_set_num_threads(n_threads);
     omp_set_dynamic(0L);
 #endif
@@ -717,22 +717,22 @@ public:
    @param funcs_in vector with element functions.
    @param max_threads maximum number of threads to use.
    */
-  optimizer(std::vector<EFunc> &funcs_in, size_t const max_threads):
-  global_dim(([&]() -> size_t {
+  optimizer(std::vector<EFunc> &funcs_in, psqn_uint const max_threads):
+  global_dim(([&]() -> psqn_uint {
     if(funcs_in.size() < 1L)
       throw std::invalid_argument(
           "optimizer<EFunc>::optimizer: no functions supplied");
     return funcs_in[0].global_dim();
   })()),
   is_ele_func_thread_safe(funcs_in[0].thread_safe()),
-  n_par(([&]() -> size_t {
-    size_t out(global_dim);
+  n_par(([&]() -> psqn_uint {
+    psqn_uint out(global_dim);
     for(auto &f : funcs_in)
       out += f.private_dim();
     return out;
   })()),
-  n_mem(([&]() -> std::array<size_t, 3L> {
-    size_t out(0L),
+  n_mem(([&]() -> std::array<std::size_t, 3L> {
+    std::size_t out(0L),
            max_priv(0L);
     for(auto &f : funcs_in){
       if(f.global_dim() != global_dim)
@@ -741,38 +741,38 @@ public:
       if(f.thread_safe() != is_ele_func_thread_safe)
         throw std::invalid_argument(
             "optimizer<EFunc>::optimizer: thread_safe differs");
-      size_t const private_dim = f.private_dim(),
-                   n_ele       = private_dim + global_dim;
+      std::size_t const private_dim = f.private_dim(),
+                        n_ele       = private_dim + global_dim;
       if(max_priv < private_dim)
         max_priv = private_dim;
 
       out += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
     }
 
-    constexpr size_t const mult = cacheline_size() / sizeof(double),
-                       min_size = 2L * mult;
+    constexpr std::size_t const mult = cacheline_size() / sizeof(double),
+                            min_size = 2L * mult;
 
-    size_t thread_mem = std::max(3 * (global_dim + max_priv), min_size);
+    std::size_t thread_mem = std::max(3L * (global_dim + max_priv), min_size);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
-    std::array<size_t, 3L> ret = {
-      out,
-      5L * n_par + (global_dim * (global_dim + 1L)) / 2L,
-      thread_mem };
+    std::size_t master_mem(5L * n_par);
+    master_mem += (global_dim * (global_dim + 1L)) / 2L;
+
+    std::array<std::size_t, 3L> ret {out, master_mem, thread_mem };
     return ret;
   })()),
   max_threads(max_threads > 0 ? max_threads : 1L),
   funcs(([&]() -> std::vector<worker> {
     std::vector<worker> out;
-    size_t const n_ele(funcs_in.size());
+    psqn_uint const n_ele(funcs_in.size());
     out.reserve(funcs_in.size());
 
     double * mem_ptr = mem.get();
-    size_t i_start(global_dim);
-    for(size_t i = 0; i < n_ele; ++i){
+    psqn_uint i_start(global_dim);
+    for(psqn_uint i = 0; i < n_ele; ++i){
       out.emplace_back(std::move(funcs_in[i]), mem_ptr, i_start);
-      size_t const n_ele = out.back().n_ele;
+      psqn_uint const n_ele = out.back().n_ele;
       mem_ptr += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
       i_start += out.back().func.private_dim();
     }
@@ -793,22 +793,22 @@ public:
               bool const comp_grad){
     caller.setup(val, comp_grad);
 
-    size_t const n_funcs = funcs.size();
+    psqn_uint const n_funcs = funcs.size();
     auto serial_version = [&]() -> double {
       double out(0.);
-      for(size_t i = 0; i < n_funcs; ++i){
+      for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
         out += f(val, val + f.par_start, comp_grad, caller);
       }
 
       if(comp_grad){
         std::fill(gr, gr + global_dim, 0.);
-        for(size_t i = 0; i < n_funcs; ++i){
+        for(psqn_uint i = 0; i < n_funcs; ++i){
           auto const &f = funcs[i];
-          for(size_t j = 0; j < global_dim; ++j)
+          for(psqn_uint j = 0; j < global_dim; ++j)
             gr[j] += f.gr[j];
 
-          size_t const iprivate = f.func.private_dim();
+          psqn_uint const iprivate = f.func.private_dim();
           lp::copy(gr + f.par_start, f.gr + global_dim, iprivate);
         }
       }
@@ -832,7 +832,7 @@ public:
     double &thread_terms = *(r_mem + global_dim);
     thread_terms = 0;
 #pragma omp for schedule(static)
-    for(size_t i = 0; i < n_funcs; ++i){
+    for(psqn_uint i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       thread_terms += f(v_mem, val + f.par_start, comp_grad, caller);
 
@@ -840,7 +840,7 @@ public:
         // update global
         double *lhs = r_mem;
         double const *rhs = f.gr;
-        for(size_t j = 0; j < global_dim; ++j, ++lhs, ++rhs)
+        for(psqn_uint j = 0; j < global_dim; ++j, ++lhs, ++rhs)
           *lhs += *rhs;
 
         // update private
@@ -857,7 +857,7 @@ public:
     for (int t = 0; t < n_threads; t++){
       double const *r_mem = get_thread_mem(t);
       if(comp_grad)
-        for(size_t i = 0; i < global_dim; ++i)
+        for(psqn_uint i = 0; i < global_dim; ++i)
           gr[i] += r_mem[i];
       out += r_mem[global_dim];
     }
@@ -879,17 +879,17 @@ public:
              double * const PSQN_RESTRICT res,
              double * const PSQN_RESTRICT B_start,
              bool const comp_B_start) const noexcept {
-    size_t const n_funcs = funcs.size();
+    psqn_uint const n_funcs = funcs.size();
 
     // aggregate the first part of B if needed
     if(comp_B_start){
-      size_t const B_sub_ele = (global_dim * (global_dim + 1)) / 2;
+      psqn_uint const B_sub_ele = (global_dim * (global_dim + 1)) / 2;
       std::fill(B_start, B_start + B_sub_ele, 0);
-      for(size_t i = 0; i < n_funcs; ++i){
+      for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
         double * b = B_start;
         double const *b_inc = f.B;
-        for(size_t j = 0; j < B_sub_ele; ++j)
+        for(psqn_uint j = 0; j < B_sub_ele; ++j)
           *b++ += *b_inc++;
       }
     }
@@ -899,10 +899,10 @@ public:
 
     // the serial version
     auto serial_version = [&]() -> void {
-      for(size_t i = 0; i < n_funcs; ++i){
+      for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
-        size_t const iprivate = f.func.private_dim(),
-               private_offset = f.par_start;
+        psqn_uint const iprivate = f.func.private_dim(),
+                  private_offset = f.par_start;
 
         lp::mat_vec_dot_excl_first(f.B, val, val + private_offset, res,
                                    res + private_offset, global_dim,
@@ -924,10 +924,10 @@ public:
     std::fill(r_mem, r_mem + global_dim, 0.);
 
 #pragma omp for schedule(static)
-    for(size_t i = 0; i < n_funcs; ++i){
+    for(psqn_uint i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
-      size_t const iprivate = f.func.private_dim(),
-             private_offset = f.par_start;
+      psqn_uint const iprivate = f.func.private_dim(),
+                private_offset = f.par_start;
 
       lp::mat_vec_dot_excl_first(f.B, v_mem, val + private_offset, r_mem,
                                  res + private_offset, global_dim,
@@ -938,7 +938,7 @@ public:
     // add to global parameters
     for (int t = 0; t < n_threads; t++){
       double const *r_mem = get_thread_mem(t);
-      for(size_t i = 0; i < global_dim; ++i)
+      for(psqn_uint i = 0; i < global_dim; ++i)
         res[i] += r_mem[i];
     }
 #else
@@ -953,13 +953,13 @@ public:
     std::fill(x, x + global_dim, 0.);
     double * PSQN_RESTRICT x_priv = x + global_dim;
 
-    for(size_t i = 0; i < funcs.size(); ++i){
+    for(psqn_uint i = 0; i < funcs.size(); ++i){
       auto &f = funcs[i];
-      size_t const iprivate = f.func.private_dim();
+      psqn_uint const iprivate = f.func.private_dim();
 
       // add to the global parameters
       double const * b_diag = f.B;
-      size_t j = 0L;
+      psqn_uint j = 0L;
       for(; j <            global_dim; ++j, b_diag += j + 1)
         x[j] += *b_diag;
 
@@ -977,7 +977,7 @@ public:
     @param pre_method preconditioning method.
    */
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
-                 double const tol, size_t const max_cg,
+                 double const tol, psqn_uint const max_cg,
                  int const trace, precondition const pre_method){
     return opt_internals->conj_grad(x, y, tol, max_cg, trace, pre_method);
   }
@@ -1020,11 +1020,11 @@ public:
    @param pre_method preconditioning method.
    */
   optim_info optim
-    (double * val, double const rel_eps, size_t const max_it,
+    (double * val, double const rel_eps, psqn_uint const max_it,
      double const c1, double const c2,
      bool const use_bfgs = true, int const trace = 0,
      double const cg_tol = .5, bool const strong_wolfe = true,
-     size_t const max_cg = 0,
+     psqn_uint const max_cg = 0,
      precondition const pre_method = precondition::diag){
     opt_internals->reset_counters();
     for(auto &f : funcs){
@@ -1042,7 +1042,7 @@ public:
 
     info_code info = info_code::max_it_reached;
     int n_line_search_fail = 0;
-    for(size_t i = 0; i < max_it; ++i){
+    for(psqn_uint i = 0; i < max_it; ++i){
       if(i % 10 == 0)
         if(interrupter::check_interrupt()){
           info = info_code::user_interrupt;
@@ -1100,11 +1100,11 @@ public:
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-          for(size_t i = 0; i < funcs.size(); ++i)
+          for(psqn_uint i = 0; i < funcs.size(); ++i)
             funcs[i].update_Hes(tmp_mem_use);
         }
       } else
-        for(size_t i = 0; i < funcs.size(); ++i){
+        for(psqn_uint i = 0; i < funcs.size(); ++i){
           funcs[i].reset();
           funcs[i].record();
         }
@@ -1121,13 +1121,13 @@ public:
     // TODO: make an implementation which returns a sparse Hessian
     std::fill(hess, hess + n_par * n_par, 0.);
 
-    size_t private_offset(global_dim);
+    psqn_uint private_offset(global_dim);
     for(auto &f : funcs){
-      size_t const iprivate = f.func.private_dim();
+      psqn_uint const iprivate = f.func.private_dim();
 
-      auto get_i = [&](size_t const i, size_t const j) -> size_t {
-        size_t const ii = std::min(i, j),
-                     jj = std::max(j, i);
+      auto get_i = [&](psqn_uint const i, psqn_uint const j) -> psqn_uint {
+        psqn_uint const ii = std::min(i, j),
+                        jj = std::max(j, i);
 
         return ii + (jj * (jj + 1L)) / 2L;
       };
@@ -1136,22 +1136,22 @@ public:
       {
         double *h1 = hess,
                *h2 = hess + private_offset;
-        for(size_t j = 0; j < global_dim;
+        for(psqn_uint j = 0; j < global_dim;
             ++j, h1 += n_par, h2 += n_par){
-          for(size_t i = 0; i < global_dim; ++i)
+          for(psqn_uint i = 0; i < global_dim; ++i)
             h1[i] += b[get_i(i             , j)];
-          for(size_t i = 0; i < iprivate; ++i)
+          for(psqn_uint i = 0; i < iprivate; ++i)
             h2[i] += b[get_i(i + global_dim, j)];
         }
       }
 
       double *h1 = hess + private_offset * n_par,
              *h2 = h1 + private_offset;
-      for(size_t j = 0; j < iprivate;
+      for(psqn_uint j = 0; j < iprivate;
           ++j, h1 += n_par, h2 += n_par){
-        for(size_t i = 0; i < global_dim; ++i)
+        for(psqn_uint i = 0; i < global_dim; ++i)
           h1[i] += b[get_i(i             , j + global_dim)];
-        for(size_t i = 0; i < iprivate; ++i)
+        for(psqn_uint i = 0; i < iprivate; ++i)
           h2[i] += b[get_i(i + global_dim, j + global_dim)];
       }
 
@@ -1172,7 +1172,7 @@ public:
    this is what is expected.
    */
   double optim_priv
-  (double * val, double const rel_eps, size_t const max_it,
+  (double * val, double const rel_eps, psqn_uint const max_it,
    double const c1, double const c2){
     double out(0.);
     caller.setup(val, true);
@@ -1180,7 +1180,7 @@ public:
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(n_threads) reduction(+:out) if(is_ele_func_thread_safe)
 #endif
-    for(size_t i = 0; i < funcs.size(); ++i){
+    for(psqn_uint i = 0; i < funcs.size(); ++i){
       auto &f = funcs[i];
       sub_problem prob(f, val, caller);
       double * const p_val = val + f.par_start;
@@ -1211,9 +1211,9 @@ public:
 class element_function_generic {
 public:
   /// indices of the element function
-  virtual size_t const * indices() const = 0;
+  virtual psqn_uint const * indices() const = 0;
   /// number of element in induces
-  virtual size_t n_args() const = 0;
+  virtual psqn_uint n_args() const = 0;
 
   /***
    computes the element function.
@@ -1255,9 +1255,9 @@ class optimizer_generic {
     /// the element function for this worker
     EFunc const func;
     /// number of argument to func
-    size_t const n_args = func.n_args();
+    psqn_uint const n_args = func.n_args();
     /// indices of the arguments to pass to func
-    size_t const * indices() const {
+    psqn_uint const * indices() const {
       return func.indices();
     }
 
@@ -1280,8 +1280,8 @@ class optimizer_generic {
       (double const * PSQN_RESTRICT point, bool const comp_grad,
        T_caller &call_obj){
       // copy values
-      size_t const * idx_i = indices();
-      for(size_t i = 0; i < n_args; ++i, ++idx_i)
+      psqn_uint const * idx_i = indices();
+      for(psqn_uint i = 0; i < n_args; ++i, ++idx_i)
         x_new[i] = point[*idx_i];
 
       if(!comp_grad)
@@ -1298,7 +1298,7 @@ public:
   /// true if the element functions are thread-safe
   bool const is_ele_func_thread_safe;
   /// total number of parameters
-  size_t const n_par;
+  psqn_uint const n_par;
 
 private:
   /***
@@ -1306,9 +1306,9 @@ private:
    the workers. The second element is needed during the computation for the
    master thread. The third element is number required per thread.
   */
-  std::array<size_t, 3L> const n_mem;
+  std::array<std::size_t, 3L> const n_mem;
   /// maximum number of threads to use
-  size_t const max_threads;
+  psqn_uint const max_threads;
   /// working memory
   std::unique_ptr<double[]> mem =
     std::unique_ptr<double[]>(
@@ -1379,10 +1379,10 @@ private:
 
 public:
   /// set the number of threads to use
-  void set_n_threads(size_t const n_threads_new) noexcept {
+  void set_n_threads(psqn_uint const n_threads_new) noexcept {
 #ifdef _OPENMP
     n_threads = std::max(
-      static_cast<size_t>(1L), std::min(n_threads_new, max_threads));
+      static_cast<psqn_uint>(1L), std::min(n_threads_new, max_threads));
     omp_set_num_threads(n_threads);
     omp_set_dynamic(0L);
 #endif
@@ -1394,57 +1394,57 @@ public:
    @param funcs_in vector with element functions.
    @param max_threads maximum number of threads to use.
    */
-  optimizer_generic(std::vector<EFunc> &funcs_in, size_t const max_threads):
+  optimizer_generic(std::vector<EFunc> &funcs_in, psqn_uint const max_threads):
   is_ele_func_thread_safe(funcs_in[0].thread_safe()),
-  n_par(([&]() -> size_t {
-    size_t out(0L);
+  n_par(([&]() -> psqn_uint {
+    psqn_uint out(0L);
     for(auto &f : funcs_in){
-      size_t const * idx_i = f.indices();
-      for(size_t i = 0; i < f.n_args(); ++i, ++idx_i)
+      psqn_uint const * idx_i = f.indices();
+      for(psqn_uint i = 0; i < f.n_args(); ++i, ++idx_i)
         if(*idx_i > out)
           out = *idx_i;
     }
     return out + 1L;
   })()),
-  n_mem(([&]() -> std::array<size_t, 3L> {
-    size_t out(0L),
+  n_mem(([&]() -> std::array<std::size_t, 3L> {
+    std::size_t out(0L),
            max_args(0L);
     for(auto &f : funcs_in){
       if(f.thread_safe() != is_ele_func_thread_safe)
         throw std::invalid_argument(
             "optimizer_generic<EFunc>::optimizer: thread_safe differs");
-      size_t const n_args = f.n_args();
+      std::size_t const n_args = f.n_args();
       if(max_args < n_args)
         max_args = n_args;
 
       out += n_args * 4L + (n_args * (n_args + 1L)) / 2L;
     }
 
-    constexpr size_t const mult = cacheline_size() / sizeof(double),
-                       min_size = 2L * mult;
-    size_t const n_extra = std::min(static_cast<size_t>(2L), max_args);
+    constexpr std::size_t const mult = cacheline_size() / sizeof(double),
+                            min_size = 2L * mult;
+    std::size_t const n_extra =
+      std::min(static_cast<std::size_t>(2L), max_args);
 
-    size_t thread_mem = std::max(2L * n_par + n_extra, min_size);
+    std::size_t thread_mem = std::max(2L * n_par + n_extra, min_size);
     thread_mem = std::max(thread_mem, 3L * max_args);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
-    std::array<size_t, 3L> ret = {
-      out,
-      5L * n_par,
-      thread_mem };
+    size_t const master_mem(5L * n_par);
+
+    std::array<std::size_t, 3L> ret { out, master_mem, thread_mem };
     return ret;
   })()),
   max_threads(max_threads > 0 ? max_threads : 1L),
   funcs(([&]() -> std::vector<worker> {
     std::vector<worker> out;
-    size_t const n_ele(funcs_in.size());
+    psqn_uint const n_ele(funcs_in.size());
     out.reserve(funcs_in.size());
 
     double * mem_ptr = mem.get();
-    for(size_t i = 0; i < n_ele; ++i){
+    for(psqn_uint i = 0; i < n_ele; ++i){
       out.emplace_back(std::move(funcs_in[i]), mem_ptr);
-      size_t const n_args = out.back().n_args;
+      psqn_uint const n_args = out.back().n_args;
       mem_ptr += n_args * 4L + (n_args * (n_args + 1L)) / 2L;
     }
 
@@ -1465,10 +1465,10 @@ public:
               bool const comp_grad){
     caller.setup(val, comp_grad);
 
-    size_t const n_funcs = funcs.size();
+    psqn_uint const n_funcs = funcs.size();
     auto serial_version = [&]() -> double {
       double out(0.), out_comp(0.);
-      for(size_t i = 0; i < n_funcs; ++i){
+      for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
         lp::Kahan(out, out_comp, f(val, comp_grad, caller));
       }
@@ -1480,8 +1480,8 @@ public:
         std::fill(comp_mem, comp_mem + n_par, 0.);
 
         for(auto const &f : funcs){
-          size_t const * idx_j = f.indices();
-          for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+          psqn_uint const * idx_j = f.indices();
+          for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)
             lp::Kahan(gr[*idx_j], comp_mem[*idx_j], f.gr[j]);
         }
       }
@@ -1504,14 +1504,14 @@ public:
     th_out = 0;
     th_comp = 0;
 #pragma omp for schedule(static)
-    for(size_t i = 0; i < n_funcs; ++i){
+    for(psqn_uint i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       lp::Kahan(th_out, th_comp, f(val, comp_grad, caller));
 
       if(comp_grad){
         // add the gradient terms
-        size_t const * idx_j = f.indices();
-        for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+        psqn_uint const * idx_j = f.indices();
+        for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)
           lp::Kahan(gr_mem + 2L * *idx_j, f.gr[j]);
       }
     }
@@ -1524,7 +1524,7 @@ public:
 
     double out(0.), out_comp(0.);
     {
-      size_t const inc = 2L * n_par;
+      psqn_uint const inc = 2L * n_par;
       for(int t = 0; t < n_threads; t++){
         out      += r_mem[t][inc];
         out_comp += r_mem[t][inc + 1L];
@@ -1537,7 +1537,7 @@ public:
 
       // fill the gradient. See
       //    https://stackoverflow.com/a/18016809/5861244
-      for(size_t i = 0; i < n_par; ++i){
+      for(psqn_uint i = 0; i < n_par; ++i){
         double val(0.), val_comp(0.);
         for(int t = 0; t < n_threads; t++){
           val      += *r_mem[t]++;
@@ -1561,7 +1561,7 @@ public:
    ***/
   void B_vec(double const * const PSQN_RESTRICT val,
              double * const PSQN_RESTRICT res) const noexcept {
-    size_t const n_funcs = funcs.size();
+    psqn_uint const n_funcs = funcs.size();
 
     // the serial version
     auto serial_version = [&]() -> void {
@@ -1569,14 +1569,14 @@ public:
              * const tmp_mem = cmp_mem + n_par;
       std::fill(cmp_mem, cmp_mem + n_par, 0.);
 
-      for(size_t i = 0; i < n_funcs; ++i){
+      for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
 
         std::fill(tmp_mem, tmp_mem + f.n_args, 0.);
         lp::mat_vec_dot(f.B, val, tmp_mem, f.n_args, f.indices());
 
-        size_t const * idx_j = f.indices();
-        for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+        psqn_uint const * idx_j = f.indices();
+        for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)
           lp::Kahan(res[*idx_j], cmp_mem[*idx_j], tmp_mem[j]);
       }
     };
@@ -1594,13 +1594,13 @@ public:
     std::fill(gr_mem, gr_mem + 2L * n_par, 0.);
 
 #pragma omp for schedule(static)
-    for(size_t i = 0; i < n_funcs; ++i){
+    for(psqn_uint i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       std::fill(tmp_mem, tmp_mem + f.n_args, 0.);
       lp::mat_vec_dot(f.B, val, tmp_mem, f.n_args, f.indices());
 
-      size_t const * idx_j = f.indices();
-      for(size_t j = 0; j < f.n_args; ++j, ++idx_j)
+      psqn_uint const * idx_j = f.indices();
+      for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)
         lp::Kahan(gr_mem + 2L * *idx_j, tmp_mem[j]);
     }
     }
@@ -1611,7 +1611,7 @@ public:
     for (int t = 0; t < n_threads; t++)
       r_mem[t] = get_thread_mem(t);
 
-    for(size_t i = 0; i < n_par; ++i){
+    for(psqn_uint i = 0; i < n_par; ++i){
       double val(0.), val_comp(0.);
       for(int t = 0; t < n_threads; t++){
         val      += *r_mem[t]++;
@@ -1632,14 +1632,14 @@ public:
   void get_diag(double * x){
     std::fill(x, x + n_par, 0.);
 
-    for(size_t i = 0; i < funcs.size(); ++i){
+    for(psqn_uint i = 0; i < funcs.size(); ++i){
       auto &f = funcs[i];
 
       // add the diagonal entries
       double const * b_diag = f.B;
-      size_t const n_args = f.n_args;
-      size_t const * idx_j = f.indices();
-      for(size_t j = 0; j < n_args; ++j, b_diag += j + 1, ++idx_j)
+      psqn_uint const n_args = f.n_args;
+      psqn_uint const * idx_j = f.indices();
+      for(psqn_uint j = 0; j < n_args; ++j, b_diag += j + 1, ++idx_j)
         x[*idx_j] += *b_diag;
     }
   }
@@ -1653,7 +1653,7 @@ public:
     @param pre_method preconditioning method.
    */
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
-                 double const tol, size_t const max_cg,
+                 double const tol, psqn_uint const max_cg,
                  int const trace, precondition const pre_method){
     return opt_internals->conj_grad(x, y, tol, max_cg, trace, pre_method);
   }
@@ -1696,11 +1696,11 @@ public:
    @param pre_method preconditioning method.
    */
   optim_info optim
-    (double * val, double const rel_eps, size_t const max_it,
+    (double * val, double const rel_eps, psqn_uint const max_it,
      double const c1, double const c2,
      bool const use_bfgs = true, int const trace = 0,
      double const cg_tol = .5, bool const strong_wolfe = true,
-     size_t const max_cg = 0,
+     psqn_uint const max_cg = 0,
      precondition const pre_method = precondition::diag){
     opt_internals->reset_counters();
     for(auto &f : funcs){
@@ -1718,7 +1718,7 @@ public:
 
     info_code info = info_code::max_it_reached;
     int n_line_search_fail = 0;
-    for(size_t i = 0; i < max_it; ++i){
+    for(psqn_uint i = 0; i < max_it; ++i){
       if(i % 10 == 0)
         if(interrupter::check_interrupt()){
           info = info_code::user_interrupt;
@@ -1775,11 +1775,11 @@ public:
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-          for(size_t i = 0; i < funcs.size(); ++i)
+          for(psqn_uint i = 0; i < funcs.size(); ++i)
             funcs[i].update_Hes(tmp_mem_use);
         }
       } else
-        for(size_t i = 0; i < funcs.size(); ++i){
+        for(psqn_uint i = 0; i < funcs.size(); ++i){
           funcs[i].reset();
           funcs[i].record();
         }

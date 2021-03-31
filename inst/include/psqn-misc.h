@@ -1,7 +1,14 @@
 #ifndef PSQN_MISC_H
 #define PSQN_MISC_H
 
+#include <cstddef> // std::size_t
+
 namespace PSQN {
+#ifndef PSQN_SIZE_T
+#define PSQN_SIZE_T std::size_t
+#endif
+using psqn_uint = PSQN_SIZE_T;
+
 enum info_code : int {
   max_it_reached = -1L,
   conjugate_gradient_failed = -2,
@@ -18,7 +25,7 @@ enum precondition : int {
 struct optim_info {
   double value;
   info_code info;
-  size_t n_eval, n_grad, n_cg;
+  psqn_uint n_eval, n_grad, n_cg;
 };
 
 struct dummy_reporter {
@@ -31,8 +38,8 @@ struct dummy_reporter {
    @param r_norm norm of the residual vector.
    @param threshold convergence threshold.
    */
-  static void cg_it(int const trace, size_t const iteration,
-                    size_t const maxit, double const r_norm,
+  static void cg_it(int const trace, psqn_uint const iteration,
+                    psqn_uint const maxit, double const r_norm,
                     double const threshold) { }
 
   /**
@@ -43,8 +50,8 @@ struct dummy_reporter {
    @param n_cg number of conjugate gradient iterations.
    @param successful true of conjugate gradient method succeeded.
    */
-  static void cg(int const trace, size_t const iteration,
-                 size_t const n_cg, bool const successful) { }
+  static void cg(int const trace, psqn_uint const iteration,
+                 psqn_uint const n_cg, bool const successful) { }
 
   /**
    reporting during line search.
@@ -77,10 +84,10 @@ struct dummy_reporter {
    @param n_global number of global parameters.
    */
   static void line_search
-  (int const trace, size_t const iteration, size_t const n_eval,
-   size_t const n_grad, double const fval_old,
+  (int const trace, psqn_uint const iteration, psqn_uint const n_eval,
+   psqn_uint const n_grad, double const fval_old,
    double const fval, bool const successful, double const step_size,
-   double const *new_x, size_t const n_global) { }
+   double const *new_x, psqn_uint const n_global) { }
 };
 
 class dummy_interrupter {
