@@ -338,7 +338,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <p><span class="math display">\[\begin{align*}   \mathcal I_i &amp;= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_j &amp;= \emptyset \qquad j\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &amp;= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.\]</span></p>
 <p>That is, each index set contains <span class="math inline">\(p\)</span> <em>global parameters</em> and <span class="math inline">\(q_i = \lvert\mathcal J_i\rvert\)</span> <em>private parameters</em> which are particular for each element function, <span class="math inline">\(f_i\)</span>. For implementation reason, we let:</p>
 <p><span class="math display">\[\begin{align*}   \overleftarrow q_i &amp;=    \begin{cases} p &amp; i = 0 \\ p + \sum_{k = 1}^i q_k &amp; i &gt; 0 \end{cases} \\   \mathcal J_i &amp;=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}\]</span></p>
-<p>such that the element functions’ private parameters lies in consecutive parts of <span class="math inline">\(\vec x\)</span>.</p>
+<p>such that the element functions’ private parameters lies in consecutive parts of <span class="math inline">\(\vec x\)</span>. There is also a less restricted optimizer called <code>optimizer_generic</code> were the parameters can overlap in an arbitrary way. See <code>vignette(&quot;psqn&quot;, package = &quot;psqn&quot;)</code> for further details.</p>
 <div id="the-r-interface" class="section level2">
 <h2>The R Interface</h2>
 <p>As a simple example, we consider the element functions:</p>

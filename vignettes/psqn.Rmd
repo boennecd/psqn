@@ -40,7 +40,10 @@ a linear combination of parameters but we do not cover such problems.
 This vignette closely follows @nocedal06 who cover the methods and 
 alternatives in much greater detail.
 
-We only consider a more restricted form of the problem. Assume that each 
+We first focus on a more restricted form of the problem. See the section called
+[Generic Example](#generic-example) for the more general interface provided by 
+this package.
+Assume that each 
 index set $\mathcal I_i$ is of the form:
 
 $$\begin{align*}   \mathcal I_i &= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_j &= \emptyset \qquad j\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.$$
@@ -401,7 +404,7 @@ section.
 We can get rid of the $p^2$ in the denominator by once computing 
 the first $p\times p$ part of the Hessian approximation prior to performing
 the conjugate gradient method. This is implemented. The `max_cg`
-argument is added beacuse of the considerations above.
+argument is added because of the considerations above.
 
 ## Line Search and Wolfe Condition
 We use line search and search for a point which satisfy
@@ -505,7 +508,7 @@ A R function which we need to pass to `psqn` to minimize the partially
 separable function is given below:
 
 ```{r assing_r_api}
-# evalutes the negative log integrand. 
+# evaluates the negative log integrand. 
 # 
 # Args:
 #   i cluster/element function index. 
@@ -1030,7 +1033,7 @@ is in the `generic_example.cpp` file which is shown below:
 
 The required member functions are very similar to those needed for the 
 `optimizer` class.
-We now simulate some data to work with this type of model:
+We now simulate some data to work with this type of model as an example:
 
 ```{r sim_generic_example_data}
 # parameters for the simulation

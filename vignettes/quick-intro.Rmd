@@ -42,7 +42,9 @@ for each element function, $f_i$. For implementation reason, we let:
 $$\begin{align*}   \overleftarrow q_i &=    \begin{cases} p & i = 0 \\ p + \sum_{k = 1}^i q_k & i > 0 \end{cases} \\   \mathcal J_i &=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}$$
 
 such that the element functions' private parameters lies in consecutive 
-parts of $\vec x$. 
+parts of $\vec x$. There is also a less restricted optimizer called 
+`optimizer_generic` were the parameters can overlap in an arbitrary way. 
+See `vignette("psqn", package = "psqn")` for further details.
 
 ## The R Interface 
 As a simple example, we consider the element functions: 
