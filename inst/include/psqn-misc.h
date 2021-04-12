@@ -4,10 +4,21 @@
 #include <cstddef> // std::size_t
 
 namespace PSQN {
+// you can define as suitable (unsigned) integer type to PSQN_SIZE_T to change
+// the default which is std::size_t
 #ifndef PSQN_SIZE_T
 #define PSQN_SIZE_T std::size_t
 #endif
+// use psqn_uint in your code to make it easy to swap the type later on
 using psqn_uint = PSQN_SIZE_T;
+
+// you can define PSQN_NO_USE_KAHAN to avoid the use of Kahan summation
+// algorithm. This will reduce the computation time but it will be numerically
+// less stable
+#define PSQN_USE_KAHAN
+#ifdef PSQN_NO_USE_KAHAN
+#undef PSQN_USE_KAHAN
+#endif
 
 enum info_code : int {
   max_it_reached = -1L,

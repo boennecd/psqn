@@ -229,10 +229,14 @@ inline void bfgs_update
 
 // Kahan summation algorithm
 inline void Kahan(double &sum, double &comp, double const new_val) noexcept {
+#ifdef PSQN_USE_KAHAN
   double const y = new_val - comp,
                t = sum + y;
   comp = (t - sum) - y;
   sum = t;
+#else
+  sum += new_val;
+#endif
 }
 
 /***

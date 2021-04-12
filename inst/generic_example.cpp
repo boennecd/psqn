@@ -47,15 +47,23 @@ public:
   })()),
   y(other.y) { }
 
+
+  /**
+   returns the number of parameters that this element function is depending on.
+   */
   psqn_uint n_args() const {
     return n_args_val;
   }
 
+  /**
+   zero-based indices to the parameters that this element function is depending
+   on.
+   */
   psqn_uint const * indices() const {
     return indices_array.get();
   }
 
-  double func(double const *point) const {
+  double func(double const * point) const {
     double sum(0.);
     for(psqn_uint i = 0; i < n_args_val; ++i)
       sum += point[i];

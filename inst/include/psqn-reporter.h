@@ -5,6 +5,7 @@
 #include <ios>
 #include <iostream>
 #include <iomanip>
+#include "psqn-misc.h"
 
 namespace PSQN {
 /** class used to print to the console during estimation */

@@ -1014,8 +1014,8 @@ f(\vec x) &= \sum_{i = 1}^n
 $$
 This is a special kind of a GLM with a Poison model with the log link. 
 While there
-are other ways to estimate this model, we will compare the BFGS implementation 
-from `optim` with the psqn package.
+are other ways to estimate this model, we will mainly compare the 
+BFGS implementation from `optim` with the psqn package.
 For some $j\neq i$, we will have that 
 $\mathcal K_i \cap \mathcal K_j \neq \emptyset$ without much structure in 
 their intersection unlike before. 
@@ -1091,6 +1091,32 @@ opt <- optim(start, R_func, R_func_gr, method = "BFGS",
 opt$value # optimal solution
 ```
 
+The model can also be estimated using `glm`:
+
+```{r glm_R_code_generic_example, cache = 1}
+# create the design matrix
+X <- t(vapply(dat, function(x){
+  out <- numeric(K)
+  out[x$indices] <- 1
+  out
+}, numeric(K)))
+y <- unlist(sapply(dat, `[[`, "y"))
+
+# this is very slow...
+system.time(glm_fit <- glm.fit(x = X, y = y, family = poisson(), 
+                               start = start))
+
+# we get (roughly) the same
+all.equal(glm_fit$coefficients, opt$par)
+R_func(glm_fit$coefficients)
+glm_fit <- glm_fit[c("coefficients", "deviance")]
+
+# the objects are quite big so we remove them 
+rm(X, y)
+```
+
+The above could possibly be done much faster if sparse matrices where used in 
+`glm.fit`.
 The problem can also be solved with the C++ implementation using the following 
 code:
 
@@ -1134,6 +1160,9 @@ all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
 all.equal(opt_psqn$value, opt$value)
 opt_psqn$value - opt$value # (negative values implies a better solution)
 
+all.equal(opt_psqn$par, glm_fit$coefficients, tolerance = 1e-3)
+all.equal(opt_psqn$value, R_func(glm_fit$coefficients))
+
 # compare counts
 opt_psqn$counts
 opt     $counts
@@ -1163,6 +1192,66 @@ bench::mark(
   `psqn 2 threads` = psqn_func(start, n_threads = 2L), 
   min_iterations = 2L, check = FALSE)
 ```
+
+### Using Kahan Summation Algorithm
+By default, [Kahan summation algorithm](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) 
+is used with the `optimizer_generic` class. This can be avoided by defining 
+`PSQN_NO_USE_KAHAN` prior to including any headers from the psqn package. 
+One may want to do so if the numerical stability does not matter for a given 
+problem. Notice though that the extra computation time may only be substantial 
+if the `func` and `grad` member functions are evaluated very fast.
+
+To illustrate this, we will show that the previous method yields almost the 
+same regardless of the number of threads. Then we will show that the difference 
+is larger when we define `PSQN_NO_USE_KAHAN` but the computation time is reduced. 
+
+```{r show_kahan_fast}
+# we get almost the same regardless of the number of threads. We show this by 
+# looking at the mean relative error of the gradient
+g1 <- grad_generic_ex(noise, ptr = ptr, n_threads = 1L)
+g2 <- grad_generic_ex(noise, ptr = ptr, n_threads = 2L)
+g3 <- grad_generic_ex(noise, ptr = ptr, n_threads = 3L)
+
+mean(abs((g1 - g2) / g1)) 
+mean(abs((g1 - g3) / g1))
+
+# the computation time is as follows
+bench::mark(
+  `1 thread`  = grad_generic_ex(noise, ptr = ptr, n_threads = 1L), 
+  `2 threads` = grad_generic_ex(noise, ptr = ptr, n_threads = 2L), 
+  `3 threads` = grad_generic_ex(noise, ptr = ptr, n_threads = 3L))
+
+# next, we compile the file but having defined PSQN_NO_USE_KAHAN in the 
+# beginning
+tmp_file <- paste0(tempfile(), ".cpp")
+tmp_file_con <- file(tmp_file)
+writeLines(
+  c("#define PSQN_NO_USE_KAHAN", 
+    readLines(system.file("generic_example.cpp", package = "psqn"))), 
+  tmp_file_con)
+close(tmp_file_con)
+sourceCpp(tmp_file)
+
+# re-compute the gradient and the mean relative error of the gradient
+ptr <- get_generic_ex_obj(cpp_arg, max_threads = 4L)
+new_g1 <- grad_generic_ex(noise, ptr = ptr, n_threads = 1L)
+new_g2 <- grad_generic_ex(noise, ptr = ptr, n_threads = 2L)
+new_g3 <- grad_generic_ex(noise, ptr = ptr, n_threads = 3L)
+
+mean(abs((g1     - new_g1) / g1    ))
+mean(abs((new_g1 - new_g2) / new_g1)) 
+mean(abs((new_g1 - new_g3) / new_g1))
+
+# check the new computation time
+bench::mark(
+  `1 thread`  = grad_generic_ex(noise, ptr = ptr, n_threads = 1L), 
+  `2 threads` = grad_generic_ex(noise, ptr = ptr, n_threads = 2L), 
+  `3 threads` = grad_generic_ex(noise, ptr = ptr, n_threads = 3L))
+```
+
+The error is only slightly larger in the latter case in this example and the 
+computation time is reduced because the `func` and `grad` member functions 
+are cheap to evaluate computationally.
 
 ## Details
 ### Using the Code in a Package
