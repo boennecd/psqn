@@ -5,7 +5,7 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 
-// we change the unsigned integer type that is used by the package by assigning
+// we change the unsigned integer type that is used by the package by defining
 // the PSQN_SIZE_T macro variable
 #define PSQN_SIZE_T unsigned int
 

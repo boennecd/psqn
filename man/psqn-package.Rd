@@ -30,7 +30,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Benjamin Christoffersen \email{boennecd@gmail.com}
+\strong{Maintainer}: Benjamin Christoffersen \email{boennecd@gmail.com} (\href{https://orcid.org/0000-0002-7182-1346}{ORCID})
 
 }
 \keyword{internal}

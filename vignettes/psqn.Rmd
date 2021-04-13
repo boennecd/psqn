@@ -1193,11 +1193,57 @@ bench::mark(
   min_iterations = 2L, check = FALSE)
 ```
 
+### Generic Example: R Interface
+
+A R interface to the `optimizer_generic` class is provided through the 
+`psqn_generic` function. We show an example below of how the R interface can 
+be used to solve the same problem we had before:
+
+```{r generic_R_interface, cache = 1}
+# assign the function to pass to psqn_generic
+r_func <- function(i, par, comp_grad){
+  z <- dat[[i]]
+  if(length(par) == 0L)
+    # we need to return the indices of the parameters that this element function
+    # depends on. These need to be one-based like in R
+    return(z$indices)
+  
+  # we need to compute the element function and possibly its gradient
+  eta <- sum(par)
+  exp_eta <- exp(eta)
+  out <- -z$y * eta + exp_eta
+  if(comp_grad)
+    attr(out, "grad") <- rep(-z$y + exp_eta, length(z$indices))
+  out
+}
+
+# estimate the model with the R interface
+psqn_func_R <- function(par, c1 = 1e-4, c2 = .1, trace = 0L)
+  psqn_generic(par = par, fn = r_func, n_ele_func = length(dat), 
+               c1 = c1, c2 = c2, trace = trace, rel_eps = 1e-9, max_it = 1000L)
+
+opt_psqn_res <- psqn_func_R(start)
+
+# we get the same 
+opt_psqn <- psqn_func(start, n_threads = 1L)
+all.equal(opt_psqn_res$par  , opt_psqn$par  )
+all.equal(opt_psqn_res$value, opt_psqn$value)
+```
+
+The R version is much slower though in this case. The reason is that the 
+element functions are extremely cheap computationally to evaluate and therefore 
+the extra overhead from the R interface is an issue.
+
+```{r comp_time_generic_R_interface, cache = 1}
+# show the computation time
+bench::mark(psqn_func_R(start), min_iterations = 2L)
+```
+
 ### Using Kahan Summation Algorithm
 By default, [Kahan summation algorithm](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) 
 is used with the `optimizer_generic` class. This can be avoided by defining 
 `PSQN_NO_USE_KAHAN` prior to including any headers from the psqn package. 
-One may want to do so if the numerical stability does not matter for a given 
+One may want to do so if numerical stability does not matter for a given 
 problem. Notice though that the extra computation time may only be substantial 
 if the `func` and `grad` member functions are evaluated very fast.
 
@@ -1226,11 +1272,12 @@ bench::mark(
 tmp_file <- paste0(tempfile(), ".cpp")
 tmp_file_con <- file(tmp_file)
 writeLines(
+  # add the macro definition to the beginning of the file
   c("#define PSQN_NO_USE_KAHAN", 
     readLines(system.file("generic_example.cpp", package = "psqn"))), 
   tmp_file_con)
 close(tmp_file_con)
-sourceCpp(tmp_file)
+sourceCpp(tmp_file) # source the file again
 
 # re-compute the gradient and the mean relative error of the gradient
 ptr <- get_generic_ex_obj(cpp_arg, max_threads = 4L)

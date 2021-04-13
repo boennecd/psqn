@@ -3,7 +3,7 @@
 // we will use OpenMP to perform the computation in parallel
 // [[Rcpp::plugins(openmp, cpp11)]]
 
-// we change the unsigned integer type that is used by the package by assigning
+// we change the unsigned integer type that is used by the package by defining
 // the PSQN_SIZE_T macro variable
 #define PSQN_SIZE_T unsigned int
 
@@ -46,7 +46,6 @@ public:
     return out;
   })()),
   y(other.y) { }
-
 
   /**
    returns the number of parameters that this element function is depending on.

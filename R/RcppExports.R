@@ -61,8 +61,8 @@
 #' (2nd ed.). Springer.
 #'
 #' @examples
-#' # example with inner problem in a Taylor approximation for a mixed GLMM as
-#' # in the vignette
+#' # example with inner problem in a Taylor approximation for a GLMM as in the
+#' # vignette
 #'
 #' # assign model parameters, number of random effects, and fixed effects
 #' q <- 2 # number of private parameters per cluster
@@ -196,5 +196,10 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #'                       psqn_bfgs(c(-1.2, 1), fn, gr_psqn)))
 psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .0001, c2 = .9, trace = 0L, env = NULL) {
     .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env)
+}
+
+#' @export
+psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L) {
+    .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method)
 }
 

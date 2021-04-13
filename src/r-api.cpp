@@ -7,7 +7,7 @@ using namespace Rcpp;
 /**
  simple wrapper for an R function which takes three argument.
 
- Caution: it is much faster but is not gaurded against errors:
+ Caution: it is much faster but is not guarded against errors:
    https://stackoverflow.com/a/37846827/5861244
  */
 class simple_R_func3 {
@@ -43,7 +43,7 @@ public:
   }
 };
 
-class r_worker {
+class r_worker_psqn {
   simple_R_func3 f;
   IntegerVector f_idx;
   LogicalVector mutable scomp_grad = LogicalVector(1L);
@@ -53,7 +53,7 @@ class r_worker {
   NumericVector mutable par = NumericVector(g_dim + p_dim);
 
 public:
-  r_worker(SEXP func, int iarg, SEXP rho):
+  r_worker_psqn(SEXP func, int iarg, SEXP rho):
   f(func, rho),
   f_idx(([&]() -> IntegerVector {
     IntegerVector out(1L);
@@ -96,9 +96,7 @@ public:
   }
 
   double func(double const *point) const {
-    double *p = &par[0];
-    for(size_t j = 0; j < n_ele; ++j, ++point, ++p)
-      *p = *point;
+    std::copy(point, point + n_ele, &par[0]);
     scomp_grad[0] = false;
     SEXP res =  PROTECT(f(f_idx, par, scomp_grad));
     if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L){
@@ -113,8 +111,7 @@ public:
 
   double grad
     (double const * __restrict__ point, double * __restrict__ gr) const {
-    for(size_t j = 0; j < n_ele; ++j, ++point)
-      par[j] = *point;
+    std::copy(point, point + n_ele, &par[0]);
     scomp_grad[0] = true;
     SEXP res =  PROTECT(f(f_idx, par, scomp_grad));
     CharacterVector what("grad");
@@ -210,8 +207,8 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' (2nd ed.). Springer.
 //'
 //' @examples
-//' # example with inner problem in a Taylor approximation for a mixed GLMM as
-//' # in the vignette
+//' # example with inner problem in a Taylor approximation for a GLMM as in the
+//' # vignette
 //'
 //' # assign model parameters, number of random effects, and fixed effects
 //' q <- 2 # number of private parameters per cluster
@@ -305,12 +302,12 @@ List psqn
   if(pre_method < 0L or pre_method > 1L)
     throw std::invalid_argument("psqn: invalid pre_method");
 
-  std::vector<r_worker> funcs;
+  std::vector<r_worker_psqn> funcs;
   funcs.reserve(n_ele_func);
   for(size_t i = 0; i < n_ele_func; ++i)
     funcs.emplace_back(fn, i, env);
 
-  PSQN::optimizer<r_worker, PSQN::R_reporter,
+  PSQN::optimizer<r_worker_psqn, PSQN::R_reporter,
                   PSQN::R_interrupter> optim(funcs, n_threads);
 
   // check that we pass a parameter value of the right length
@@ -453,4 +450,169 @@ List psqn_bfgs
     (problem, &par_res[0], rel_eps, max_it, c1, c2, trace);
 
   return wrap_optim_info(par_res, out);
+}
+
+
+class r_worker_optimizer_generic {
+  simple_R_func3 f;
+  IntegerVector f_idx;
+  LogicalVector mutable scomp_grad = LogicalVector(1L);
+  size_t const n_args_val;
+  NumericVector mutable par = NumericVector(n_args_val);
+  std::unique_ptr<size_t[]> const indices_vec;
+
+public:
+  // needed because of the unique_ptr
+  r_worker_optimizer_generic(const r_worker_optimizer_generic &other):
+  f(other.f),
+  f_idx(clone(other.f_idx)),
+  scomp_grad(1L),
+  n_args_val(other.n_args_val),
+  par(n_args_val),
+  indices_vec(([&]() -> std::unique_ptr<size_t[]> {
+    std::unique_ptr<size_t[]> out(new size_t[n_args_val]);
+    std::copy(other.indices_vec.get(), other.indices_vec.get() + n_args_val,
+              out.get());
+    return out;
+  })()) { }
+
+  r_worker_optimizer_generic(SEXP func, int iarg, SEXP rho):
+  f(func, rho),
+  f_idx(([&]() -> IntegerVector {
+    IntegerVector out(1L);
+    out[0] = iarg + 1L;
+    return out;
+  })()),
+  n_args_val(([&]() -> size_t {
+    NumericVector dum(0);
+    scomp_grad[0] = false;
+    SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
+    if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) < 1){
+      UNPROTECT(1);
+      throw std::invalid_argument(
+          "fn returns does not return an integer vector or the length is less than one with zero length par");
+    }
+
+    R_len_t const out = Rf_xlength(res);
+    UNPROTECT(1);
+    return out;
+  })()),
+  indices_vec(([&]() -> std::unique_ptr<size_t[]> {
+    std::unique_ptr<size_t[]> out(new size_t[n_args_val]);
+
+    NumericVector dum(0);
+    scomp_grad[0] = false;
+    SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
+
+    if(!Rf_isInteger(res) or !Rf_isVector(res) or
+         static_cast<size_t>(Rf_xlength(res)) != n_args_val){
+      UNPROTECT(1);
+      throw std::invalid_argument(
+          "fn returns does not return an integer vector or the length differes between calls with zero length par");
+    }
+
+    int const * vals = INTEGER(res);
+    for(size_t i = 0L; i < n_args_val; ++i){
+      if(vals[i] < 1L){
+        UNPROTECT(1);
+        throw std::invalid_argument("index less than one provided");
+      }
+      out[i] = vals[i] - 1L;
+    }
+
+    UNPROTECT(1);
+    return out;
+  })()) { }
+
+  size_t n_args() const {
+    return n_args_val;
+  }
+
+  size_t const * indices() const {
+    return indices_vec.get();
+  }
+
+  double func(double const *point) const {
+    std::copy(point, point + n_args_val, &par[0]);
+    scomp_grad[0] = false;
+    SEXP res =  PROTECT(f(f_idx, par, scomp_grad));
+    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L){
+      UNPROTECT(1);
+      throw std::invalid_argument(
+          "fn returns invalid output with comp_grad = FALSE");
+    }
+    double const out = *REAL(res);
+    UNPROTECT(1);
+    return out;
+  }
+
+  double grad
+    (double const * __restrict__ point, double * __restrict__ gr) const {
+    std::copy(point, point + n_args_val, &par[0]);
+    scomp_grad[0] = true;
+    SEXP res =  PROTECT(f(f_idx, par, scomp_grad));
+    CharacterVector what("grad");
+    SEXP gr_val = PROTECT(Rf_getAttrib(res, what));
+
+    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L or
+         Rf_isNull(gr_val) or !Rf_isReal(gr_val) or
+         static_cast<size_t>(Rf_xlength(gr_val)) != n_args_val){
+      UNPROTECT(2);
+      throw std::invalid_argument(
+          "fn returns invalid output with comp_grad = TRUE");
+    }
+
+    lp::copy(gr, REAL(gr_val), n_args_val);
+    double const out = *REAL(res);
+    UNPROTECT(2);
+    return out;
+  };
+
+  virtual bool thread_safe() const {
+    return false;
+  };
+};
+
+//' @export
+// [[Rcpp::export]]
+List psqn_generic
+  (NumericVector par, SEXP fn, unsigned const n_ele_func,
+   double const rel_eps = .00000001,
+   unsigned const max_it = 100L, unsigned const n_threads = 1L,
+   double const c1 = .0001, double const c2 = .9,
+   bool const use_bfgs = true, int const trace = 0L,
+   double const cg_tol = .5, bool const strong_wolfe = true,
+   SEXP env = R_NilValue, int const max_cg = 0L,
+   int const pre_method = 1L){
+  if(n_ele_func < 1L)
+    throw std::invalid_argument("psqn_generic: n_ele_func < 1L");
+
+  if(Rf_isNull(env))
+    env = Environment::global_env();
+  if(!Rf_isEnvironment(env))
+    throw std::invalid_argument("psqn_generic: env is not an environment");
+  if(!Rf_isFunction(fn))
+    throw std::invalid_argument("psqn_generic: fn is not a function");
+  if(pre_method < 0L or pre_method > 1L)
+    throw std::invalid_argument("psqn_generic: invalid pre_method");
+
+  std::vector<r_worker_optimizer_generic> funcs;
+  funcs.reserve(n_ele_func);
+  for(size_t i = 0; i < n_ele_func; ++i)
+    funcs.emplace_back(fn, i, env);
+
+  PSQN::optimizer_generic<r_worker_optimizer_generic, PSQN::R_reporter,
+                          PSQN::R_interrupter> optim(funcs, n_threads);
+
+  // check that we pass a parameter value of the right length
+  if(optim.n_par != static_cast<size_t>(par.size()))
+    throw std::invalid_argument("psqn_generic: invalid parameter size");
+
+  NumericVector par_arg = clone(par);
+  optim.set_n_threads(n_threads);
+  auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
+                         use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
+                         static_cast<PSQN::precondition>(pre_method));
+
+  return wrap_optim_info(par_arg, res);
 }

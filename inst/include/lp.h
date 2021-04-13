@@ -9,8 +9,7 @@ using PSQN::psqn_uint;
 
 inline void copy(double * PSQN_RESTRICT x, double const * PSQN_RESTRICT y,
                  psqn_uint const dim) noexcept {
-  for(psqn_uint i = 0; i < dim; ++i, ++x, ++y)
-    *x = *y;
+  std::copy(y, y + dim, x);
 }
 
 inline void vec_diff
