@@ -32,7 +32,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // psqn_bfgs
-List psqn_bfgs(NumericVector par, SEXP fn, SEXP gr, double const rel_eps, size_t const max_it, double const c1, double const c2, int const trace, SEXP env);
+List psqn_bfgs(NumericVector par, SEXP fn, SEXP gr, double const rel_eps, unsigned int const max_it, double const c1, double const c2, int const trace, SEXP env);
 RcppExport SEXP _psqn_psqn_bfgs(SEXP parSEXP, SEXP fnSEXP, SEXP grSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP traceSEXP, SEXP envSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -41,7 +41,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type fn(fnSEXP);
     Rcpp::traits::input_parameter< SEXP >::type gr(grSEXP);
     Rcpp::traits::input_parameter< double const >::type rel_eps(rel_epsSEXP);
-    Rcpp::traits::input_parameter< size_t const >::type max_it(max_itSEXP);
+    Rcpp::traits::input_parameter< unsigned int const >::type max_it(max_itSEXP);
     Rcpp::traits::input_parameter< double const >::type c1(c1SEXP);
     Rcpp::traits::input_parameter< double const >::type c2(c2SEXP);
     Rcpp::traits::input_parameter< int const >::type trace(traceSEXP);

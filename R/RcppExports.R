@@ -10,7 +10,7 @@
 #' @param par Initial values for the parameters. It is a concatenated
 #' vector of the global parameters and all the private parameters.
 #' @param fn Function to compute the element functions and their
-#' derivatives. Each call computes on element function. See the examples
+#' derivatives. Each call computes an element function. See the examples
 #' section.
 #' @param n_ele_func Number of element functions.
 #' @param rel_eps Relative convergence threshold.
@@ -24,10 +24,10 @@
 #' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
 #' @param env Environment to evaluate \code{fn} in. \code{NULL} yields the
 #' global environment.
-#' @param max_cg maximum number of conjugate gradient iterations in each
+#' @param max_cg Maximum number of conjugate gradient iterations in each
 #' iteration. Use zero if there should not be a limit.
-#' @param pre_method preconditioning method in conjugate gradient method.
-#' zero yields no preconditioning and one yields diagonal preconditioning.
+#' @param pre_method Preconditioning method in conjugate gradient method.
+#' Zero yields no preconditioning and one yields diagonal preconditioning.
 #'
 #' @details
 #' The function follows the method described by Nocedal and Wright (2006)
@@ -37,7 +37,9 @@
 #' The partially separable function we consider are special in that the
 #' function to be minimized is a sum of so-called element functions which
 #' only depend on few shared (global) parameters and some
-#' private parameters which are particular to each element function.
+#' private parameters which are particular to each element function. A generic
+#' method for other partially separable functions is available through the
+#' \code{\link{psqn_generic}} function.
 #'
 #' The optimization function is also available in C++ as a header-only
 #' library. Using C++ may reduce the computation time substantially. See
@@ -198,6 +200,118 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
     .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env)
 }
 
+#' Generic Partially Separable Function Optimization
+#'
+#' @description
+#' Optimization method for generic partially separable functions.
+#'
+#' @inheritParams psqn
+#' @param par Initial values for the parameters.
+#'
+#' @details
+#' The function follows the method described by Nocedal and Wright (2006)
+#' and mainly what is described in Section 7.4. Details are provided
+#' in the psqn vignette. See \code{vignette("psqn", package = "psqn")}.
+#'
+#' The partially separable function we consider can be quite general and the
+#' only restriction is that we can write the function to be minimized as a sum
+#' of so called element functions each of which only depends on a small number
+#' of the parameters. A more restricted version is available through the
+#' \code{\link{psqn}} function.
+#'
+#' The optimization function is also available in C++ as a header-only
+#' library. Using C++ may reduce the computation time substantially. See
+#' the vignette in the package for examples.
+#'
+#' @return
+#' A list like \code{\link{psqn}}.
+#'
+#' @references
+#' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+#' (2nd ed.). Springer.
+#'
+#' @examples
+#' # example with a GLM as in the vignette
+#'
+#' # assign the number of parameters and number of observations
+#' set.seed(1)
+#' K <- 20L
+#' n <- 5L * K
+#'
+#' # simulate the data
+#' truth_limit <- runif(K, -1, 1)
+#' dat <- replicate(
+#'   n, {
+#'     # sample the indices
+#'     n_samp <- sample.int(5L, 1L) + 1L
+#'     indices <- sort(sample.int(K, n_samp))
+#'
+#'     # sample the outcome, y, and return
+#'     list(y = rpois(1, exp(sum(truth_limit[indices]))),
+#'          indices = indices)
+#'   }, simplify = FALSE)
+#'
+#' # we need each parameter to be present at least once
+#' stopifnot(length(unique(unlist(
+#'   lapply(dat, `[`, "indices")
+#' ))) == K) # otherwise we need to change the code
+#'
+#' # assign the function we need to pass to psqn_generic
+#' #
+#' # Args:
+#' #   i cluster/element function index.
+#' #   par the parameters that this element function depends on. It has length zero
+#' #       if we need to pass the one-based indices of the parameters that this the
+#' #       i'th element function depends on.
+#' #   comp_grad TRUE of the gradient should be computed.
+#' r_func <- function(i, par, comp_grad){
+#'   z <- dat[[i]]
+#'   if(length(par) == 0L)
+#'     # return the indices
+#'     return(z$indices)
+#'
+#'   eta <- sum(par)
+#'   exp_eta <- exp(eta)
+#'   out <- -z$y * eta + exp_eta
+#'   if(comp_grad)
+#'     attr(out, "grad") <- rep(-z$y + exp_eta, length(z$indices))
+#'   out
+#' }
+#'
+#' # minimize the function
+#' R_res <- psqn_generic(
+#'   par = numeric(K), fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+#'   trace = 0L, rel_eps = 1e-9, max_it = 1000L, env = environment())
+#'
+#' # get the same as if we had used optim
+#' R_func <- function(x){
+#'   out <- vapply(dat, function(z){
+#'     eta <- sum(x[z$indices])
+#'     -z$y * eta + exp(eta)
+#'   }, 0.)
+#'   sum(out)
+#' }
+#' R_func_gr <- function(x){
+#'   out <- numeric(length(x))
+#'   for(z in dat){
+#'     idx_i <- z$indices
+#'     eta <- sum(x[idx_i])
+#'     out[idx_i] <- out[idx_i] -z$y + exp(eta)
+#'   }
+#'   out
+#' }
+#'
+#' opt <- optim(numeric(K), R_func, R_func_gr, method = "BFGS",
+#'              control = list(maxit = 1000L))
+#'
+#' # we got the same
+#' all.equal(opt$value, R_res$value)
+#'
+#' # the overhead here is though quite large with the R interface from the psqn
+#' # package. A C++ implementation is much faster as shown in
+#' # vignette("psqn", package = "psqn"). The reason it is that it is very fast
+#' # to evaluate the element functions in this case
+#'
 #' @export
 psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L) {
     .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method)

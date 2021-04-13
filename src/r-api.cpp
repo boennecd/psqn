@@ -1,8 +1,10 @@
+#define PSQN_SIZE_T unsigned int
 #include "psqn.h"
 #include "psqn-reporter.h"
 #include <stdexcept>
 
 using namespace Rcpp;
+using PSQN::psqn_uint;
 
 /**
  simple wrapper for an R function which takes three argument.
@@ -47,8 +49,8 @@ class r_worker_psqn {
   simple_R_func3 f;
   IntegerVector f_idx;
   LogicalVector mutable scomp_grad = LogicalVector(1L);
-  size_t const g_dim, p_dim,
-               n_ele = g_dim + p_dim;
+  psqn_uint const g_dim, p_dim,
+                  n_ele = g_dim + p_dim;
 
   NumericVector mutable par = NumericVector(g_dim + p_dim);
 
@@ -60,7 +62,7 @@ public:
     out[0] = iarg + 1L;
     return out;
   })()),
-  g_dim(([&]() -> size_t {
+  g_dim(([&]() -> psqn_uint {
     NumericVector dum(0);
     scomp_grad[0] = false;
     SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
@@ -73,7 +75,7 @@ public:
     UNPROTECT(1);
     return out;
   })()),
-  p_dim(([&]() -> size_t {
+  p_dim(([&]() -> psqn_uint {
     NumericVector dum(0);
     scomp_grad[0] = false;
     SEXP res =  PROTECT(f(f_idx, dum, scomp_grad));
@@ -88,10 +90,10 @@ public:
   })())
   { };
 
-  size_t global_dim() const {
+  psqn_uint global_dim() const {
     return g_dim;
   };
-  size_t private_dim() const {
+  psqn_uint private_dim() const {
     return p_dim;
   }
 
@@ -119,7 +121,7 @@ public:
 
     if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L or
          Rf_isNull(gr_val) or !Rf_isReal(gr_val) or
-         static_cast<size_t>(Rf_xlength(gr_val)) != n_ele){
+         static_cast<psqn_uint>(Rf_xlength(gr_val)) != n_ele){
       UNPROTECT(2);
       throw std::invalid_argument(
           "fn returns invalid output with comp_grad = TRUE");
@@ -156,7 +158,7 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @param par Initial values for the parameters. It is a concatenated
 //' vector of the global parameters and all the private parameters.
 //' @param fn Function to compute the element functions and their
-//' derivatives. Each call computes on element function. See the examples
+//' derivatives. Each call computes an element function. See the examples
 //' section.
 //' @param n_ele_func Number of element functions.
 //' @param rel_eps Relative convergence threshold.
@@ -170,10 +172,10 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @param strong_wolfe \code{TRUE} if the strong Wolfe condition should be used.
 //' @param env Environment to evaluate \code{fn} in. \code{NULL} yields the
 //' global environment.
-//' @param max_cg maximum number of conjugate gradient iterations in each
+//' @param max_cg Maximum number of conjugate gradient iterations in each
 //' iteration. Use zero if there should not be a limit.
-//' @param pre_method preconditioning method in conjugate gradient method.
-//' zero yields no preconditioning and one yields diagonal preconditioning.
+//' @param pre_method Preconditioning method in conjugate gradient method.
+//' Zero yields no preconditioning and one yields diagonal preconditioning.
 //'
 //' @details
 //' The function follows the method described by Nocedal and Wright (2006)
@@ -183,7 +185,9 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' The partially separable function we consider are special in that the
 //' function to be minimized is a sum of so-called element functions which
 //' only depend on few shared (global) parameters and some
-//' private parameters which are particular to each element function.
+//' private parameters which are particular to each element function. A generic
+//' method for other partially separable functions is available through the
+//' \code{\link{psqn_generic}} function.
 //'
 //' The optimization function is also available in C++ as a header-only
 //' library. Using C++ may reduce the computation time substantially. See
@@ -304,14 +308,14 @@ List psqn
 
   std::vector<r_worker_psqn> funcs;
   funcs.reserve(n_ele_func);
-  for(size_t i = 0; i < n_ele_func; ++i)
+  for(psqn_uint i = 0; i < n_ele_func; ++i)
     funcs.emplace_back(fn, i, env);
 
   PSQN::optimizer<r_worker_psqn, PSQN::R_reporter,
                   PSQN::R_interrupter> optim(funcs, n_threads);
 
   // check that we pass a parameter value of the right length
-  if(optim.n_par != static_cast<size_t>(par.size()))
+  if(optim.n_par != static_cast<psqn_uint>(par.size()))
     throw std::invalid_argument("psqn: invalid parameter size");
 
   NumericVector par_arg = clone(par);
@@ -326,14 +330,14 @@ List psqn
 
 class r_worker_bfgs : public PSQN::problem {
   simple_R_func1 f, g;
-  size_t const n_ele;
+  psqn_uint const n_ele;
   NumericVector par = NumericVector(n_ele);
 
 public:
-  r_worker_bfgs(SEXP f, SEXP g, size_t const n_ele, SEXP env):
+  r_worker_bfgs(SEXP f, SEXP g, psqn_uint const n_ele, SEXP env):
   f(f, env), g(g, env), n_ele(n_ele) { }
 
-  size_t size() const {
+  psqn_uint size() const {
     return n_ele;
   }
 
@@ -358,7 +362,7 @@ public:
     SEXP func_val = PROTECT(Rf_getAttrib(res, what));
 
     if(!Rf_isReal(res) or !Rf_isVector(res) or
-         static_cast<size_t>(Rf_xlength(res)) != n_ele or
+         static_cast<psqn_uint>(Rf_xlength(res)) != n_ele or
          Rf_isNull(func_val) or !Rf_isReal(func_val) or
          Rf_xlength(func_val) != 1L){
       UNPROTECT(2);
@@ -431,7 +435,7 @@ public:
 // [[Rcpp::export]]
 List psqn_bfgs
   (NumericVector par, SEXP fn, SEXP gr,
-   double const rel_eps = .00000001, size_t const max_it = 100,
+   double const rel_eps = .00000001, unsigned int const max_it = 100,
    double const c1 = .0001, double const c2 = .9, int const trace = 0L,
    SEXP env = R_NilValue){
   if(Rf_isNull(env))
@@ -457,9 +461,9 @@ class r_worker_optimizer_generic {
   simple_R_func3 f;
   IntegerVector f_idx;
   LogicalVector mutable scomp_grad = LogicalVector(1L);
-  size_t const n_args_val;
+  psqn_uint const n_args_val;
   NumericVector mutable par = NumericVector(n_args_val);
-  std::unique_ptr<size_t[]> const indices_vec;
+  std::unique_ptr<psqn_uint[]> const indices_vec;
 
 public:
   // needed because of the unique_ptr
@@ -469,8 +473,8 @@ public:
   scomp_grad(1L),
   n_args_val(other.n_args_val),
   par(n_args_val),
-  indices_vec(([&]() -> std::unique_ptr<size_t[]> {
-    std::unique_ptr<size_t[]> out(new size_t[n_args_val]);
+  indices_vec(([&]() -> std::unique_ptr<psqn_uint[]> {
+    std::unique_ptr<psqn_uint[]> out(new psqn_uint[n_args_val]);
     std::copy(other.indices_vec.get(), other.indices_vec.get() + n_args_val,
               out.get());
     return out;
@@ -483,7 +487,7 @@ public:
     out[0] = iarg + 1L;
     return out;
   })()),
-  n_args_val(([&]() -> size_t {
+  n_args_val(([&]() -> psqn_uint {
     NumericVector dum(0);
     scomp_grad[0] = false;
     SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
@@ -497,22 +501,22 @@ public:
     UNPROTECT(1);
     return out;
   })()),
-  indices_vec(([&]() -> std::unique_ptr<size_t[]> {
-    std::unique_ptr<size_t[]> out(new size_t[n_args_val]);
+  indices_vec(([&]() -> std::unique_ptr<psqn_uint[]> {
+    std::unique_ptr<psqn_uint[]> out(new psqn_uint[n_args_val]);
 
     NumericVector dum(0);
     scomp_grad[0] = false;
     SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
 
     if(!Rf_isInteger(res) or !Rf_isVector(res) or
-         static_cast<size_t>(Rf_xlength(res)) != n_args_val){
+         static_cast<psqn_uint>(Rf_xlength(res)) != n_args_val){
       UNPROTECT(1);
       throw std::invalid_argument(
           "fn returns does not return an integer vector or the length differes between calls with zero length par");
     }
 
     int const * vals = INTEGER(res);
-    for(size_t i = 0L; i < n_args_val; ++i){
+    for(psqn_uint i = 0L; i < n_args_val; ++i){
       if(vals[i] < 1L){
         UNPROTECT(1);
         throw std::invalid_argument("index less than one provided");
@@ -524,11 +528,11 @@ public:
     return out;
   })()) { }
 
-  size_t n_args() const {
+  psqn_uint n_args() const {
     return n_args_val;
   }
 
-  size_t const * indices() const {
+  psqn_uint const * indices() const {
     return indices_vec.get();
   }
 
@@ -556,7 +560,7 @@ public:
 
     if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L or
          Rf_isNull(gr_val) or !Rf_isReal(gr_val) or
-         static_cast<size_t>(Rf_xlength(gr_val)) != n_args_val){
+         static_cast<psqn_uint>(Rf_xlength(gr_val)) != n_args_val){
       UNPROTECT(2);
       throw std::invalid_argument(
           "fn returns invalid output with comp_grad = TRUE");
@@ -573,6 +577,118 @@ public:
   };
 };
 
+//' Generic Partially Separable Function Optimization
+//'
+//' @description
+//' Optimization method for generic partially separable functions.
+//'
+//' @inheritParams psqn
+//' @param par Initial values for the parameters.
+//'
+//' @details
+//' The function follows the method described by Nocedal and Wright (2006)
+//' and mainly what is described in Section 7.4. Details are provided
+//' in the psqn vignette. See \code{vignette("psqn", package = "psqn")}.
+//'
+//' The partially separable function we consider can be quite general and the
+//' only restriction is that we can write the function to be minimized as a sum
+//' of so called element functions each of which only depends on a small number
+//' of the parameters. A more restricted version is available through the
+//' \code{\link{psqn}} function.
+//'
+//' The optimization function is also available in C++ as a header-only
+//' library. Using C++ may reduce the computation time substantially. See
+//' the vignette in the package for examples.
+//'
+//' @return
+//' A list like \code{\link{psqn}}.
+//'
+//' @references
+//' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
+//' (2nd ed.). Springer.
+//'
+//' @examples
+//' # example with a GLM as in the vignette
+//'
+//' # assign the number of parameters and number of observations
+//' set.seed(1)
+//' K <- 20L
+//' n <- 5L * K
+//'
+//' # simulate the data
+//' truth_limit <- runif(K, -1, 1)
+//' dat <- replicate(
+//'   n, {
+//'     # sample the indices
+//'     n_samp <- sample.int(5L, 1L) + 1L
+//'     indices <- sort(sample.int(K, n_samp))
+//'
+//'     # sample the outcome, y, and return
+//'     list(y = rpois(1, exp(sum(truth_limit[indices]))),
+//'          indices = indices)
+//'   }, simplify = FALSE)
+//'
+//' # we need each parameter to be present at least once
+//' stopifnot(length(unique(unlist(
+//'   lapply(dat, `[`, "indices")
+//' ))) == K) # otherwise we need to change the code
+//'
+//' # assign the function we need to pass to psqn_generic
+//' #
+//' # Args:
+//' #   i cluster/element function index.
+//' #   par the parameters that this element function depends on. It has length zero
+//' #       if we need to pass the one-based indices of the parameters that this the
+//' #       i'th element function depends on.
+//' #   comp_grad TRUE of the gradient should be computed.
+//' r_func <- function(i, par, comp_grad){
+//'   z <- dat[[i]]
+//'   if(length(par) == 0L)
+//'     # return the indices
+//'     return(z$indices)
+//'
+//'   eta <- sum(par)
+//'   exp_eta <- exp(eta)
+//'   out <- -z$y * eta + exp_eta
+//'   if(comp_grad)
+//'     attr(out, "grad") <- rep(-z$y + exp_eta, length(z$indices))
+//'   out
+//' }
+//'
+//' # minimize the function
+//' R_res <- psqn_generic(
+//'   par = numeric(K), fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+//'   trace = 0L, rel_eps = 1e-9, max_it = 1000L, env = environment())
+//'
+//' # get the same as if we had used optim
+//' R_func <- function(x){
+//'   out <- vapply(dat, function(z){
+//'     eta <- sum(x[z$indices])
+//'     -z$y * eta + exp(eta)
+//'   }, 0.)
+//'   sum(out)
+//' }
+//' R_func_gr <- function(x){
+//'   out <- numeric(length(x))
+//'   for(z in dat){
+//'     idx_i <- z$indices
+//'     eta <- sum(x[idx_i])
+//'     out[idx_i] <- out[idx_i] -z$y + exp(eta)
+//'   }
+//'   out
+//' }
+//'
+//' opt <- optim(numeric(K), R_func, R_func_gr, method = "BFGS",
+//'              control = list(maxit = 1000L))
+//'
+//' # we got the same
+//' all.equal(opt$value, R_res$value)
+//'
+//' # the overhead here is though quite large with the R interface from the psqn
+//' # package. A C++ implementation is much faster as shown in
+//' # vignette("psqn", package = "psqn"). The reason it is that it is very fast
+//' # to evaluate the element functions in this case
+//'
 //' @export
 // [[Rcpp::export]]
 List psqn_generic
@@ -598,14 +714,14 @@ List psqn_generic
 
   std::vector<r_worker_optimizer_generic> funcs;
   funcs.reserve(n_ele_func);
-  for(size_t i = 0; i < n_ele_func; ++i)
+  for(psqn_uint i = 0; i < n_ele_func; ++i)
     funcs.emplace_back(fn, i, env);
 
   PSQN::optimizer_generic<r_worker_optimizer_generic, PSQN::R_reporter,
                           PSQN::R_interrupter> optim(funcs, n_threads);
 
   // check that we pass a parameter value of the right length
-  if(optim.n_par != static_cast<size_t>(par.size()))
+  if(optim.n_par != static_cast<psqn_uint>(par.size()))
     throw std::invalid_argument("psqn_generic: invalid parameter size");
 
   NumericVector par_arg = clone(par);
