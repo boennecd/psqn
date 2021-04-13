@@ -333,12 +333,12 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <p>This is a quick introduction to the psqn package. A more detailed description can be found in the psqn vignette (call <code>vignette(&quot;psqn&quot;, package = &quot;psqn&quot;)</code>). The main function in the package is the <code>psqn</code> function. The <code>psqn</code> function minimizes functions which can be written like:</p>
 <p><span class="math display">\[f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})\]</span></p>
 <p>where <span class="math inline">\(\vec x\in \mathbb R^l\)</span>,</p>
-<p><span class="math display">\[\vec x_{\mathcal I_i} = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\}^l,\]</span></p>
+<p><span class="math display">\[\vec x_{\mathcal I_i} = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\},\]</span></p>
 <p>and <span class="math inline">\(\vec e_k\)</span> is the <span class="math inline">\(k\)</span>’th column of the <span class="math inline">\(l\)</span> dimensional identity matrix. We call the <span class="math inline">\(f_i\)</span>s element functions and assume that each of them only depend on a small number of variables. Furthermore, we assume that each index set <span class="math inline">\(\mathcal I_i\)</span> is of the form:</p>
 <p><span class="math display">\[\begin{align*}   \mathcal I_i &amp;= \{1,\dots, p\} \cup \mathcal J_i \\   \mathcal J_i \cap \mathcal J_j &amp;= \emptyset \qquad j\neq i \\   \mathcal J_i \cap \{1,\dots, p\} &amp;= \emptyset \qquad \forall i = 1,\dots, n   \end{align*}.\]</span></p>
 <p>That is, each index set contains <span class="math inline">\(p\)</span> <em>global parameters</em> and <span class="math inline">\(q_i = \lvert\mathcal J_i\rvert\)</span> <em>private parameters</em> which are particular for each element function, <span class="math inline">\(f_i\)</span>. For implementation reason, we let:</p>
 <p><span class="math display">\[\begin{align*}   \overleftarrow q_i &amp;=    \begin{cases} p &amp; i = 0 \\ p + \sum_{k = 1}^i q_k &amp; i &gt; 0 \end{cases} \\   \mathcal J_i &amp;=    \{1 + \overleftarrow q_{i - 1}, \dots , q_i + \overleftarrow q_{i - 1}\}   \end{align*}\]</span></p>
-<p>such that the element functions’ private parameters lies in consecutive parts of <span class="math inline">\(\vec x\)</span>. There is also a less restricted optimizer called <code>optimizer_generic</code> were the parameters can overlap in an arbitrary way. See <code>vignette(&quot;psqn&quot;, package = &quot;psqn&quot;)</code> for further details.</p>
+<p>such that the element functions’ private parameters lies in consecutive parts of <span class="math inline">\(\vec x\)</span>. There is also a less restricted optimizer called <code>optimizer_generic</code> were the parameters can overlap in an arbitrary way. The R interface for this function is implemented in the <code>psqn_generic</code> function. See <code>vignette(&quot;psqn&quot;, package = &quot;psqn&quot;)</code> for further details on both the <code>psqn</code> and the <code>psqn_generic</code> function.</p>
 <div id="the-r-interface" class="section level2">
 <h2>The R Interface</h2>
 <p>As a simple example, we consider the element functions:</p>
@@ -485,6 +485,70 @@ f_i((\vec\beta^\top, \vec u^\top_i)^\top) = -\vec y_i(\mat X_i\vec\beta + \mat Z
 <span id="cb3-13"><a href="#cb3-13"></a><span class="co"># should be close to </span></span>
 <span id="cb3-14"><a href="#cb3-14"></a>beta</span>
 <span id="cb3-15"><a href="#cb3-15"></a><span class="co">#&gt; [1] 0.258 0.365 0.447 0.516 0.577</span></span></code></pre></div>
+</div>
+<div id="the-r-interface-for-optimizer_generic" class="section level2">
+<h2>The R Interface for optimizer_generic</h2>
+<p>We can also use the <code>psqn_generic</code> function although it will be slower because of some additional computational overhead because the function is more general. The function we need to pass to <code>psqn_generic</code> needs to take three arguments:</p>
+<ul>
+<li>An index of the element function.</li>
+<li>A vector with <span class="math inline">\(\vec x_{\mathcal I_i}\)</span>. This time, we make no assumptions about the index sets, the <span class="math inline">\(\mathcal I_i\)</span>s. Thus, the argument will have length zero if the backend requests an integer vector with <span class="math inline">\(\mathcal I_i\)</span>.</li>
+<li>A logical variable which is <code>TRUE</code> if the function should return an attribute with the gradient with respect to <span class="math inline">\(\vec x_{\mathcal I_i}\)</span>.</li>
+</ul>
+<p>We assign the function we need to pass to <code>psqn_generic</code> for the example in this vignette:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a>r_func_generic &lt;-<span class="st"> </span><span class="cf">function</span>(i, par, comp_grad){</span>
+<span id="cb4-2"><a href="#cb4-2"></a>  dat &lt;-<span class="st"> </span>sim_dat[[i]]</span>
+<span id="cb4-3"><a href="#cb4-3"></a>  X &lt;-<span class="st"> </span>dat<span class="op">$</span>X</span>
+<span id="cb4-4"><a href="#cb4-4"></a>  Z &lt;-<span class="st"> </span>dat<span class="op">$</span>Z</span>
+<span id="cb4-5"><a href="#cb4-5"></a>  </span>
+<span id="cb4-6"><a href="#cb4-6"></a>  <span class="cf">if</span>(<span class="kw">length</span>(par) <span class="op">&lt;</span><span class="st"> </span><span class="dv">1</span>)</span>
+<span id="cb4-7"><a href="#cb4-7"></a>    <span class="co"># return the index set. This is one-based like in R</span></span>
+<span id="cb4-8"><a href="#cb4-8"></a>    <span class="kw">return</span>(<span class="kw">c</span>(<span class="dv">1</span><span class="op">:</span><span class="kw">NROW</span>(dat<span class="op">$</span>X), </span>
+<span id="cb4-9"><a href="#cb4-9"></a>             <span class="kw">seq_len</span>(<span class="kw">NROW</span>(dat<span class="op">$</span>Z)) <span class="op">+</span><span class="st"> </span><span class="kw">NROW</span>(dat<span class="op">$</span>X) <span class="op">+</span><span class="st"> </span>(i <span class="op">-</span><span class="st"> </span>1L) <span class="op">*</span><span class="st"> </span><span class="kw">NROW</span>(dat<span class="op">$</span>Z)))</span>
+<span id="cb4-10"><a href="#cb4-10"></a>  </span>
+<span id="cb4-11"><a href="#cb4-11"></a>  y &lt;-<span class="st"> </span>dat<span class="op">$</span>y</span>
+<span id="cb4-12"><a href="#cb4-12"></a>  Sigma_inv &lt;-<span class="st"> </span>dat<span class="op">$</span>Sigma_inv</span>
+<span id="cb4-13"><a href="#cb4-13"></a>  </span>
+<span id="cb4-14"><a href="#cb4-14"></a>  beta &lt;-<span class="st"> </span>par[<span class="dv">1</span><span class="op">:</span>p]</span>
+<span id="cb4-15"><a href="#cb4-15"></a>  u_i &lt;-<span class="st"> </span>par[<span class="dv">1</span><span class="op">:</span>q <span class="op">+</span><span class="st"> </span>p]</span>
+<span id="cb4-16"><a href="#cb4-16"></a>  eta &lt;-<span class="st"> </span><span class="kw">drop</span>(beta <span class="op">%*%</span><span class="st"> </span>X <span class="op">+</span><span class="st"> </span>u_i <span class="op">%*%</span><span class="st"> </span>Z)</span>
+<span id="cb4-17"><a href="#cb4-17"></a>  exp_eta &lt;-<span class="st"> </span><span class="kw">exp</span>(eta)</span>
+<span id="cb4-18"><a href="#cb4-18"></a>  </span>
+<span id="cb4-19"><a href="#cb4-19"></a>  <span class="co"># compute the element function</span></span>
+<span id="cb4-20"><a href="#cb4-20"></a>  out &lt;-<span class="st"> </span><span class="op">-</span><span class="kw">sum</span>(y <span class="op">*</span><span class="st"> </span>eta) <span class="op">+</span><span class="st"> </span><span class="kw">sum</span>(<span class="kw">log</span>(<span class="dv">1</span> <span class="op">+</span><span class="st"> </span>exp_eta)) <span class="op">+</span><span class="st"> </span></span>
+<span id="cb4-21"><a href="#cb4-21"></a><span class="st">    </span><span class="kw">sum</span>(u_i <span class="op">*</span><span class="st"> </span>(Sigma_inv <span class="op">%*%</span><span class="st"> </span>u_i)) <span class="op">/</span><span class="st"> </span><span class="dv">2</span></span>
+<span id="cb4-22"><a href="#cb4-22"></a>  </span>
+<span id="cb4-23"><a href="#cb4-23"></a>  <span class="cf">if</span>(comp_grad){</span>
+<span id="cb4-24"><a href="#cb4-24"></a>    <span class="co"># we also need to compute the gradient</span></span>
+<span id="cb4-25"><a href="#cb4-25"></a>    d_eta &lt;-<span class="st"> </span><span class="op">-</span>y <span class="op">+</span><span class="st"> </span>exp_eta <span class="op">/</span><span class="st"> </span>(<span class="dv">1</span> <span class="op">+</span><span class="st"> </span>exp_eta)</span>
+<span id="cb4-26"><a href="#cb4-26"></a>    grad &lt;-<span class="st"> </span><span class="kw">c</span>(X <span class="op">%*%</span><span class="st"> </span>d_eta, </span>
+<span id="cb4-27"><a href="#cb4-27"></a>              Z <span class="op">%*%</span><span class="st"> </span>d_eta <span class="op">+</span><span class="st"> </span>dat<span class="op">$</span>Sigma_inv <span class="op">%*%</span><span class="st"> </span>u_i)</span>
+<span id="cb4-28"><a href="#cb4-28"></a>    <span class="kw">attr</span>(out, <span class="st">&quot;grad&quot;</span>) &lt;-<span class="st"> </span>grad</span>
+<span id="cb4-29"><a href="#cb4-29"></a>  }</span>
+<span id="cb4-30"><a href="#cb4-30"></a>  </span>
+<span id="cb4-31"><a href="#cb4-31"></a>  out</span>
+<span id="cb4-32"><a href="#cb4-32"></a>}</span></code></pre></div>
+<p>Then we can optimize the function as follows:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1"></a>opt_res_generic &lt;-<span class="st"> </span><span class="kw">psqn_generic</span>(</span>
+<span id="cb5-2"><a href="#cb5-2"></a>  <span class="dt">par =</span> start_val, <span class="dt">fn =</span> r_func_generic, <span class="dt">n_ele_func =</span> n_ele_func)</span>
+<span id="cb5-3"><a href="#cb5-3"></a></span>
+<span id="cb5-4"><a href="#cb5-4"></a><span class="co"># we get the same</span></span>
+<span id="cb5-5"><a href="#cb5-5"></a><span class="kw">all.equal</span>(opt_res_generic<span class="op">$</span>value, opt_res<span class="op">$</span>value)</span>
+<span id="cb5-6"><a href="#cb5-6"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb5-7"><a href="#cb5-7"></a><span class="kw">all.equal</span>(opt_res_generic<span class="op">$</span>par  , opt_res<span class="op">$</span>par)</span>
+<span id="cb5-8"><a href="#cb5-8"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb5-9"><a href="#cb5-9"></a></span>
+<span id="cb5-10"><a href="#cb5-10"></a><span class="co"># the generic version is slower</span></span>
+<span id="cb5-11"><a href="#cb5-11"></a>bench<span class="op">::</span><span class="kw">mark</span>(</span>
+<span id="cb5-12"><a href="#cb5-12"></a>  <span class="dt">psqn =</span> <span class="kw">psqn</span>(<span class="dt">par =</span> start_val, <span class="dt">fn =</span> r_func, <span class="dt">n_ele_func =</span> n_ele_func), </span>
+<span id="cb5-13"><a href="#cb5-13"></a>  <span class="dt">psqn_generic =</span> <span class="kw">psqn_generic</span>(</span>
+<span id="cb5-14"><a href="#cb5-14"></a>  <span class="dt">par =</span> start_val, <span class="dt">fn =</span> r_func_generic, <span class="dt">n_ele_func =</span> n_ele_func), </span>
+<span id="cb5-15"><a href="#cb5-15"></a>  <span class="dt">min_iterations =</span> <span class="dv">5</span>)</span>
+<span id="cb5-16"><a href="#cb5-16"></a><span class="co">#&gt; Warning: Some expressions had a GC in every iteration; so filtering is disabled.</span></span>
+<span id="cb5-17"><a href="#cb5-17"></a><span class="co">#&gt; # A tibble: 2 x 6</span></span>
+<span id="cb5-18"><a href="#cb5-18"></a><span class="co">#&gt;   expression        min   median `itr/sec` mem_alloc `gc/sec`</span></span>
+<span id="cb5-19"><a href="#cb5-19"></a><span class="co">#&gt;   &lt;bch:expr&gt;   &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
+<span id="cb5-20"><a href="#cb5-20"></a><span class="co">#&gt; 1 psqn            313ms    323ms      3.05    30.9MB     4.27</span></span>
+<span id="cb5-21"><a href="#cb5-21"></a><span class="co">#&gt; 2 psqn_generic    320ms    334ms      2.97    30.9MB     4.76</span></span></code></pre></div>
 </div>
 <div id="ending-remarks" class="section level2">
 <h2>Ending Remarks</h2>

@@ -49,6 +49,7 @@ test_that("the R and C++ interface gives the same and correct result", {
 
   # check that the C++ version gives the same
   skip_if_not_installed("Rcpp")
+  skip_on_macOS()
   library(Rcpp)
   sourceCpp(system.file("generic_example.cpp", package = "psqn"))
   cpp_arg <- lapply(dat, function(x){

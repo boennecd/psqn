@@ -6,7 +6,7 @@
 * Ubuntu 18.04 LTS with gcc 10.1.0
   R version 3.6.3 with valgrind
 * Ubuntu 18.04 LTS with clang-6.0.0
-  R devel 2021-02-03 r79933 with ASAN and UBSAN
+  R devel 2021-04-12 r80161 with ASAN and UBSAN
 * Ubuntu 18.04 LTS with gcc 10.1.0
   R devel 2021-04-12 r80161 with ASAN and UBSAN
 * Github actions on windows-latest (release), macOS-latest (release), 

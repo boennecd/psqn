@@ -26,7 +26,7 @@ $$f(\vec x) = \sum_{i = 1}^n f_i(\vec x_{\mathcal I_i})$$
 
 where $\vec x\in \mathbb R^l$,
 
-$$\vec x_{\mathcal I_i} = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\}^l,$$
+$$\vec x_{\mathcal I_i} = (\vec e_{j_{i1}}^\top, \dots ,\vec e_{j_{im_i}}^\top)\vec x, \qquad    \mathcal I_i = (j_{i1}, \dots, \mathcal j_{im_i}) \subseteq    \{1, \dots, l\},$$
 
 and $\vec e_k$ is the $k$'th column of the $l$ dimensional identity matrix.
 We call the $f_i$s element functions and assume that each of them only 
@@ -44,7 +44,9 @@ $$\begin{align*}   \overleftarrow q_i &=    \begin{cases} p & i = 0 \\ p + \sum_
 such that the element functions' private parameters lies in consecutive 
 parts of $\vec x$. There is also a less restricted optimizer called 
 `optimizer_generic` were the parameters can overlap in an arbitrary way. 
-See `vignette("psqn", package = "psqn")` for further details.
+The R interface for this function is implemented in the `psqn_generic` function.
+See `vignette("psqn", package = "psqn")` for further details on both the 
+`psqn` and the `psqn_generic` function.
 
 ## The R Interface 
 As a simple example, we consider the element functions: 
@@ -149,6 +151,76 @@ head(opt_res$par, length(beta))
 
 # should be close to 
 beta
+```
+
+## The R Interface for optimizer_generic
+
+We can also use the `psqn_generic` function although it will be slower because of 
+some additional computational overhead because the function is more general. 
+The function we need to pass to `psqn_generic` needs to take three arguments: 
+
+ - An index of the element function. 
+ - A vector with $\vec x_{\mathcal I_i}$. This time, we make no assumptions 
+   about the index sets, the $\mathcal I_i$s. Thus, the argument will have
+   length zero if the backend requests an integer vector with 
+   $\mathcal I_i$.
+ - A logical variable which is `TRUE` if the function should return an 
+   attribute with the gradient with respect to $\vec x_{\mathcal I_i}$.
+   
+We assign the function we need to pass to `psqn_generic` for the example in 
+this vignette:
+   
+```{r generic_def_func}
+r_func_generic <- function(i, par, comp_grad){
+  dat <- sim_dat[[i]]
+  X <- dat$X
+  Z <- dat$Z
+  
+  if(length(par) < 1)
+    # return the index set. This is one-based like in R
+    return(c(1:NROW(dat$X), 
+             seq_len(NROW(dat$Z)) + NROW(dat$X) + (i - 1L) * NROW(dat$Z)))
+  
+  y <- dat$y
+  Sigma_inv <- dat$Sigma_inv
+  
+  beta <- par[1:p]
+  u_i <- par[1:q + p]
+  eta <- drop(beta %*% X + u_i %*% Z)
+  exp_eta <- exp(eta)
+  
+  # compute the element function
+  out <- -sum(y * eta) + sum(log(1 + exp_eta)) + 
+    sum(u_i * (Sigma_inv %*% u_i)) / 2
+  
+  if(comp_grad){
+    # we also need to compute the gradient
+    d_eta <- -y + exp_eta / (1 + exp_eta)
+    grad <- c(X %*% d_eta, 
+              Z %*% d_eta + dat$Sigma_inv %*% u_i)
+    attr(out, "grad") <- grad
+  }
+  
+  out
+}
+```
+
+Then we can optimize the function as follows:
+
+```{r gemeric_opt_func, cache = 1}
+opt_res_generic <- psqn_generic(
+  par = start_val, fn = r_func_generic, n_ele_func = n_ele_func)
+
+# we get the same
+all.equal(opt_res_generic$value, opt_res$value)
+all.equal(opt_res_generic$par  , opt_res$par)
+
+# the generic version is slower
+bench::mark(
+  psqn = psqn(par = start_val, fn = r_func, n_ele_func = n_ele_func), 
+  psqn_generic = psqn_generic(
+  par = start_val, fn = r_func_generic, n_ele_func = n_ele_func), 
+  min_iterations = 5)
 ```
 
 ## Ending Remarks

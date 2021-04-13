@@ -752,7 +752,8 @@ public:
     constexpr std::size_t const mult = cacheline_size() / sizeof(double),
                             min_size = 2L * mult;
 
-    std::size_t thread_mem = std::max(3L * (global_dim + max_priv), min_size);
+    std::size_t thread_mem = std::max<std::size_t>(
+      3L * (global_dim + max_priv), min_size);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
@@ -1422,11 +1423,11 @@ public:
 
     constexpr std::size_t const mult = cacheline_size() / sizeof(double),
                             min_size = 2L * mult;
-    std::size_t const n_extra =
-      std::min(static_cast<std::size_t>(2L), max_args);
+    std::size_t const n_extra = std::min<std::size_t>(2L, max_args);
 
-    std::size_t thread_mem = std::max(2L * n_par + n_extra, min_size);
-    thread_mem = std::max(thread_mem, 3L * max_args);
+    std::size_t thread_mem = std::max<std::size_t>(
+      2L * n_par + n_extra, min_size);
+    thread_mem = std::max<std::size_t>(thread_mem, 3L * max_args);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
