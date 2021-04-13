@@ -1,19 +1,19 @@
 ## Test environments
-* Ubuntu 18.04 LTS with gcc 8.3.0
-  R version 3.6.3  
-* Ubuntu 18.04 LTS with gcc 8.3.0
+* Ubuntu 18.04 LTS with gcc 10.1.0
+  R version 3.6.3
+* Ubuntu 18.04 LTS with gcc 10.1.0
   R version 3.6.3 with LTO checks
-* Ubuntu 18.04 LTS with gcc 8.3.0
+* Ubuntu 18.04 LTS with gcc 10.1.0
   R version 3.6.3 with valgrind
-* Ubuntu 18.04 LTS with clang-6.0.0 
-  R version 3.6.3 with ASAN and UBSAN
-* Ubuntu 16.04 LTS (on travis-ci)
-  R version 4.0.0
-* win-builder (devel and release)
+* Ubuntu 18.04 LTS with clang-6.0.0
+  R devel 2021-02-03 r79933 with ASAN and UBSAN
+* Ubuntu 18.04 LTS with gcc 10.1.0
+  R devel 2021-04-12 r80161 with ASAN and UBSAN
+* Github actions on windows-latest (release), macOS-latest (release), 
+  ubuntu-20.04 (release), and ubuntu-20.04 (devel)
+* win-builder (devel, oldrelease, and release)
 * `rhub::check_for_cran()`
-* `rhub::check_on_solaris()`
-* `rhub::check(platform = "macos-highsierra-release")`
-* `rhub::check_with_valgrind()`
+* `rhub::check(platform = c("solaris-x86-patched", "macos-highsierra-release-cran"))`
   
 ## R CMD check results
 There were no WARNINGs or ERRORs.

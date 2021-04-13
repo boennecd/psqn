@@ -6,12 +6,8 @@
 \alias{_PACKAGE}
 \title{psqn: Partially Separable Quasi-Newton}
 \description{
-Provides quasi-Newton methods to minimize partially separable
-    functions. The methods are largely described by  
-    Nocedal and Wright (2006) <doi:10.1007/978-0-387-40065-5>.
-}
-\details{
-The main method in the psqn package is the \code{\link{psqn}} function.
+The main methods in the psqn package are the \code{\link{psqn}} and
+\code{\link{psqn_generic}} function.
 Notice that it is also possible to use the package from C++. This may
 yield a large reduction in the computation time. See the vignette for
 details e.g. by calling \code{vignette("psqn", package = "psqn")}.
@@ -33,4 +29,3 @@ Useful links:
 \strong{Maintainer}: Benjamin Christoffersen \email{boennecd@gmail.com} (\href{https://orcid.org/0000-0002-7182-1346}{ORCID})
 
 }
-\keyword{internal}

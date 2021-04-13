@@ -1518,7 +1518,7 @@ public:
     }
 
     // aggregate the results and possibly add to the gradient
-    double *r_mem[n_threads];
+    std::unique_ptr<double*[]> r_mem(new double*[n_threads]);
     for (int t = 0; t < n_threads; t++)
       r_mem[t] = get_thread_mem(t);
 
@@ -1607,7 +1607,7 @@ public:
 
     // fill the result. See
     //    https://stackoverflow.com/a/18016809/5861244
-    double *r_mem[n_threads];
+    std::unique_ptr<double*[]> r_mem(new double*[n_threads]);
     for (int t = 0; t < n_threads; t++)
       r_mem[t] = get_thread_mem(t);
 

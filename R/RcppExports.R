@@ -215,7 +215,7 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #'
 #' The partially separable function we consider can be quite general and the
 #' only restriction is that we can write the function to be minimized as a sum
-#' of so called element functions each of which only depends on a small number
+#' of so-called element functions each of which only depends on a small number
 #' of the parameters. A more restricted version is available through the
 #' \code{\link{psqn}} function.
 #'
