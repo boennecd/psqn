@@ -2,6 +2,7 @@
 ^\.Rproj\.user$
 ^\.travis\.yml
 ^vignettes/psqn_cache
+^vignettes/quick-intro_cache
 ^vignettes/render\.R
 ^vignettes/psqn\.Rmd
 ^vignettes/psqn\.bib

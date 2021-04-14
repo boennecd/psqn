@@ -639,13 +639,14 @@ private:
   /// element functions
   std::vector<worker> funcs;
   /// object to do computations prior to evaluating the element functions.
-  T_caller caller = T_caller(([&]() -> T_caller {
+  T_caller caller = T_caller(([&](std::vector<worker> &fs) -> T_caller {
     std::vector<EFunc const*> ele_funcs;
-    ele_funcs.reserve(funcs.size());
-    for(auto &f : funcs)
+    size_t n_ele_funcs = fs.size();
+    ele_funcs.reserve(n_ele_funcs);
+    for(auto &f : fs)
       ele_funcs.emplace_back(&f.func);
     return T_caller(ele_funcs);
-  })());
+  })(funcs));
 
   /// returns the thread number.
   int get_thread_num() const noexcept {
@@ -1321,13 +1322,13 @@ private:
   /// element functions
   std::vector<worker> funcs;
   /// object to do computations prior to evaluating the element functions.
-  T_caller caller = T_caller(([&]() -> T_caller {
+  T_caller caller = T_caller(([&](std::vector<worker> &fs) -> T_caller {
     std::vector<EFunc const*> ele_funcs;
-    ele_funcs.reserve(funcs.size());
-    for(auto &f : funcs)
+    ele_funcs.reserve(fs.size());
+    for(auto &f : fs)
       ele_funcs.emplace_back(&f.func);
     return T_caller(ele_funcs);
-  })());
+  })(funcs));
 
   /// returns the thread number.
   int get_thread_num() const noexcept {
