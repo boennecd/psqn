@@ -1,6 +1,11 @@
 #define PSQN_SIZE_T unsigned int
-#include "psqn.h"
+// we want to use the incomplete Cholesky factorizations as the preconditioner
+// and therefore with need RcppEigen
+#define PSQN_USE_EIGEN
+
+#include "psqn-Rcpp-wrapper.h"
 #include "psqn-reporter.h"
+#include "psqn.h"
 #include <stdexcept>
 
 using namespace Rcpp;
@@ -174,8 +179,9 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' global environment.
 //' @param max_cg Maximum number of conjugate gradient iterations in each
 //' iteration. Use zero if there should not be a limit.
-//' @param pre_method Preconditioning method in conjugate gradient method.
-//' Zero yields no preconditioning and one yields diagonal preconditioning.
+//' @param pre_method Preconditioning method in the conjugate gradient method.
+//' Zero yields no preconditioning, one yields diagonal preconditioning, and
+//' two yields the incomplete Cholesky factorization from Eigen.
 //'
 //' @details
 //' The function follows the method described by Nocedal and Wright (2006)
@@ -193,6 +199,17 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' library. Using C++ may reduce the computation time substantially. See
 //' the vignette in the package for examples.
 //'
+//' You have to define the \code{PSQN_USE_EIGEN} macro variable in C++ if you want
+//' to use the incomplete Cholesky factorization from Eigen. You will also have
+//' to include Eigen or RcppEigen. This is not needed when you use the R
+//' functions documented here. The incomplete Cholesky factorization comes
+//' with some additional overhead because of the allocations of the
+//' factorization,
+//' forming the factorization, and the assignment of the sparse version of
+//' the Hessian approximation.
+//' However, it may substantially reduce the required number of conjugate
+//' gradient iterations.
+//'
 //' @return
 //' An object with the following elements:
 //' \item{par}{the estimated global and private parameters.}
@@ -209,6 +226,9 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @references
 //' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 //' (2nd ed.). Springer.
+//'
+//' Lin, C. and Moré, J. J. (1999). \emph{Incomplete Cholesky factorizations
+//' with limited memory}. SIAM Journal on Scientific Computing.
 //'
 //' @examples
 //' # example with inner problem in a Taylor approximation for a GLMM as in the
@@ -303,7 +323,7 @@ List psqn
     throw std::invalid_argument("psqn: env is not an environment");
   if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn: fn is not a function");
-  if(pre_method < 0L or pre_method > 1L)
+  if(pre_method < 0L or pre_method > 2L)
     throw std::invalid_argument("psqn: invalid pre_method");
 
   std::vector<r_worker_psqn> funcs;
@@ -607,6 +627,9 @@ public:
 //' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 //' (2nd ed.). Springer.
 //'
+//' Lin, C. and Moré, J. J. (1999). \emph{Incomplete Cholesky factorizations
+//' with limited memory}. SIAM Journal on Scientific Computing.
+//'
 //' @examples
 //' # example with a GLM as in the vignette
 //'
@@ -709,7 +732,7 @@ List psqn_generic
     throw std::invalid_argument("psqn_generic: env is not an environment");
   if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn_generic: fn is not a function");
-  if(pre_method < 0L or pre_method > 1L)
+  if(pre_method < 0L or pre_method > 2L)
     throw std::invalid_argument("psqn_generic: invalid pre_method");
 
   std::vector<r_worker_optimizer_generic> funcs;

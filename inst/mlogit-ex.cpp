@@ -9,9 +9,15 @@
 // the PSQN_SIZE_T macro variable
 #define PSQN_SIZE_T unsigned int
 
+// we want to use the incomplete Cholesky factorization as the preconditioner
+// and therefore with need RcppEigen
+#define PSQN_USE_EIGEN
+// [[Rcpp::depends(RcppEigen)]]
+
 // [[Rcpp::depends(psqn)]]
-#include "psqn.h"
+#include "psqn-Rcpp-wrapper.h"
 #include "psqn-reporter.h"
+#include "psqn.h"
 using namespace Rcpp;
 using PSQN::psqn_uint; // the unsigned integer type used in the package
 
@@ -266,4 +272,13 @@ NumericMatrix get_Hess_approx_mlogit(SEXP ptr){
   optim->get_hess(&out[0]);
 
   return out;
+}
+
+/***
+ returns the current Hessian approximation as a sparse matrix.
+ @param ptr returned object from get_mlogit_optimizer.
+ */
+// [[Rcpp::export]]
+Eigen::SparseMatrix<double> get_sparse_Hess_approx_mlogit(SEXP ptr){
+  return XPtr<mlogit_topim>(ptr)->get_hess_sparse();
 }

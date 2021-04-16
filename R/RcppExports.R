@@ -26,8 +26,9 @@
 #' global environment.
 #' @param max_cg Maximum number of conjugate gradient iterations in each
 #' iteration. Use zero if there should not be a limit.
-#' @param pre_method Preconditioning method in conjugate gradient method.
-#' Zero yields no preconditioning and one yields diagonal preconditioning.
+#' @param pre_method Preconditioning method in the conjugate gradient method.
+#' Zero yields no preconditioning, one yields diagonal preconditioning, and
+#' two yields the incomplete Cholesky factorization from Eigen.
 #'
 #' @details
 #' The function follows the method described by Nocedal and Wright (2006)
@@ -45,6 +46,17 @@
 #' library. Using C++ may reduce the computation time substantially. See
 #' the vignette in the package for examples.
 #'
+#' You have to define the \code{PSQN_USE_EIGEN} macro variable in C++ if you want
+#' to use the incomplete Cholesky factorization from Eigen. You will also have
+#' to include Eigen or RcppEigen. This is not needed when you use the R
+#' functions documented here. The incomplete Cholesky factorization comes
+#' with some additional overhead because of the allocations of the
+#' factorization,
+#' forming the factorization, and the assignment of the sparse version of
+#' the Hessian approximation.
+#' However, it may substantially reduce the required number of conjugate
+#' gradient iterations.
+#'
 #' @return
 #' An object with the following elements:
 #' \item{par}{the estimated global and private parameters.}
@@ -61,6 +73,9 @@
 #' @references
 #' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 #' (2nd ed.). Springer.
+#'
+#' Lin, C. and Moré, J. J. (1999). \emph{Incomplete Cholesky factorizations
+#' with limited memory}. SIAM Journal on Scientific Computing.
 #'
 #' @examples
 #' # example with inner problem in a Taylor approximation for a GLMM as in the
@@ -229,6 +244,9 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' @references
 #' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 #' (2nd ed.). Springer.
+#'
+#' Lin, C. and Moré, J. J. (1999). \emph{Incomplete Cholesky factorizations
+#' with limited memory}. SIAM Journal on Scientific Computing.
 #'
 #' @examples
 #' # example with a GLM as in the vignette

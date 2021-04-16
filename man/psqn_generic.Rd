@@ -56,8 +56,9 @@ global environment.}
 \item{max_cg}{Maximum number of conjugate gradient iterations in each
 iteration. Use zero if there should not be a limit.}
 
-\item{pre_method}{Preconditioning method in conjugate gradient method.
-Zero yields no preconditioning and one yields diagonal preconditioning.}
+\item{pre_method}{Preconditioning method in the conjugate gradient method.
+Zero yields no preconditioning, one yields diagonal preconditioning, and
+two yields the incomplete Cholesky factorization from Eigen.}
 }
 \value{
 A list like \code{\link{psqn}}.
@@ -166,4 +167,7 @@ all.equal(opt$value, R_res$value)
 \references{
 Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
 (2nd ed.). Springer.
+
+Lin, C. and Moré, J. J. (1999). \emph{Incomplete Cholesky factorizations
+with limited memory}. SIAM Journal on Scientific Computing.
 }

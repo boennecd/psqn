@@ -4,7 +4,11 @@ Changes in version 0.2.0
    functions. Thus, some computations may be done once if possible. See
    https://github.com/boennecd/psqn-va-ex for an example.
  * made it possible to change the unsigned integer type used in the package by
-   defining the PSQN_SIZE_T macro.
+   defining the PSQN_SIZE_T macro prior to including the header files from the
+   package.
+ * added the incomplete Cholesky factorization preconditioner from Eigen to the
+   package. This requires that one defines the PSQN_USE_EIGEN macro prior to
+   including the header files from the package.
 
 Changes in version 0.1.0 to 0.1.4
  * first submission to CRAN.

@@ -21,6 +21,12 @@ namespace PSQN {
 using std::abs;
 using std::sqrt;
 
+inline void throw_no_eigen_error(){
+#ifndef PSQN_USE_EIGEN
+  throw std::logic_error("The code was compilled wihtout having defined 'PSQN_USE_EIGEN' before including the psqn header files. Define 'PSQN_USE_EIGEN' and include Eigen or RcppEigen");
+#endif
+}
+
 /***
  virtual base class for the element functions.
  */
@@ -281,14 +287,59 @@ public:
     @param pre_method preconditioning method.
    */
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
-                 double const tol, psqn_uint const max_cg,
+                 double tol, psqn_uint const max_cg,
                  int const trace, precondition const pre_method){
+    double const x_nom = sqrt(abs(lp::vec_dot(x, n_par))),
+               tol_use = std::min(tol, sqrt(x_nom));
+
+    if(pre_method == precondition::choleksy){
+#ifdef PSQN_USE_EIGEN
+      Eigen::SparseMatrix<double> &sparse_B_mat =
+        opt_obj->get_hess_sparse_ref();
+      Eigen::ConjugateGradient
+        <Eigen::SparseMatrix<double>, Eigen::Lower | Eigen::Upper,
+         Eigen::IncompleteCholesky<double, Eigen::Lower | Eigen::Upper> > cg;
+
+      // setup the cg object
+      cg.analyzePattern(sparse_B_mat);
+      cg.factorize(sparse_B_mat);
+      if(cg.preconditioner().info() == Eigen::ComputationInfo::NumericalIssue)
+        return false;
+
+      cg.setMaxIterations(max_cg);
+      cg.setTolerance(tol_use);
+
+      // compute and return
+      Eigen::VectorXd rhs(n_par), lhs(n_par);
+      for(psqn_uint i = 0; i < n_par; ++i)
+        rhs[i] = x[i];
+
+      lhs = cg.solve(rhs);
+      // the plus one is almost always right as Eigen only increments the
+      // iteration counter if the convergence criteria does not pass (so one is)
+      // "missing"
+      n_cg += cg.iterations() + 1L;
+
+      Reporter::cg_it(trace, cg.iterations() + 1L, max_cg,
+                      cg.error(), tol_use);
+      for(psqn_uint i = 0; i < n_par; ++i)
+        y[i] = lhs[i];
+      return true;
+#else
+      throw_no_eigen_error();
+      return false;
+#endif
+    }
+
+    // eigen does not include this factor
+    double const eps = tol_use * x_nom;
+
     double * PSQN_RESTRICT r       = temp_mem,
            * PSQN_RESTRICT p       = r      + n_par,
            * PSQN_RESTRICT B_p     = p      + n_par,
            * PSQN_RESTRICT v       = B_p    + n_par,
            * PSQN_RESTRICT B_diag  = v      + n_par;
-    bool const do_pre = pre_method == 1L;
+    bool const do_pre = pre_method == precondition::diag;
 
     // setup before first iteration
     if(do_pre){
@@ -352,8 +403,8 @@ public:
       double const r_v_dot = get_r_v_dot(),
                    t_val   = do_pre ? sqrt(abs(lp::vec_dot(r, n_par))) :
                                       sqrt(abs(r_v_dot));
-      Reporter::cg_it(trace, i, max_cg, t_val, tol);
-      if(t_val < tol)
+      Reporter::cg_it(trace, i, max_cg, t_val, eps);
+      if(t_val < eps)
         break;
 
       double const beta = r_v_dot / old_r_v_dot;
@@ -1051,10 +1102,8 @@ public:
           break;
         }
 
-      double const fval_old = fval,
-                     gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
-                 cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
-      if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
+      double const fval_old = fval;
+      if(!conj_grad(gr.get(), dir.get(), cg_tol,
                     max_cg < 1 ? n_par : max_cg, trace,
                     pre_method)){
         info = info_code::conjugate_gradient_failed;
@@ -1120,7 +1169,6 @@ public:
    returns the current Hessian approximation.
    */
   void get_hess(double * const PSQN_RESTRICT hess) const {
-    // TODO: make an implementation which returns a sparse Hessian
     std::fill(hess, hess + n_par * n_par, 0.);
 
     psqn_uint private_offset(global_dim);
@@ -1205,6 +1253,97 @@ public:
       out.emplace_back(&o.func);
     return out;
   }
+
+#ifdef PSQN_USE_EIGEN
+private:
+  /**
+   the sparse matrix we will fill. We keep this as a member to avoid repeated
+   memory allocations.
+   */
+  Eigen::SparseMatrix<double> sparse_B_mat;
+  /// vector of triplets we use to fill sparse_B_mat
+  std::vector<Eigen::Triplet<double> > sparse_B_mat_triplets;
+
+  /// fills the sparse_B_mat
+  inline void fill_sparse_B_mat(){
+    // fill in the triplets
+    sparse_B_mat_triplets.clear();
+
+    // fill in the data
+    {
+      psqn_uint private_offset(0L);
+
+      // object to store the first block
+      psqn_uint const B_sub_ele = (global_dim * (global_dim + 1)) / 2;
+      std::fill(temp_mem, temp_mem + B_sub_ele, 0);
+
+      for(auto const &f : funcs){
+        // fill in the first block
+        double const *b_inc = f.B;
+        {
+          double * b = temp_mem;
+          for(psqn_uint j = 0; j < B_sub_ele; ++j)
+            *b++ += *b_inc++;
+        }
+
+        psqn_uint const iprivate = f.func.private_dim();
+        for(psqn_uint j = global_dim; j < global_dim + iprivate; ++j){
+          psqn_uint i = 0;
+          for(; i < global_dim; ++i){
+            psqn_uint const j_shift = j + private_offset;
+            if(i < j)
+              sparse_B_mat_triplets.emplace_back(i      , j_shift, *b_inc  );
+            sparse_B_mat_triplets.emplace_back  (j_shift, i      , *b_inc++);
+          }
+
+          for(; i <= j; ++i){
+            psqn_uint const i_shift = i + private_offset,
+                            j_shift = j + private_offset;
+            if(i < j)
+              sparse_B_mat_triplets.emplace_back(i_shift, j_shift, *b_inc  );
+            sparse_B_mat_triplets.emplace_back  (j_shift, i_shift, *b_inc++);
+          }
+        }
+
+        private_offset += iprivate;
+      }
+
+      // fill the global parameter part
+      double * b = temp_mem;
+      for(psqn_uint j = 0; j < global_dim; ++j)
+        for(psqn_uint i = 0; i <= j; ++i){
+          if(i < j)
+            sparse_B_mat_triplets.emplace_back(i, j, *b  );
+          sparse_B_mat_triplets.emplace_back  (j, i, *b++);
+        }
+    }
+
+    sparse_B_mat.resize(n_par, n_par);
+    sparse_B_mat.setFromTriplets(
+      sparse_B_mat_triplets.begin(), sparse_B_mat_triplets.end());
+  }
+
+  Eigen::SparseMatrix<double> & get_hess_sparse_ref() {
+    fill_sparse_B_mat();
+    return sparse_B_mat;
+  }
+
+#endif // PSQN_USE_EIGEN
+
+public:
+  /***
+   returns the current Hessian approximation as sparse matrix.
+   */
+#ifdef PSQN_USE_EIGEN
+  Eigen::SparseMatrix<double> get_hess_sparse() {
+    fill_sparse_B_mat();
+    return sparse_B_mat;
+  }
+#else
+  void get_hess_sparse() {
+    throw_no_eigen_error();
+  }
+#endif // PSQN_USE_EIGEN
 };
 
 /***
@@ -1727,10 +1866,8 @@ public:
           break;
         }
 
-      double const fval_old = fval,
-                     gr_nom = sqrt(abs(lp::vec_dot(gr.get(), n_par))),
-                 cg_tol_use = std::min(cg_tol, sqrt(gr_nom)) * gr_nom;
-      if(!conj_grad(gr.get(), dir.get(), cg_tol_use,
+      double const fval_old = fval;
+      if(!conj_grad(gr.get(), dir.get(), cg_tol,
                     max_cg < 1 ? n_par : max_cg, trace,
                     pre_method)){
         info = info_code::conjugate_gradient_failed;
@@ -1802,6 +1939,82 @@ public:
       out.emplace_back(&o.func);
     return out;
   }
+
+  /***
+   returns the current Hessian approximation.
+   */
+  void get_hess(double * const PSQN_RESTRICT hess) const {
+    std::fill(hess, hess + n_par * n_par, 0.);
+
+    for(auto &f : funcs){
+      psqn_uint const n_args = f.n_args;
+      double const * B = f.B;
+      psqn_uint const * const idx = f.indices();
+      for(psqn_uint j = 0; j < n_args; ++j) {
+        psqn_uint const col_offset = idx[j] * n_par;
+        for(psqn_uint i = 0; i <= j; ++i){
+          if(i < j)
+            hess[idx[i]         + col_offset] += *B;
+          hess  [idx[i] * n_par + idx[j]    ] += *B++;
+        }
+      }
+    }
+  }
+
+#ifdef PSQN_USE_EIGEN
+private:
+  /**
+   the sparse matrix we will fill. We keep this as a member to avoid repeated
+   memory allocations.
+   */
+  Eigen::SparseMatrix<double> sparse_B_mat;
+  /// vector of triplets we use to fill sparse_B_mat
+  std::vector<Eigen::Triplet<double> > sparse_B_mat_triplets;
+
+  /// fills the sparse_B_mat
+  inline void fill_sparse_B_mat(){
+    // fill in the triplets
+    sparse_B_mat_triplets.clear();
+
+    // fill in the data
+    for(auto &f : funcs){
+      psqn_uint const n_args = f.n_args;
+      double const * B = f.B;
+      psqn_uint const * const idx = f.indices();
+      for(psqn_uint j = 0; j < n_args; ++j)
+        for(psqn_uint i = 0; i <= j; ++i){
+          if(i < j)
+            sparse_B_mat_triplets.emplace_back(idx[i], idx[j], *B   );
+          sparse_B_mat_triplets  .emplace_back(idx[j], idx[i], *B++);
+        }
+    }
+
+    sparse_B_mat.resize(n_par, n_par);
+    sparse_B_mat.setFromTriplets(
+      sparse_B_mat_triplets.begin(), sparse_B_mat_triplets.end());
+  }
+
+  Eigen::SparseMatrix<double> & get_hess_sparse_ref() {
+    fill_sparse_B_mat();
+    return sparse_B_mat;
+  }
+
+#endif // PSQN_USE_EIGEN
+
+public:
+  /***
+   returns the current Hessian approximation as sparse matrix.
+   */
+#ifdef PSQN_USE_EIGEN
+  Eigen::SparseMatrix<double> get_hess_sparse() {
+    fill_sparse_B_mat();
+    return sparse_B_mat;
+  }
+#else
+  void get_hess_sparse() {
+    throw_no_eigen_error();
+  }
+#endif // PSQN_USE_EIGEN
 };
 
 } // namespace PSQN

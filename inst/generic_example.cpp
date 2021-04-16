@@ -7,11 +7,15 @@
 // the PSQN_SIZE_T macro variable
 #define PSQN_SIZE_T unsigned int
 
-// [[Rcpp::depends(psqn)]]
-#include "psqn.h"
-#include "psqn-reporter.h"
-#include <Rcpp.h>
+// we want to use the incomplete Cholesky factorization as the preconditioner
+// and therefore with need RcppEigen
+#define PSQN_USE_EIGEN
+// [[Rcpp::depends(RcppEigen)]]
 
+// [[Rcpp::depends(psqn)]]
+#include "psqn-Rcpp-wrapper.h"
+#include "psqn-reporter.h"
+#include "psqn.h"
 using namespace Rcpp;
 using PSQN::psqn_uint; // the unsigned integer type used in the package
 
@@ -161,4 +165,19 @@ NumericVector grad_generic_ex(NumericVector val, SEXP ptr,
   grad.attr("value") = optim->eval(&val[0], &grad[0], true);
 
   return grad;
+}
+
+// [[Rcpp::export]]
+NumericMatrix get_Hess_approx_generic(SEXP ptr){
+  XPtr<generic_opt> optim(ptr);
+
+  NumericMatrix out(optim->n_par, optim->n_par);
+  optim->get_hess(&out[0]);
+
+  return out;
+}
+
+// [[Rcpp::export]]
+Eigen::SparseMatrix<double> get_sparse_Hess_approx_generic(SEXP ptr){
+  return XPtr<generic_opt>(ptr)->get_hess_sparse();
 }

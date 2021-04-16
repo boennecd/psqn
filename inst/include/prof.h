@@ -22,7 +22,7 @@ public:
 #include <iomanip>
 #include <ctime>
 #include <sstream>
-#include <Rcpp.h>
+#include "psqn-Rcpp-wrapper.h"
 
 std::atomic<bool> profiler::running_profiler(false);
 

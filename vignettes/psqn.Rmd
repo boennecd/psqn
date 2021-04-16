@@ -580,9 +580,9 @@ start_val[-(1:p)] <- 0
 
 library(psqn)
 r_psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
-                        c2 = .9)
+                        c2 = .9, pre_method = 1L)
   psqn(par = par, fn = r_func, n_ele_func = n_clusters, 
-       n_threads = n_threads, c1 = c1, c2 = c2)
+       n_threads = n_threads, c1 = c1, c2 = c2, pre_method = pre_method)
 
 R_res <- r_psqn_func(start_val)
 ```
@@ -660,7 +660,7 @@ We then use the quasi-Newton method like this:
 ```{r use_qn, cache = 1, dependson = "create_ptr"}
 psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
                       c2 = .9, trace = 0L, use_bfgs = TRUE, 
-                      opt_private = FALSE){
+                      opt_private = FALSE, pre_method = 1L){
   rel_eps <- 1e-8
   if(opt_private){
     # it may be useful to fix the global parameters and optimize the 
@@ -672,7 +672,8 @@ psqn_func <- function(par, n_threads = 2L, c1 = 1e-4,
   }
   optim_mlogit(val = par, ptr = optimizer, rel_eps = rel_eps, 
                max_it = 1000L, n_threads = n_threads, c1 = c1, 
-               c2 = c2, trace = trace, use_bfgs = use_bfgs)
+               c2 = c2, trace = trace, use_bfgs = use_bfgs, 
+               pre_method = pre_method)
 }
 
 psqn_res <- psqn_func(start_val)
@@ -753,12 +754,39 @@ all.equal(lbfgs_res$value, bfgs_res$value)
 psqn_res$value - lbfgs_res$value
 ```
 
-We can get the Hessian approximation by calling the `get_Hess_approx_mlogit`
-function we declared after calling the optimizer: 
+#### Getting the Hessian Approximation
+
+We can get the Hessian approximation by calling the `get_Hess_approx_mlogit` and
+`get_sparse_Hess_approx_mlogit` we declared after calling the optimizer: 
 
 ```{r get_hess_ex, cache = 1, dependson = "get_optimizer"}
 aprox_hes <- get_Hess_approx_mlogit(ptr = optimizer)
 dim(aprox_hes) # quite large; requires a lot of memory
+
+# we can also get the sparse version
+aprox_hes_sparse <- get_sparse_Hess_approx_mlogit(optimizer)
+all.equal(as.matrix(aprox_hes_sparse), aprox_hes, 
+          check.attributes = FALSE)
+
+# this require much less memory 
+object.size(aprox_hes)
+object.size(aprox_hes_sparse)
+
+# we can roughly check against the true values as follows
+if(FALSE){
+  # only feasible for smaller problem
+  hess_true <- jacobian(
+    function(par) grad_mlogit(val = par, ptr = optimizer, n_threads = 2L), 
+    psqn_res$par)
+  
+  # should not hold exactly! Might not be that good of an approximation.
+  all.equal(aprox_hes, hess_true)
+  
+  # the non-zero entries should match 
+  v1 <- abs(hess_true) > .Machine$double.eps * 10
+  v2 <- abs(aprox_hes) > .Machine$double.eps * 10
+  all.equal(v1, v2)
+}
 
 # create a plot like before. Black entries are non-zero
 par(mar = c(.5, .5, .5, .5))
@@ -766,19 +794,46 @@ idx <- 1:min(1000, NROW(aprox_hes))
 aprox_hes <- aprox_hes[idx, idx] # reduce dimension to plot quickly
 image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
       col = gray.colors(2L, 1, 0))
-if(FALSE){
-  # only feasible for smaller problem
-  hess_true <- jacobian(
-    function(par) grad_mlogit(val = par, ptr = optimizer), 
-    psqn_res$par)
-  
-  # should not hold exactly! Might not be that good of an approximation.
-  all.equal(aprox_hes, hess_true) 
-}
 ```
 
-The true Hessian is very sparse. Finally, here is a benchmark to compare the
-computation time:
+The true Hessian is very sparse. 
+
+#### Using Different Preconditioners
+We can use different preconditioner. We illustrate this below. Notice that 
+you have to define the `PSQN_USE_EIGEN` macro variable prior to including any of
+the psqn headers files if you are using the C++ interface in order to use the 
+incomplete Cholesky factorization from Eigen. You will also have to include 
+RcppEigen or the psqn-Rcpp-wrapper.h header. 
+
+```{r mlogit_diff_pre}
+# without any preconditioner
+psqn_res_no_pre <- psqn_func(start_val, pre_method = 0L)
+
+# we get the same
+all.equal(psqn_res$value, psqn_res_no_pre$value)
+
+# we mainly use more conjugate gradient steps
+psqn_res       $counts
+psqn_res_no_pre$counts
+
+# with the incomplete Cholesky factorization
+psqn_res_cholesky <- psqn_func(start_val, pre_method = 2L)
+all.equal(psqn_res$value, psqn_res_cholesky$value)
+
+# we use fewer conjugate gradient steps
+psqn_res_cholesky$counts
+psqn_res         $counts
+
+# we can equally use the R interface
+psqn_res_cholesky_R <- r_psqn_func(start_val, pre_method = 2L)
+
+all.equal(psqn_res_cholesky_R[c("par", "value", "counts")], 
+          psqn_res_cholesky  [c("par", "value", "counts")])
+```
+
+#### Benchmarking
+
+Finally, here is a benchmark to compare the computation time:
 
 ```{r end_bench, cache = 1, dependson = "create_ptr"}
 bench::mark(
@@ -799,6 +854,10 @@ bench::mark(
                                               opt_private = TRUE),
   `psqn (2 threads, opt pri.)` = psqn_func   (start_val, n_threads = 2L, 
                                               opt_private = TRUE),
+  `  psqn (1 thread; no pre)` = psqn_func    (start_val, n_threads = 1L, 
+                                              pre_method = 0L),
+  `psqn (1 thread; Cholesky)` = psqn_func    (start_val, n_threads = 1L, 
+                                              pre_method = 2L),
   `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
   `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
   `          psqn(4 threads)` = psqn_func    (start_val, n_threads = 4L),
@@ -987,11 +1046,11 @@ r_func <- function(i, par, comp_grad){
 }
 
 # use the function
-r_psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, 
-                        c2 = .9, trace = 0L)
+r_psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, cg_tol = .5,
+                        c2 = .9, trace = 0L, pre_method = 1L)
   psqn(par = par, fn = r_func, n_ele_func = n_clusters, 
-       n_threads = n_threads, c1 = c1, c2 = c2, 
-       trace = trace, max_it = 1000L)
+       n_threads = n_threads, c1 = c1, c2 = c2, cg_tol = cg_tol,
+       trace = trace, max_it = 1000L, pre_method = pre_method)
 
 R_res <- r_psqn_func(numeric(idx_start))
 all.equal(exp_res, R_res$par)
@@ -1150,10 +1209,11 @@ all.equal(gv <- grad_generic_ex(noise, ptr = ptr, n_threads = 2L),
 all.equal(attr(gv, "value"), R_func(noise))
 
 # optimize and compare the result with one thread
-psqn_func <- function(par, n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L)
+psqn_func <- function(par, n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L, 
+                      pre_method = 1L, cg_tol = .5)
   optim_generic_ex(val = par, ptr = ptr, rel_eps = 1e-9, max_it = 1000L, 
                    n_threads = n_threads, c1 = c1, c2 = c2, trace = trace, 
-                   cg_tol = .5)
+                   cg_tol = cg_tol, pre_method = pre_method)
 
 opt_psqn <- psqn_func(start)
 all.equal(opt_psqn$par, opt$par, tolerance = 1e-3)
@@ -1193,7 +1253,7 @@ bench::mark(
   min_iterations = 2L, check = FALSE)
 ```
 
-### Generic Example: R Interface
+#### Generic Example: R Interface
 
 A R interface to the `optimizer_generic` class is provided through the 
 `psqn_generic` function. We show an example below of how the R interface can 
@@ -1218,9 +1278,10 @@ r_func <- function(i, par, comp_grad){
 }
 
 # estimate the model with the R interface
-psqn_func_R <- function(par, c1 = 1e-4, c2 = .1, trace = 0L)
+psqn_func_R <- function(par, c1 = 1e-4, c2 = .1, trace = 0L, pre_method = 1L)
   psqn_generic(par = par, fn = r_func, n_ele_func = length(dat), 
-               c1 = c1, c2 = c2, trace = trace, rel_eps = 1e-9, max_it = 1000L)
+               c1 = c1, c2 = c2, trace = trace, rel_eps = 1e-9, max_it = 1000L, 
+               pre_method = pre_method)
 
 opt_psqn_res <- psqn_func_R(start)
 
@@ -1237,6 +1298,82 @@ the extra overhead from the R interface is an issue.
 ```{r comp_time_generic_R_interface, cache = 1}
 # show the computation time
 bench::mark(psqn_func_R(start), min_iterations = 2L)
+```
+
+#### Getting the Hessian Approximation
+
+We can get the Hessian approximation by calling the `get_Hess_approx_generic` 
+and
+`get_sparse_Hess_approx_generic` we declared after calling the optimizer: 
+
+```{r generic_get_hess_ex, cache = 1}
+aprox_hes <- get_Hess_approx_generic(ptr)
+dim(aprox_hes) # quite large; requires a lot of memory
+
+# we can also get the sparse version
+aprox_hes_sparse <- get_sparse_Hess_approx_generic(ptr)
+all.equal(as.matrix(aprox_hes_sparse), aprox_hes, 
+          check.attributes = FALSE)
+
+# this require much less memory 
+object.size(aprox_hes)
+object.size(aprox_hes_sparse)
+
+# we can roughly check against the true values as follows
+if(FALSE){
+  # only feasible for smaller problem
+  library(numDeriv)
+  hess_true <- jacobian(
+    function(par) grad_generic_ex(val = par, ptr = ptr, n_threads = 2L), 
+    opt_psqn$par)
+  
+  # should not hold exactly! Might not be that good of an approximation.
+  all.equal(aprox_hes, hess_true)
+  
+  # the non-zero entries should match 
+  v1 <- abs(hess_true) > .Machine$double.eps * 10
+  v2 <- abs(aprox_hes) > .Machine$double.eps * 10
+  all.equal(v1, v2)
+}
+
+# create a plot like before. Black entries are non-zero
+par(mar = c(.5, .5, .5, .5))
+idx <- 1:min(1000, NROW(aprox_hes))
+aprox_hes <- aprox_hes[idx, idx] # reduce dimension to plot quickly
+image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
+      col = gray.colors(2L, 1, 0))
+```
+
+#### Using Different Preconditioners
+We can use different preconditioner. We illustrate this below. Notice that 
+you have to define the `PSQN_USE_EIGEN` macro variable prior to including any of
+the psqn headers files if you are using the C++ interface in order to use the 
+incomplete Cholesky factorization from Eigen. You will also have to include 
+RcppEigen or the psqn-Rcpp-wrapper.h header. 
+
+```{r generic_diff_pre, cache = 1}
+# without any preconditioner
+opt_psqn_no_pre <- psqn_func(start, pre_method = 0L)
+
+# we get the same
+all.equal(opt_psqn$value, opt_psqn_no_pre$value)
+
+# we mainly use more conjugate gradient steps
+opt_psqn       $counts
+opt_psqn_no_pre$counts
+
+# with the incomplete Cholesky factorization
+opt_psqn_cholesky <- psqn_func(start, pre_method = 2L)
+all.equal(opt_psqn$value, opt_psqn_cholesky$value)
+
+# we use fewer conjugate gradient steps
+opt_psqn_cholesky$counts
+opt_psqn         $counts
+
+# we can equally use the R interface
+opt_psqn_cholesky_R <- psqn_func_R(start, pre_method = 2L)
+all.equal(opt_psqn_cholesky_R[c("par", "value", "counts")], 
+          opt_psqn_cholesky  [c("par", "value", "counts")])
 ```
 
 ### Using Kahan Summation Algorithm

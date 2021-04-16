@@ -1,7 +1,7 @@
 #ifndef PSQN_REPORTER_H
 #define PSQN_REPORTER_H
 
-#include <Rcpp.h>
+#include "psqn-Rcpp-wrapper.h"
 #include <ios>
 #include <iostream>
 #include <iomanip>
