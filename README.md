@@ -1,8 +1,7 @@
 psqn: Partially Separable Quasi-Newton
 ======================================
 
-[![Build Status on
-Travis](https://travis-ci.org/boennecd/psqn.svg?branch=master,osx)](https://travis-ci.org/boennecd/psqn)
+[![R-CMD-check](https://github.com/boennecd/psqn/workflows/R-CMD-check/badge.svg)](https://github.com/boennecd/psqn/actions)
 [![](https://www.r-pkg.org/badges/version/psqn)](https://CRAN.R-project.org/package=psqn)
 [![CRAN RStudio mirror
 downloads](http://cranlogs.r-pkg.org/badges/psqn)](https://CRAN.R-project.org/package=psqn)
