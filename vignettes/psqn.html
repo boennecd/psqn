@@ -472,7 +472,7 @@ img {
 <li>stop if <span class="math inline">\(\vec r_{k + 1}^\top\vec r_{k + 1}\)</span> is smaller. Otherwise set <span class="math inline">\(k\leftarrow k + 1\)</span> and repeat.</li>
 </ol>
 <p>The main issue is the matrix-vector product <span class="math inline">\(\mat A\vec p_k\)</span> but as we argued in the previous section that this can be computed in <span class="math inline">\(\mathcal O(\sum_{i = 1}^n(p + q_{i})^2)\)</span> time. The conjugate gradient method will at most take <span class="math inline">\(h\)</span> iterations where <span class="math inline">\(h\)</span> is the number of rows and columns of <span class="math inline">\(\mat A\)</span>. Moreover, if <span class="math inline">\(\mat A\)</span> only has <span class="math inline">\(r &lt; h\)</span> distinct eigenvalues then we will at most make <span class="math inline">\(r\)</span> conjugate gradient iterations. Lastly, if <span class="math inline">\(\mat A\)</span> has clusters of eigenvalues then we may expect to perform only a number of iterations close to the number of distinct clusters.</p>
-<p>In practice, we terminate the conjugate gradient method when <span class="math inline">\(\lVert\vec r_k\rVert &lt; \min (c, \sqrt{\lVert\nabla f(\vec x_{k -1})\rVert})\lVert\nabla f(\vec x_{k -1})\rVert\)</span> where <span class="math inline">\(c\)</span> is a constant the user can set. Moreover, we use diagonal preconditioning.</p>
+<p>In practice, we terminate the conjugate gradient method when <span class="math inline">\(\lVert\vec r_k\rVert &lt; \min (c, \sqrt{\lVert\nabla f(\vec x_{k -1})\rVert})\lVert\nabla f(\vec x_{k -1})\rVert\)</span> where <span class="math inline">\(c\)</span> is a constant the user can set. Moreover, we the package supports diagonal preconditioning or incomplete Cholesky factorization preconditioning The diagonal preconditioning is very cheap and may reduce the number of required conjugate gradient iterations. The incomplete Cholesky factorization preconditioning is from Eigen and may greatly reduce the number of required conjugate gradient iterations at the cost of having to factorize the Hessian approximation.</p>
 <p>We can compare the flops of the matrix product in BFGS with applying the conjugate gradient method. Assume that all <span class="math inline">\(q_i\)</span>s are almost <span class="math inline">\(\bar q\)</span>. Then the ratio of flops is approximately:</p>
 <p><span class="math display">\[
 \frac{p^2 + 2pn\bar q + (n\bar q)^2}
@@ -672,7 +672,7 @@ img {
 </div>
 <div id="c-implementation" class="section level3">
 <h3>C++ Implementation</h3>
-<p>We provide a C++ implementation with the package as an example of how to use this package. The location of the implementation can be found by calling <code>system.file(&quot;mlogit-ex.cpp&quot;, package = &quot;psqn&quot;)</code>. The most important part of the implementation is the problem specific <code>m_logit_func</code> class, the <code>get_mlogit_optimizer</code> function and the <code>optim_mlogit</code> function which are needed to perform the optimization. The content of the file is:</p>
+<p>We provide a C++ implementation with the package as an example of how to use this package. The location of the implementation can be found by calling <code>system.file(&quot;mlogit-ex.cpp&quot;, package = &quot;psqn&quot;)</code>. The most important part of the implementation is the problem specific <code>m_logit_func</code> class, the <code>get_mlogit_optimizer</code> function, and the <code>optim_mlogit</code> function which are needed to perform the optimization. The content of the file is:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1"></a><span class="co">// we will use OpenMP to perform the computation in parallel</span></span>
 <span id="cb7-2"><a href="#cb7-2"></a><span class="co">// [[Rcpp::plugins(openmp, cpp11)]]</span></span>
 <span id="cb7-3"><a href="#cb7-3"></a></span>
@@ -957,7 +957,7 @@ img {
 <span id="cb7-282"><a href="#cb7-282"></a>Eigen::SparseMatrix&lt;<span class="dt">double</span>&gt; get_sparse_Hess_approx_mlogit(SEXP ptr){</span>
 <span id="cb7-283"><a href="#cb7-283"></a>  <span class="cf">return</span> XPtr&lt;mlogit_topim&gt;(ptr)-&gt;get_hess_sparse();</span>
 <span id="cb7-284"><a href="#cb7-284"></a>}</span></code></pre></div>
-<p>The <code>PSQN::R_reporter</code> class ensures that output will be printed when one passes a <code>trace</code> argument which is greater than zero. The <code>PSQN::R_interrupter</code> class ensures that the user can interrupt the computation. These two classes can be replaced with custom classes if one wants to and provide another implementation. See the source code of this package for the required members.</p>
+<p>The <code>PSQN::R_reporter</code> class ensures that output will be printed when one passes a <code>trace</code> argument which is greater than zero. The <code>PSQN::R_interrupter</code> class ensures that the user can interrupt the computation. These two classes can be replaced with custom classes if one wants to and provides another implementation. See the source code of this package for the required members.</p>
 <p>We can use the code by calling <code>Rcpp::sourceCpp</code> to compile the code:</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a><span class="kw">library</span>(Rcpp)</span>
 <span id="cb8-2"><a href="#cb8-2"></a><span class="kw">sourceCpp</span>(<span class="kw">system.file</span>(<span class="st">&quot;mlogit-ex.cpp&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;psqn&quot;</span>))</span>
@@ -1128,7 +1128,7 @@ img {
 </div>
 <div id="using-different-preconditioners" class="section level4">
 <h4>Using Different Preconditioners</h4>
-<p>We can use different preconditioner. We illustrate this below. Notice that you have to define the <code>PSQN_USE_EIGEN</code> macro variable prior to including any of the psqn headers files if you are using the C++ interface in order to use the incomplete Cholesky factorization from Eigen. You will also have to include RcppEigen or the psqn-Rcpp-wrapper.h header.</p>
+<p>We can use different preconditioners. We illustrate this below. Notice that you have to define the <code>PSQN_USE_EIGEN</code> macro variable prior to including any of the psqn headers files if you are using the C++ interface in order to use the incomplete Cholesky factorization from Eigen. You will also have to include RcppEigen or the psqn-Rcpp-wrapper.h header.</p>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a><span class="co"># without any preconditioner</span></span>
 <span id="cb17-2"><a href="#cb17-2"></a>psqn_res_no_pre &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start_val, <span class="dt">pre_method =</span> 0L)</span>
 <span id="cb17-3"><a href="#cb17-3"></a></span>
@@ -1197,24 +1197,24 @@ img {
 <span id="cb18-28"><a href="#cb18-28"></a><span class="co">#&gt; # A tibble: 18 x 6</span></span>
 <span id="cb18-29"><a href="#cb18-29"></a><span class="co">#&gt;    expression                      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb18-30"><a href="#cb18-30"></a><span class="co">#&gt;    &lt;bch:expr&gt;                 &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb18-31"><a href="#cb18-31"></a><span class="co">#&gt;  1    optim BFGS (2 threads)     1.14s    1.15s     0.868   42.41MB    0    </span></span>
-<span id="cb18-32"><a href="#cb18-32"></a><span class="co">#&gt;  2          lbfgs (1 thread)  263.76ms 271.17ms     3.67    49.41MB    0.580</span></span>
-<span id="cb18-33"><a href="#cb18-33"></a><span class="co">#&gt;  3          lbfgs(2 threads)  146.21ms 150.17ms     6.59    49.33MB    0.798</span></span>
-<span id="cb18-34"><a href="#cb18-34"></a><span class="co">#&gt;  4          lbfgs(4 threads)   103.5ms 107.43ms     9.09    51.27MB    1.19 </span></span>
-<span id="cb18-35"><a href="#cb18-35"></a><span class="co">#&gt;  5       lbfgsb3c (1 thread)  309.23ms 318.07ms     3.15    22.71MB    0.394</span></span>
-<span id="cb18-36"><a href="#cb18-36"></a><span class="co">#&gt;  6       lbfgsb3c(2 threads)  184.99ms 192.48ms     5.10    25.25MB    0.588</span></span>
-<span id="cb18-37"><a href="#cb18-37"></a><span class="co">#&gt;  7       lbfgsb3c(4 threads)   82.14ms  83.68ms    11.7     18.98MB    1.19 </span></span>
-<span id="cb18-38"><a href="#cb18-38"></a><span class="co">#&gt;  8        psqn (R; 1 thread)  198.38ms 208.02ms     4.61     7.91MB    7.68 </span></span>
-<span id="cb18-39"><a href="#cb18-39"></a><span class="co">#&gt;  9        psqn(R; 2 threads)  207.12ms 216.33ms     4.62     7.91MB    7.13 </span></span>
-<span id="cb18-40"><a href="#cb18-40"></a><span class="co">#&gt; 10      psqn (1 thread, SR1)   39.17ms  39.41ms    25.4     27.58KB    0    </span></span>
-<span id="cb18-41"><a href="#cb18-41"></a><span class="co">#&gt; 11      psqn(2 threads, SR1)   19.52ms  19.98ms    50.0     27.58KB    0    </span></span>
-<span id="cb18-42"><a href="#cb18-42"></a><span class="co">#&gt; 12 psqn  (1 thread, opt pri.)  24.94ms  25.31ms    39.4     60.44KB    0    </span></span>
-<span id="cb18-43"><a href="#cb18-43"></a><span class="co">#&gt; 13 psqn (2 threads, opt pri.)  13.31ms  13.73ms    72.3     55.16KB    0    </span></span>
-<span id="cb18-44"><a href="#cb18-44"></a><span class="co">#&gt; 14   psqn (1 thread; no pre)    24.7ms  25.02ms    39.9     27.58KB    0    </span></span>
-<span id="cb18-45"><a href="#cb18-45"></a><span class="co">#&gt; 15 psqn (1 thread; Cholesky)   62.65ms  63.57ms    15.7     27.58KB    0    </span></span>
-<span id="cb18-46"><a href="#cb18-46"></a><span class="co">#&gt; 16           psqn (1 thread)   18.86ms  19.12ms    52.2     27.58KB    0    </span></span>
-<span id="cb18-47"><a href="#cb18-47"></a><span class="co">#&gt; 17           psqn(2 threads)   10.27ms  10.46ms    95.6     27.58KB    0    </span></span>
-<span id="cb18-48"><a href="#cb18-48"></a><span class="co">#&gt; 18           psqn(4 threads)    5.91ms   6.29ms   154.      27.58KB    0</span></span></code></pre></div>
+<span id="cb18-31"><a href="#cb18-31"></a><span class="co">#&gt;  1    optim BFGS (2 threads)     1.13s    1.13s     0.882   42.41MB    0    </span></span>
+<span id="cb18-32"><a href="#cb18-32"></a><span class="co">#&gt;  2          lbfgs (1 thread)  261.55ms 263.54ms     3.77    49.41MB    0.595</span></span>
+<span id="cb18-33"><a href="#cb18-33"></a><span class="co">#&gt;  3          lbfgs(2 threads)  145.18ms 145.94ms     6.76    49.33MB    0.993</span></span>
+<span id="cb18-34"><a href="#cb18-34"></a><span class="co">#&gt;  4          lbfgs(4 threads)  103.34ms 106.95ms     9.26    51.27MB    1.58 </span></span>
+<span id="cb18-35"><a href="#cb18-35"></a><span class="co">#&gt;  5       lbfgsb3c (1 thread)  307.77ms 308.85ms     3.22    22.71MB    0.379</span></span>
+<span id="cb18-36"><a href="#cb18-36"></a><span class="co">#&gt;  6       lbfgsb3c(2 threads)  183.46ms 185.37ms     5.29    25.25MB    0.392</span></span>
+<span id="cb18-37"><a href="#cb18-37"></a><span class="co">#&gt;  7       lbfgsb3c(4 threads)   80.21ms  82.34ms    12.1     18.98MB    0.794</span></span>
+<span id="cb18-38"><a href="#cb18-38"></a><span class="co">#&gt;  8        psqn (R; 1 thread)  211.03ms 220.41ms     4.56     7.91MB    7.54 </span></span>
+<span id="cb18-39"><a href="#cb18-39"></a><span class="co">#&gt;  9        psqn(R; 2 threads)   211.9ms 227.06ms     4.45     7.91MB    7.15 </span></span>
+<span id="cb18-40"><a href="#cb18-40"></a><span class="co">#&gt; 10      psqn (1 thread, SR1)   38.42ms  38.95ms    25.6     27.58KB    0    </span></span>
+<span id="cb18-41"><a href="#cb18-41"></a><span class="co">#&gt; 11      psqn(2 threads, SR1)   19.16ms  19.44ms    51.4     27.58KB    0    </span></span>
+<span id="cb18-42"><a href="#cb18-42"></a><span class="co">#&gt; 12 psqn  (1 thread, opt pri.)  24.77ms  25.09ms    39.8     60.42KB    0    </span></span>
+<span id="cb18-43"><a href="#cb18-43"></a><span class="co">#&gt; 13 psqn (2 threads, opt pri.)  12.84ms  13.08ms    76.0     55.16KB    0    </span></span>
+<span id="cb18-44"><a href="#cb18-44"></a><span class="co">#&gt; 14   psqn (1 thread; no pre)   23.84ms     24ms    41.5     27.58KB    0    </span></span>
+<span id="cb18-45"><a href="#cb18-45"></a><span class="co">#&gt; 15 psqn (1 thread; Cholesky)   61.76ms   62.4ms    15.9     27.58KB    0    </span></span>
+<span id="cb18-46"><a href="#cb18-46"></a><span class="co">#&gt; 16           psqn (1 thread)   18.35ms  18.43ms    54.0     27.58KB    0.199</span></span>
+<span id="cb18-47"><a href="#cb18-47"></a><span class="co">#&gt; 17           psqn(2 threads)   10.03ms  10.06ms    98.7     27.58KB    0    </span></span>
+<span id="cb18-48"><a href="#cb18-48"></a><span class="co">#&gt; 18           psqn(4 threads)     5.7ms   5.83ms   171.      27.58KB    0</span></span></code></pre></div>
 <p>We see a large reduction. To be fair, we can use the C interface for the limited-memory BFGS methods to avoid re-allocating the gradient at every iteration. This will reduce their computation time. The R version of the quasi-Newton method is slower mainly as the R version to evaluate the log of the integrand and its derivative is slower than the version used by all the other methods. We can illustrate this by comparing with the computation time with the <code>eval_integrand</code>:</p>
 <div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a>bench<span class="op">::</span><span class="kw">mark</span>(</span>
 <span id="cb19-2"><a href="#cb19-2"></a>  <span class="st">`</span><span class="dt">  R</span><span class="st">`</span> =<span class="st"> </span><span class="kw">eval_integrand</span>(true_params), </span>
@@ -2080,9 +2080,9 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb34-17"><a href="#cb34-17"></a><span class="co">#&gt; # A tibble: 3 x 6</span></span>
 <span id="cb34-18"><a href="#cb34-18"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb34-19"><a href="#cb34-19"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb34-20"><a href="#cb34-20"></a><span class="co">#&gt; 1 1 thread      462µs    484µs     2013.    18.2KB        0</span></span>
-<span id="cb34-21"><a href="#cb34-21"></a><span class="co">#&gt; 2 2 threads     238µs    241µs     4106.    18.2KB        0</span></span>
-<span id="cb34-22"><a href="#cb34-22"></a><span class="co">#&gt; 3 3 threads     166µs    171µs     5670.    18.2KB        0</span></span>
+<span id="cb34-20"><a href="#cb34-20"></a><span class="co">#&gt; 1 1 thread      477µs    488µs     2006.    18.2KB        0</span></span>
+<span id="cb34-21"><a href="#cb34-21"></a><span class="co">#&gt; 2 2 threads     235µs    243µs     4057.    18.2KB        0</span></span>
+<span id="cb34-22"><a href="#cb34-22"></a><span class="co">#&gt; 3 3 threads     167µs    173µs     5701.    18.2KB        0</span></span>
 <span id="cb34-23"><a href="#cb34-23"></a></span>
 <span id="cb34-24"><a href="#cb34-24"></a><span class="co"># next, we compile the file but having defined PSQN_NO_USE_KAHAN in the </span></span>
 <span id="cb34-25"><a href="#cb34-25"></a><span class="co"># beginning</span></span>
@@ -2117,9 +2117,9 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb34-54"><a href="#cb34-54"></a><span class="co">#&gt; # A tibble: 3 x 6</span></span>
 <span id="cb34-55"><a href="#cb34-55"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb34-56"><a href="#cb34-56"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb34-57"><a href="#cb34-57"></a><span class="co">#&gt; 1 1 thread      448µs    495µs     1828.    18.2KB        0</span></span>
-<span id="cb34-58"><a href="#cb34-58"></a><span class="co">#&gt; 2 2 threads     228µs    244µs     3964.    18.2KB        0</span></span>
-<span id="cb34-59"><a href="#cb34-59"></a><span class="co">#&gt; 3 3 threads     164µs    177µs     5586.    18.2KB        0</span></span></code></pre></div>
+<span id="cb34-57"><a href="#cb34-57"></a><span class="co">#&gt; 1 1 thread      442µs    452µs     2150.    18.2KB        0</span></span>
+<span id="cb34-58"><a href="#cb34-58"></a><span class="co">#&gt; 2 2 threads     217µs    225µs     4368.    18.2KB        0</span></span>
+<span id="cb34-59"><a href="#cb34-59"></a><span class="co">#&gt; 3 3 threads     153µs    160µs     6161.    18.2KB        0</span></span></code></pre></div>
 <p>The error is only slightly larger in the latter case in this example and the computation time is reduced because the <code>func</code> and <code>grad</code> member functions are cheap to evaluate computationally.</p>
 </div>
 </div>
@@ -2170,8 +2170,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb35-35"><a href="#cb35-35"></a><span class="co">#&gt; # A tibble: 2 x 6</span></span>
 <span id="cb35-36"><a href="#cb35-36"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb35-37"><a href="#cb35-37"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb35-38"><a href="#cb35-38"></a><span class="co">#&gt; 1 optim       115.4µs  130.9µs     7345.      384B     12.7</span></span>
-<span id="cb35-39"><a href="#cb35-39"></a><span class="co">#&gt; 2 psqn_bfgs    85.6µs   97.1µs    10155.    2.49KB     14.8</span></span></code></pre></div>
+<span id="cb35-38"><a href="#cb35-38"></a><span class="co">#&gt; 1 optim       112.5µs    119µs     7924.      384B     14.9</span></span>
+<span id="cb35-39"><a href="#cb35-39"></a><span class="co">#&gt; 2 psqn_bfgs    87.2µs   90.4µs    10680.    2.49KB     15.2</span></span></code></pre></div>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>

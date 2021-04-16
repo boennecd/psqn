@@ -59,6 +59,14 @@ test_that("mixed logit model gives the same", {
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
+  # we get the same with other preconditioners
+  for(i in 0:2){
+    opt <- psqn(
+      par = val, fn = r_func, n_ele_func = n_clusters, rel_eps = rel_eps,
+      max_it = 100L, c1 = 1e-4, c2 = .9, n_threads = 1L, pre_method = i)
+    expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
+  }
+
   opt <- psqn(
     par = val, fn = r_func, n_ele_func = n_clusters, rel_eps = rel_eps,
     max_it = 100L, c1 = 1e-4, c2 = .9, n_threads = 2L)

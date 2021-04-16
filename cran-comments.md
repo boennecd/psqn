@@ -2,7 +2,7 @@
 * Ubuntu 18.04 LTS with gcc 10.1.0
   R version 3.6.3
 * Ubuntu 18.04 LTS with gcc 10.1.0
-  R version 3.6.3 with LTO checks
+  R devel 2020-11-30 r79529 with LTO checks
 * Ubuntu 18.04 LTS with gcc 10.1.0
   R version 3.6.3 with valgrind
 * Ubuntu 18.04 LTS with clang-6.0.0

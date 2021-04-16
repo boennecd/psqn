@@ -366,8 +366,13 @@ a number of iterations close to the number of distinct clusters.
 
 In practice, we terminate the conjugate gradient method when 
 $\lVert\vec r_k\rVert < \min (c, \sqrt{\lVert\nabla f(\vec x_{k -1})\rVert})\lVert\nabla f(\vec x_{k -1})\rVert$
-where $c$ is a constant the user can set. Moreover, we use diagonal 
-preconditioning.
+where $c$ is a constant the user can set. Moreover, we the package supports
+diagonal preconditioning or incomplete Cholesky factorization preconditioning 
+The diagonal preconditioning is very cheap and may reduce the number of required 
+conjugate gradient iterations. The incomplete Cholesky factorization 
+preconditioning is from Eigen and may greatly reduce the number of required 
+conjugate gradient iterations at the cost of having to factorize the 
+Hessian approximation.
 
 We can compare the flops of the matrix product in BFGS with applying the 
 conjugate gradient method. Assume that all $q_i$s are almost $\bar q$. 
@@ -596,7 +601,7 @@ this package. The location of the implementation can be found by
 calling `system.file("mlogit-ex.cpp", package = "psqn")`. 
 The most important part of the implementation is the problem specific 
 `m_logit_func` class, 
-the `get_mlogit_optimizer` function and the `optim_mlogit` function which 
+the `get_mlogit_optimizer` function, and the `optim_mlogit` function which 
 are needed to perform the optimization. The content of the file is:
 
 ```{cpp mlogit_cpp_code, code = readLines(system.file("mlogit-ex.cpp", package = "psqn"))}
@@ -606,7 +611,7 @@ The `PSQN::R_reporter` class ensures that output will be printed when one
 passes a `trace` argument which is greater than zero. The 
 `PSQN::R_interrupter` class ensures that the user can interrupt the 
 computation. These two classes can be replaced with custom classes 
-if one wants to and provide another implementation. See the source code 
+if one wants to and provides another implementation. See the source code 
 of this package for the required members.
 
 We can use the code by calling `Rcpp::sourceCpp` to compile the code: 
@@ -799,13 +804,13 @@ image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
 The true Hessian is very sparse. 
 
 #### Using Different Preconditioners
-We can use different preconditioner. We illustrate this below. Notice that 
+We can use different preconditioners. We illustrate this below. Notice that 
 you have to define the `PSQN_USE_EIGEN` macro variable prior to including any of
 the psqn headers files if you are using the C++ interface in order to use the 
 incomplete Cholesky factorization from Eigen. You will also have to include 
 RcppEigen or the psqn-Rcpp-wrapper.h header. 
 
-```{r mlogit_diff_pre}
+```{r mlogit_diff_pre, cache = 1}
 # without any preconditioner
 psqn_res_no_pre <- psqn_func(start_val, pre_method = 0L)
 

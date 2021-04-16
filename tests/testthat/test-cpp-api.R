@@ -29,7 +29,6 @@ if(!file.exists(f))
 sim_dat <- readRDS(f)
 
 test_that("mixed logit model gives the same", {
-  skip_if_not_installed("Rcpp")
   skip_if_not_installed("RcppArmadillo")
   skip_on_macOS()
 
@@ -73,6 +72,22 @@ test_that("mixed logit model gives the same", {
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
     c1 = 1e-4, c2 = .9, n_threads = 2L)
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
+
+  # the Hessian yields the same result
+  hess_ress_sparse <- get_sparse_Hess_approx_mlogit(optimizer)
+  expect_known_value(hess_ress_sparse, "mlogit-ex-hess-res.RDS")
+  hess_ress <- get_Hess_approx_mlogit(optimizer)
+  expect_equal(as.matrix(hess_ress_sparse), hess_ress,
+               check.attributes = FALSE)
+
+  # works with other preconditioners
+  for(i in 0:2){
+    opt_new <- optim_mlogit(
+      val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+      c1 = 1e-4, c2 = .9, n_threads = 2L, pre_method = i)
+    expect_equal(opt$value, opt_new$value, info = i)
+    expect_equal(opt$par, opt_new$par, info = i, tolerance = 4 * sqrt(rel_eps))
+  }
 
   # check the function to optimize the private parameters
   start_priv <- opt$par

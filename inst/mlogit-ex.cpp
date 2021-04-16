@@ -160,7 +160,8 @@ SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
  @param max_cg maximum number of conjugate gradient iterations in each
  iteration. Use zero if there should not be a limit.
  @param pre_method preconditioning method in conjugate gradient method.
- zero yields no preconditioning and one yields diagonal preconditioning.
+ zero yields no preconditioning, one yields diagonal preconditioning, and
+ two yields the incomplete Cholesky factorization from Eigen.
  */
 // [[Rcpp::export]]
 List optim_mlogit
