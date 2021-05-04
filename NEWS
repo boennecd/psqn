@@ -1,3 +1,8 @@
+Changes in version 0.2.1
+ * tests that compile files using Rcpp::sourceCpp() now do so in a temporary
+   directory in tempdir(). It was done before in the package directory which
+   violates CRAN policies.
+
 Changes in version 0.2.0
  * added a generic method for partially separable functions.
  * made it possible to run a setup function prior to evaluating all the element

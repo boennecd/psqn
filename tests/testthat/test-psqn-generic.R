@@ -53,7 +53,10 @@ test_that("the R and C++ interface gives the same and correct result", {
   skip_on_cran()
   library(Rcpp)
   library(Matrix)
-  sourceCpp(system.file("generic_example.cpp", package = "psqn"))
+  reset_info <- compile_cpp_file("generic_example.cpp")
+  on.exit(reset_compile_cpp_file(reset_info), add = TRUE)
+  setwd(reset_info$old_wd)
+
   cpp_arg <- lapply(dat, function(x){
     x$indices <- x$indices - 1L # C++ needs zero-based indices
     x
@@ -97,23 +100,20 @@ test_that("the R and C++ interface gives the same and correct result", {
   }
 
   # test that we get the same when we do not use Kahan summation algorithm
-  tmp_file <- file.path(system.file(package = "psqn"),
-                        "temp-file-to-be-compiled.cpp")
   (function(){
-    on.exit({
-      # clean up
-      fs <- list.files(system.file(package = "psqn"), full.names = TRUE)
-      to_delete <- grepl("temp-file-to-be-compiled.*", fs)
-      sapply(fs[to_delete], unlink)
-    })
+    reset_info <- compile_cpp_file("generic_example.cpp",
+                                   "generic_example-Kahan.cpp",
+                                   do_compile = FALSE)
+    on.exit(reset_compile_cpp_file(reset_info), add = TRUE)
 
-    tmp_file_con <- file(tmp_file)
+    old_lines <- readLines("generic_example-Kahan.cpp")
+    tmp_file_con <- file("generic_example-Kahan.cpp")
     writeLines(
-      c("#define PSQN_NO_USE_KAHAN",
-        readLines(system.file("generic_example.cpp", package = "psqn"))),
+      c("#define PSQN_NO_USE_KAHAN", old_lines),
       tmp_file_con)
     close(tmp_file_con)
-    sourceCpp(tmp_file)
+    sourceCpp("generic_example-Kahan.cpp")
+    setwd(reset_info$old_wd)
 
     Cpp_res <- optim_generic_ex(
       val = numeric(K), ptr = ptr, rel_eps = 1e-9, max_it = 1000L,

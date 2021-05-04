@@ -33,26 +33,22 @@ test_that("Poly example gives the same", {
 
   # we also want to check that we get the right error when we do not define
   # PSQN_USE_EIGEN so we alter the file a bit
-  tmp_file <- file.path(system.file(package = "psqn"),
-                        "temp-file-to-be-compiled.cpp")
   (function(){
-    on.exit({
-      # clean up
-      fs <- list.files(system.file(package = "psqn"), full.names = TRUE)
-      to_delete <- grepl("temp-file-to-be-compiled.*", fs)
-      sapply(fs[to_delete], unlink)
-    })
+    reset_info <- compile_cpp_file("poly-ex.cpp", do_compile = FALSE)
+    on.exit(reset_compile_cpp_file(reset_info), add = TRUE)
 
-    tmp_file_con <- file(tmp_file)
+    old_lines <- readLines("poly-ex.cpp")
+    tmp_file_con <- file("poly-ex.cpp")
     writeLines(
-      c(readLines(system.file("poly-ex.cpp", package = "psqn")),
+      c(old_lines,
         "// [[Rcpp::export]]",
         "void dum_get_hess_sparse_call(SEXP ptr) {",
         "  XPtr<poly_optim>(ptr)->get_hess_sparse();",
         "}"),
       tmp_file_con)
     close(tmp_file_con)
-    sourceCpp(tmp_file)
+    sourceCpp("poly-ex.cpp")
+    setwd(reset_info$old_wd)
 
     optimizer <- get_poly_optimizer(
       cluster_dat, max_threads = 2L, mu_global = mu_global)
