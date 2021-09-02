@@ -19,7 +19,7 @@ public:
   intrapolate(double const f0, double const d0, double const x,
               double const f): f0(f0), d0(d0), xnew(x), fnew(f) { }
 
-  inline double get_value(double const v1, double const v2)
+  double get_value(double const v1, double const v2)
   const noexcept {
     double const a = std::min(v1, v2),
                  b = std::max(v1, v2),
@@ -50,7 +50,7 @@ public:
     return val;
   }
 
-  inline void update(double const x, double const f) noexcept {
+  void update(double const x, double const f) noexcept {
     xold = xnew;
     fold = fnew;
     xnew = x;

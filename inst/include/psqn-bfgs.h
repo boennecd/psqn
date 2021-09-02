@@ -155,7 +155,7 @@ optim_info bfgs(
       // not a descent direction
       return false;
 
-    constexpr double const NaNv = std::numeric_limits<double>::quiet_NaN();
+    constexpr double NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom =
       [&](double a_low, double a_high, intrapolate &inter) -> bool {
         double f_low = psi(a_low);
@@ -282,7 +282,7 @@ optim_info bfgs(
       *d *= -1;
 
     double const x1 = *val;
-    constexpr psqn_uint const n_print(100L);
+    constexpr psqn_uint n_print(100L);
     if(!line_search(fval_old, val, gr, dir, fval)){
       info = info_code::line_search_failed;
       Reporter::line_search

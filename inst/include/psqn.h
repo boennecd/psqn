@@ -152,7 +152,7 @@ public:
         double const s_w = lp::vec_dot(s, wrk, n_ele),
           s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
           wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
-        constexpr double const r = 1e-8;
+        constexpr double r = 1e-8;
         if(abs(s_w) > r * s_norm * wrk_norm)
           lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
 
@@ -217,15 +217,15 @@ struct default_caller {
    @param val pointer to the value to evaluate the function at.
    @param comp_grad true if eval_grad is going to be called.
    */
-  inline void setup(double const *val, bool const comp_grad) { }
+  void setup(double const *val, bool const comp_grad) { }
 
   template<class T>
-  inline double eval_func(T &obj, double const * val) {
+  double eval_func(T &obj, double const * val) {
     return obj.func(val);
   }
 
   template<class T>
-  inline double eval_grad(T &obj, double const * val, double *gr) {
+  double eval_grad(T &obj, double const * val, double *gr) {
     return obj.grad(val, gr);
   }
 };
@@ -461,7 +461,7 @@ public:
       // not a descent direction
       return false;
 
-    constexpr psqn_uint const max_it = 20L;
+    constexpr psqn_uint max_it = 20L;
     static double const NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom =
       [&](double a_low, double a_high, intrapolate &inter) -> bool {
@@ -748,7 +748,7 @@ private:
     }
   };
 
-  inline comp_B_vec_obj get_comp_B_vec() {
+  comp_B_vec_obj get_comp_B_vec() {
     return comp_B_vec_obj(temp_mem, *this);
   }
 
@@ -801,7 +801,7 @@ public:
       out += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
     }
 
-    constexpr std::size_t const mult = cacheline_size() / sizeof(double),
+    constexpr std::size_t mult = cacheline_size() / sizeof(double),
                             min_size = 2L * mult;
 
     std::size_t thread_mem = std::max<std::size_t>(
@@ -1265,7 +1265,7 @@ private:
   std::vector<Eigen::Triplet<double> > sparse_B_mat_triplets;
 
   /// fills the sparse_B_mat
-  inline void fill_sparse_B_mat(){
+  void fill_sparse_B_mat(){
     // fill in the triplets
     sparse_B_mat_triplets.clear();
 
@@ -1514,7 +1514,7 @@ private:
     }
   };
 
-  inline comp_B_vec_obj get_comp_B_vec() {
+  comp_B_vec_obj get_comp_B_vec() {
     return comp_B_vec_obj(*this);
   }
 
@@ -1561,7 +1561,7 @@ public:
       out += n_args * 4L + (n_args * (n_args + 1L)) / 2L;
     }
 
-    constexpr std::size_t const mult = cacheline_size() / sizeof(double),
+    constexpr std::size_t mult = cacheline_size() / sizeof(double),
                             min_size = 2L * mult;
     std::size_t const n_extra = std::min<std::size_t>(2L, max_args);
 
@@ -1972,7 +1972,7 @@ private:
   std::vector<Eigen::Triplet<double> > sparse_B_mat_triplets;
 
   /// fills the sparse_B_mat
-  inline void fill_sparse_B_mat(){
+  void fill_sparse_B_mat(){
     // fill in the triplets
     sparse_B_mat_triplets.clear();
 
