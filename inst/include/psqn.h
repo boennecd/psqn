@@ -297,6 +297,8 @@ protected:
   }
 
 public:
+  ~base_optimizer() = default;
+
   /***
     conjugate gradient method with diagonal preconditioning. Solves B.y = x
     where B is the Hessian approximation.
@@ -727,11 +729,9 @@ template<class EFunc, class TReporter = dummy_reporter,
 class optimizer :
   public base_optimizer<optimizer<EFunc, TReporter, Tinterrupter, Tcaller> >
 {
-protected:
   using Reporter = TReporter;
   using interrupter = Tinterrupter;
 
-private:
   using base_opt =
     base_optimizer<optimizer<EFunc, TReporter, interrupter, Tcaller> >;
   friend base_opt;
@@ -811,7 +811,6 @@ private:
     }
   };
 
-protected:
   std::vector<bool> masked_parameters;
   bool any_masked{false};
 
@@ -866,11 +865,8 @@ private:
   /// pointer to temporary memory to be used by the threads
   double * const temp_thread_mem = temp_mem + n_mem[1];
 
-protected:
   /// element functions
   std::vector<worker> funcs;
-
-private:
   /// object to do computations prior to evaluating the element functions.
   Tcaller caller = Tcaller(([&](std::vector<worker> &fs) -> Tcaller {
     std::vector<EFunc const*> ele_funcs;
@@ -1440,11 +1436,9 @@ class optimizer_generic :
   public base_optimizer
   <optimizer_generic<EFunc, TReporter, Tinterrupter, Tcaller> >
 {
-protected:
   using Reporter = TReporter;
   using interrupter = Tinterrupter;
 
-public:
   using base_opt =
     base_optimizer<optimizer_generic<EFunc, TReporter, interrupter, Tcaller> >;
   friend base_opt;
@@ -1497,7 +1491,6 @@ public:
     }
   };
 
-protected:
   std::vector<bool> masked_parameters;
   bool any_masked{false};
 
@@ -1550,11 +1543,9 @@ private:
   /// pointer to temporary memory to be used by the threads
   double * const temp_thread_mem = temp_mem + n_mem[1];
 
-protected:
   /// element functions
   std::vector<worker> funcs;
 
-private:
   /// object to do computations prior to evaluating the element functions.
   Tcaller caller = Tcaller(([&](std::vector<worker> &fs) -> Tcaller {
     std::vector<EFunc const*> ele_funcs;
