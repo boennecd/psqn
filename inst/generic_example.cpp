@@ -181,3 +181,13 @@ NumericMatrix get_Hess_approx_generic(SEXP ptr){
 Eigen::SparseMatrix<double> get_sparse_Hess_approx_generic(SEXP ptr){
   return XPtr<generic_opt>(ptr)->get_hess_sparse();
 }
+
+// [[Rcpp::export]]
+void set_masked(SEXP ptr, Rcpp::IntegerVector indices){
+  XPtr<generic_opt>(ptr)->set_masked(indices.begin(), indices.end());
+}
+
+// [[Rcpp::export]]
+void clear_masked(SEXP ptr){
+  XPtr<generic_opt>(ptr)->clear_masked();
+}

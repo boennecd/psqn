@@ -249,6 +249,20 @@ class base_optimizer {
     return opt_obj().n_par;
   }
 
+  std::vector<bool> & masked_parameters() {
+    return opt_obj().masked_parameters;
+  }
+  std::vector<bool> const & masked_parameters() const {
+    return opt_obj().masked_parameters;
+  }
+
+  bool & any_masked() {
+    return opt_obj().any_masked;
+  }
+  bool any_masked() const {
+    return opt_obj().any_masked;
+  }
+
 protected:
   /// number of function evaluations
   psqn_uint n_eval = 0L;
@@ -581,6 +595,30 @@ public:
 
     return false;
   }
+
+  /// sets the masked parameters
+  template<class TIt>
+  void set_masked(TIt first, TIt last){
+    masked_parameters().assign(n_par(), false);
+    any_masked() = std::distance(first, last) > 0;
+
+    for(; first != last; ++first){
+      psqn_uint const idx{static_cast<psqn_uint>(*first)};
+      if(idx >= n_par()){
+        clear_masked(); // undo the changes
+        throw std::runtime_error
+          ("index of the masked parameter is greater than the number of variables");
+      }
+
+      masked_parameters()[idx] = true;
+    }
+  }
+
+  /// clears the masked parameters
+  void clear_masked(){
+    masked_parameters().assign(n_par(), false);
+    any_masked() = false;
+  }
 };
 
 /***
@@ -600,8 +638,7 @@ class optimizer :
    worker class to hold an element function and the element function's
    Hessian approximation.
    */
-  class worker final : public base_worker {
-  public:
+  struct worker final : public base_worker {
     /// the element function for this worker
     EFunc const func;
     /// indices of first set of private parameters
@@ -674,6 +711,8 @@ class optimizer :
 
 protected:
   using Reporter = TReporter;
+  std::vector<bool> masked_parameters;
+  bool any_masked{false};
 
 public:
   /// dimension of the global parameters
@@ -859,6 +898,15 @@ public:
       for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
         out += f(val, val + f.par_start, comp_grad, caller);
+
+        if(any_masked && comp_grad){
+          for(psqn_uint j = 0; j < global_dim; ++j)
+            if(masked_parameters[j])
+              f.gr[j] = 0;
+          for(psqn_uint j = 0; j < f.func.private_dim(); ++j)
+            if(masked_parameters[j + f.par_start])
+              f.gr[j + global_dim] = 0;
+        }
       }
 
       if(comp_grad){
@@ -895,6 +943,15 @@ public:
     for(psqn_uint i = 0; i < n_funcs; ++i){
       auto &f = funcs[i];
       thread_terms += f(v_mem, val + f.par_start, comp_grad, caller);
+
+      if(any_masked && comp_grad){
+        for(psqn_uint j = 0; j < global_dim; ++j)
+          if(masked_parameters[j])
+            f.gr[j] = 0;
+        for(psqn_uint j = 0; j < f.func.private_dim(); ++j)
+          if(masked_parameters[j + f.par_start])
+            f.gr[j + global_dim] = 0;
+      }
 
       if(comp_grad){
         // update global
@@ -1414,6 +1471,8 @@ class optimizer_generic :
 
 protected:
   using Reporter = TReporter;
+  std::vector<bool> masked_parameters;
+  bool any_masked{false};
 
 public:
   /// true if the element functions are thread-safe
@@ -1584,6 +1643,13 @@ public:
       for(psqn_uint i = 0; i < n_funcs; ++i){
         auto &f = funcs[i];
         lp::Kahan(out, out_comp, f(val, comp_grad, caller));
+
+        if(any_masked && comp_grad){
+          psqn_uint const * idx_j = f.indices();
+          for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)
+            if(masked_parameters[*idx_j])
+              f.gr[j] = 0;
+        }
       }
 
       if(comp_grad){
@@ -1622,6 +1688,13 @@ public:
       lp::Kahan(th_out, th_comp, f(val, comp_grad, caller));
 
       if(comp_grad){
+        if(any_masked){
+          psqn_uint const * idx_j = f.indices();
+          for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)
+            if(masked_parameters[*idx_j])
+              f.gr[j] = 0;
+        }
+
         // add the gradient terms
         psqn_uint const * idx_j = f.indices();
         for(psqn_uint j = 0; j < f.n_args; ++j, ++idx_j)

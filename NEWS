@@ -1,3 +1,7 @@
+Changes in version 0.2.2
+ * it is possible to mask (fix) some of the parameters.
+ * the code has been refactored. This may yield a speedup in some cases.
+
 Changes in version 0.2.1
  * tests that compile files using Rcpp::sourceCpp() now do so in a temporary
    directory in tempdir(). It was done before in the package directory which

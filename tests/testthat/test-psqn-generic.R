@@ -47,6 +47,14 @@ test_that("the R and C++ interface gives the same and correct result", {
 
   expect_known_value(R_res[c("par", "value")], "psqn_generic-glm-res.RDS")
 
+  idx_mask <- c(2L, 5L, 19L)
+  R_res_mask <- psqn_generic(
+    par = numeric(K), fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+    trace = 0L, rel_eps = 1e-9, max_it = 1000L, env = environment(),
+    mask = idx_mask)
+  expect_known_value(R_res_mask[c("par", "value")],
+                     "psqn_generic-glm-res-mask.RDS")
+
   # check that the C++ version gives the same
   skip_if_not_installed("Matrix")
   skip_on_macOS()
@@ -61,7 +69,7 @@ test_that("the R and C++ interface gives the same and correct result", {
     x$indices <- x$indices - 1L # C++ needs zero-based indices
     x
   })
-  ptr <- get_generic_ex_obj(cpp_arg, max_threads = 4L)
+  ptr <- get_generic_ex_obj(cpp_arg, max_threads = 2L)
   Cpp_res <- optim_generic_ex(
     val = numeric(K), ptr = ptr, rel_eps = 1e-9, max_it = 1000L,
     n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5)
@@ -79,6 +87,13 @@ test_that("the R and C++ interface gives the same and correct result", {
     val = numeric(K), ptr = ptr, rel_eps = 1e-9, max_it = 1000L,
     n_threads = 2L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5)
   expect_equal(Cpp_res, R_res)
+
+  set_masked(ptr, idx_mask)
+  Cpp_res_mask <- optim_generic_ex(
+    val = numeric(K), ptr = ptr, rel_eps = 1e-9, max_it = 1000L,
+    n_threads = 2L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5)
+  expect_equal(Cpp_res_mask, R_res_mask)
+  clear_masked(ptr)
 
   # we the right result with other preconditioners
   for(i in 0:2){

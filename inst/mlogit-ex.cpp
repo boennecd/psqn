@@ -283,3 +283,22 @@ NumericMatrix get_Hess_approx_mlogit(SEXP ptr){
 Eigen::SparseMatrix<double> get_sparse_Hess_approx_mlogit(SEXP ptr){
   return XPtr<mlogit_topim>(ptr)->get_hess_sparse();
 }
+
+/***
+ sets the masked (fixed) parameters.
+ @param ptr returned object from get_mlogit_optimizer.
+ @param indices zero based indices of the masked parameters.
+ */
+// [[Rcpp::export]]
+void set_masked(SEXP ptr, Rcpp::IntegerVector indices){
+  XPtr<mlogit_topim>(ptr)->set_masked(indices.begin(), indices.end());
+}
+
+/***
+ clears all masked (fixed) parameters.
+ @param ptr returned object from get_mlogit_optimizer.
+ */
+// [[Rcpp::export]]
+void clear_masked(SEXP ptr){
+  XPtr<mlogit_topim>(ptr)->clear_masked();
+}

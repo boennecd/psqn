@@ -888,6 +888,55 @@ There is a big difference. Moreover, there is an overhead with
 repeatedly going back and forward between R and C++. A fair comparison would
 use an R implementation for all methods.
 
+#### Masking (Fixing) Parameters
+
+It is possible to mask (fix) the parameters both in the R and C++ interface.
+We illustrate this below.
+
+```{r maskign_ex, cache=1}
+# set the parameters to mask
+par_mask <- numeric(length(psqn_res$par))
+set.seed(1)
+idx_mask <- sample.int(length(par_mask), 250L) # random indices we mask
+# add some noise to the parameters
+par_mask[idx_mask] <- par_mask[idx_mask] + rnorm(length(idx_mask), sd = .1)
+
+# fit the model with the R interface
+mask_psqn_res <- 
+  psqn(par = par_mask, r_func, n_ele_func = n_clusters, 
+       n_threads = 1L, c1 = 1e-4, c2 = .9, pre_method = 1L, 
+       mask = idx_mask - 1L) # -1L as it is zero based
+
+# do the same with optim
+mask_optim <- optim(
+    par_mask[-idx_mask], function(par){ 
+      par_mask[-idx_mask] <- par
+      eval_mlogit(par_mask, ptr = optimizer, n_threads = 1L)
+    }, 
+    function(par){
+      par_mask[-idx_mask] <- par
+      grad_mlogit(par_mask, ptr = optimizer, n_threads = 1L)[-idx_mask]
+    }, 
+    method = "BFGS", control = list(reltol = 1e-8))
+
+# we got the same
+all.equal(mask_psqn_res$par[-idx_mask], mask_optim$par)
+
+# the value is lower 
+psqn_res$value - mask_psqn_res$value # recall minus one times the integrand
+
+# the fixed parameters are the same
+all.equal(mask_psqn_res$par[idx_mask], par_mask[idx_mask])
+
+# the C++ interface gives the same
+set_masked(ptr = optimizer, indices = idx_mask - 1L)
+mask_psqn_res_cpp <- psqn_func(par_mask)
+clear_masked(optimizer) # remember to clear again!
+
+# we got the same
+all.equal(mask_psqn_res$par, mask_psqn_res_cpp$par)
+```
+
 ### Polynomial Example
 
 We consider the following trivial (regression) example as there is an 
@@ -1379,6 +1428,47 @@ opt_psqn         $counts
 opt_psqn_cholesky_R <- psqn_func_R(start, pre_method = 2L)
 all.equal(opt_psqn_cholesky_R[c("par", "value", "counts")], 
           opt_psqn_cholesky  [c("par", "value", "counts")])
+```
+
+#### Masking Parameters
+We can mask (fix) the parameters using both the R and C++ interface as 
+shown below.
+
+```{r generic_mask, cache = 1}
+# set the parameters to mask
+par_mask <- numeric(length(opt_psqn_res$par))
+set.seed(1)
+idx_mask <- sample.int(length(par_mask), 100L) # random indices we mask
+# add some noise to the parameters
+par_mask[idx_mask] <- par_mask[idx_mask] + rnorm(length(idx_mask), sd = .1)
+
+# use the R interface
+mask_psqn_res <- psqn_generic(
+  par = par_mask, fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1, 
+  trace = 0L, rel_eps = 1e-9, max_it = 1000L, pre_method = 1L,
+  mask = idx_mask - 1L) # -1L to be zero based
+
+# we can do the same with optim
+opt <- optim(
+  par_mask[-idx_mask], 
+  function(x) { par_mask[-idx_mask] <- x; R_func   (par_mask) }, 
+  function(x) { par_mask[-idx_mask] <- x; R_func_gr(par_mask)[-idx_mask] }, 
+  method = "BFGS", control = list(maxit = 1000L))
+
+# we got the same
+all.equal(mask_psqn_res$par[-idx_mask], opt$par)
+mask_psqn_res$value - opt$value # negative values is a better solution
+
+# the fixed parameters are the same
+all.equal(mask_psqn_res$par[idx_mask], par_mask[idx_mask])
+
+# we can also do this from C++
+set_masked(ptr, idx_mask - 1L)
+mask_psqn_res_cpp <- psqn_func(par_mask)
+clear_masked(ptr) # remember to clear!
+
+# we got the same
+all.equal(mask_psqn_res_cpp$par, mask_psqn_res$par)
 ```
 
 ### Using Kahan Summation Algorithm

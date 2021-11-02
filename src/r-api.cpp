@@ -154,6 +154,16 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
       _["counts"] = counts, _["convergence"] = info >= 0L);
 }
 
+// to call clear_mask on an object
+template<class TOpt>
+struct clear_mask_caller {
+  TOpt &obj;
+  bool do_clear;
+  clear_mask_caller(TOpt &obj, bool const do_clear):
+    obj(obj), do_clear(do_clear) { }
+  ~clear_mask_caller(){ if(do_clear) obj.clear_masked(); }
+};
+
 //' Partially Separable Function Optimization
 //'
 //' @description
@@ -182,6 +192,7 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
 //' @param pre_method Preconditioning method in the conjugate gradient method.
 //' Zero yields no preconditioning, one yields diagonal preconditioning, and
 //' two yields the incomplete Cholesky factorization from Eigen.
+//' @param mask zero based indices for parameters to mask (i.e. fix).
 //'
 //' @details
 //' The function follows the method described by Nocedal and Wright (2006)
@@ -313,7 +324,8 @@ List psqn
    bool const use_bfgs = true, int const trace = 0L,
    double const cg_tol = .5, bool const strong_wolfe = true,
    SEXP env = R_NilValue, int const max_cg = 0L,
-   int const pre_method = 1L){
+   int const pre_method = 1L,
+   IntegerVector const mask = IntegerVector::create()){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn: n_ele_func < 1L");
 
@@ -331,12 +343,16 @@ List psqn
   for(psqn_uint i = 0; i < n_ele_func; ++i)
     funcs.emplace_back(fn, i, env);
 
-  PSQN::optimizer<r_worker_psqn, PSQN::R_reporter,
-                  PSQN::R_interrupter> optim(funcs, n_threads);
+  using opt_obj =
+    PSQN::optimizer<r_worker_psqn, PSQN::R_reporter,
+                    PSQN::R_interrupter>;
+  opt_obj optim(funcs, n_threads);
 
   // check that we pass a parameter value of the right length
   if(optim.n_par != static_cast<psqn_uint>(par.size()))
     throw std::invalid_argument("psqn: invalid parameter size");
+  optim.set_masked(mask.begin(), mask.end());
+  clear_mask_caller<opt_obj> clearer(optim, mask.size() > 0);
 
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);
@@ -707,6 +723,30 @@ public:
 //' # we got the same
 //' all.equal(opt$value, R_res$value)
 //'
+//' # also works if we fix some parameters
+//' to_fix <- c(7L, 1L, 18L)
+//' par_fix <- numeric(K)
+//' par_fix[to_fix] <- c(-1, -.5, 0)
+//'
+//' R_res <- psqn_generic(
+//'   par = par_fix, fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+//'   trace = 0L, rel_eps = 1e-9, max_it = 1000L, env = environment(),
+//'   mask = to_fix - 1L) # notice the -1L because of the zero based indices
+//'
+//' # the equivalent optim version is
+//' opt <- optim(
+//'   numeric(K - length(to_fix)),
+//'   function(par) { par_fix[-to_fix] <- par; R_func   (par_fix) },
+//'   function(par) { par_fix[-to_fix] <- par; R_func_gr(par_fix)[-to_fix] },
+//'   method = "BFGS", control = list(maxit = 1000L))
+//'
+//' res_optim <- par_fix
+//' res_optim[-to_fix] <- opt$par
+//'
+//' # we got the same
+//' all.equal(res_optim, R_res$par, tolerance = 1e-5)
+//' all.equal(R_res$par[to_fix], par_fix[to_fix]) # the parameters are fixed
+//'
 //' # the overhead here is though quite large with the R interface from the psqn
 //' # package. A C++ implementation is much faster as shown in
 //' # vignette("psqn", package = "psqn"). The reason it is that it is very fast
@@ -722,7 +762,8 @@ List psqn_generic
    bool const use_bfgs = true, int const trace = 0L,
    double const cg_tol = .5, bool const strong_wolfe = true,
    SEXP env = R_NilValue, int const max_cg = 0L,
-   int const pre_method = 1L){
+   int const pre_method = 1L,
+   IntegerVector const mask = IntegerVector::create()){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn_generic: n_ele_func < 1L");
 
@@ -740,12 +781,17 @@ List psqn_generic
   for(psqn_uint i = 0; i < n_ele_func; ++i)
     funcs.emplace_back(fn, i, env);
 
-  PSQN::optimizer_generic<r_worker_optimizer_generic, PSQN::R_reporter,
-                          PSQN::R_interrupter> optim(funcs, n_threads);
+  using opt_obj =
+    PSQN::optimizer_generic<r_worker_optimizer_generic, PSQN::R_reporter,
+                            PSQN::R_interrupter>;
+  opt_obj optim(funcs, n_threads);
 
   // check that we pass a parameter value of the right length
   if(optim.n_par != static_cast<psqn_uint>(par.size()))
     throw std::invalid_argument("psqn_generic: invalid parameter size");
+
+  optim.set_masked(mask.begin(), mask.end());
+  clear_mask_caller<opt_obj> clearer(optim, mask.size() > 0);
 
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);

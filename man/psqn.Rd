@@ -19,7 +19,8 @@ psqn(
   strong_wolfe = TRUE,
   env = NULL,
   max_cg = 0L,
-  pre_method = 1L
+  pre_method = 1L,
+  mask = as.integer(c())
 )
 }
 \arguments{
@@ -58,6 +59,8 @@ iteration. Use zero if there should not be a limit.}
 \item{pre_method}{Preconditioning method in the conjugate gradient method.
 Zero yields no preconditioning, one yields diagonal preconditioning, and
 two yields the incomplete Cholesky factorization from Eigen.}
+
+\item{mask}{zero based indices for parameters to mask (i.e. fix).}
 }
 \value{
 An object with the following elements:

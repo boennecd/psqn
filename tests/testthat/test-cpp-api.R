@@ -91,6 +91,29 @@ test_that("mixed logit model gives the same", {
     expect_equal(opt$par, opt_new$par, info = i, tolerance = 4 * sqrt(rel_eps))
   }
 
+  # works with masking
+  idx_mask <- c(7L, 0L, 20L, 15L)
+  par_fix <- c(0.2582, 0.36515, 0.44721, 0.5164, 0.57735, -0.01619, 0.94384,
+               0.82122, 0.5939, 0.14377, -0.11775, -0.91207, -1.43759, -1.91436,
+               1.17658, -1.66497, -0.46353, 1.40856, -0.54176, 0.27866, -0.19397)
+
+  set_masked(optimizer, idx_mask)
+  opt_mask <- optim_mlogit(
+    val = par_fix, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+    c1 = 1e-4, c2 = .9, n_threads = 2L)
+  clear_masked(optimizer)
+
+  opt_res <- list(par = c(0.2582, 0.830931465957626, 0.586329698291959, 0.136054541268922,
+                          0.758404096966284, -0.508402916414152, 0.397840484268012, 0.82122,
+                          0.385471793612842, 0.601355805758345, -0.772664836507305, 0.227470250425005,
+                          -0.990712066557003, -0.40427168450336, 0.473345494155202, -1.66497,
+                          0.0985617406985485, 0.40708903513448, 0.105020277870488, -0.0635572013637352,
+                          -0.19397),
+                  value = 26.6443138686727, info = 0L, counts = c(
+                    `function` = 12, gradient = 10, n_cg = 16), convergence = TRUE)
+  expect_equal(opt_mask[do_check], opt_res[do_check], tolerance = tol)
+  expect_equal(opt_mask$par[idx_mask + 1L], par_fix[idx_mask + 1L])
+
   # check the function to optimize the private parameters
   start_priv <- opt$par
   start_priv[-seq_along(beta)] <- 0

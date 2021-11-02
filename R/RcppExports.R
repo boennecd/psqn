@@ -29,6 +29,7 @@
 #' @param pre_method Preconditioning method in the conjugate gradient method.
 #' Zero yields no preconditioning, one yields diagonal preconditioning, and
 #' two yields the incomplete Cholesky factorization from Eigen.
+#' @param mask zero based indices for parameters to mask (i.e. fix).
 #'
 #' @details
 #' The function follows the method described by Nocedal and Wright (2006)
@@ -151,8 +152,8 @@
 #' beta
 #' c(sapply(sim_dat, "[[", "u"))
 #' @export
-psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L) {
-    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method)
+psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
+    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
 }
 
 #' BFGS Implementation Used Internally in the psqn Package
@@ -325,13 +326,37 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' # we got the same
 #' all.equal(opt$value, R_res$value)
 #'
+#' # also works if we fix some parameters
+#' to_fix <- c(7L, 1L, 18L)
+#' par_fix <- numeric(K)
+#' par_fix[to_fix] <- c(-1, -.5, 0)
+#'
+#' R_res <- psqn_generic(
+#'   par = par_fix, fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+#'   trace = 0L, rel_eps = 1e-9, max_it = 1000L, env = environment(),
+#'   mask = to_fix - 1L) # notice the -1L because of the zero based indices
+#'
+#' # the equivalent optim version is
+#' opt <- optim(
+#'   numeric(K - length(to_fix)),
+#'   function(par) { par_fix[-to_fix] <- par; R_func   (par_fix) },
+#'   function(par) { par_fix[-to_fix] <- par; R_func_gr(par_fix)[-to_fix] },
+#'   method = "BFGS", control = list(maxit = 1000L))
+#'
+#' res_optim <- par_fix
+#' res_optim[-to_fix] <- opt$par
+#'
+#' # we got the same
+#' all.equal(res_optim, R_res$par, tolerance = 1e-5)
+#' all.equal(R_res$par[to_fix], par_fix[to_fix]) # the parameters are fixed
+#'
 #' # the overhead here is though quite large with the R interface from the psqn
 #' # package. A C++ implementation is much faster as shown in
 #' # vignette("psqn", package = "psqn"). The reason it is that it is very fast
 #' # to evaluate the element functions in this case
 #'
 #' @export
-psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L) {
-    .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method)
+psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
+    .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
 }
 
