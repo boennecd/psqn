@@ -115,8 +115,8 @@ stopifnot(length(unique(unlist(
 # Args:
 #   i cluster/element function index.
 #   par the parameters that this element function depends on. It has length zero
-#       if we need to pass the one-based indices of the parameters that this the
-#       i'th element function depends on.
+#       if we need to pass the one-based indices of the parameters that the i'th
+#       element function depends on.
 #   comp_grad TRUE of the gradient should be computed.
 r_func <- function(i, par, comp_grad){
   z <- dat[[i]]

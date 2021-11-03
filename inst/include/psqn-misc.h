@@ -40,6 +40,13 @@ struct optim_info {
   psqn_uint n_eval, n_grad, n_cg;
 };
 
+struct optim_info_aug_Lagrang {
+   double value;
+   info_code info;
+   psqn_uint n_eval, n_grad, n_cg, n_aug_Lagrang;
+   double penalty;
+};
+
 struct dummy_reporter {
   /**
    reporting during the conjugate gradient method.

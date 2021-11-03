@@ -32,25 +32,48 @@ inline void throw_no_eigen_error(){
  */
 class base_worker {
   /// logical for whether it is the first call
-  bool first_call = true;
-
+  bool first_call{true};
 public:
+  /// memory for the Hessian approximation
+  double * PSQN_RESTRICT B{nullptr};
+  /// memory for the gradient
+  double * PSQN_RESTRICT gr{nullptr};
+  /// memory for the old gradient
+  double * PSQN_RESTRICT gr_old{nullptr};
+  /// memory for the old value
+  double * PSQN_RESTRICT x_old{nullptr};
+  /// memory for the current value
+  double * PSQN_RESTRICT x_new{nullptr};
+
+  /// returns the required number of permanent memory
+  static size_t n_perm_mem(size_t const n_ele){
+    return (n_ele * (n_ele + 1)) / 2L + 4 * n_ele;
+  }
+
+  /// returns the required number of temporary memory
+  static size_t n_temp_mem(size_t const n_ele){
+    return 3 * n_ele;
+  }
+
+  /// sets the working memory
+  void set_working_memory(double * mem){
+    first_call = true;
+    B = mem;
+    gr = B + (n_ele * (n_ele + 1)) / 2L;
+    gr_old = gr + n_ele;
+    x_old = gr_old + n_ele;
+    x_new = x_old + n_ele;
+  }
+
   /// number of elements
   psqn_uint const n_ele;
-  /// memory for the Hessian approximation
-  double * const PSQN_RESTRICT B;
-  /// memory for the gradient
-  double * const PSQN_RESTRICT gr = B + (n_ele * (n_ele + 1)) / 2L;
-  /// memory for the old gradient
-  double * const PSQN_RESTRICT gr_old = gr + n_ele;
-  /// memory for the old value
-  double * const PSQN_RESTRICT x_old = gr_old + n_ele;
-  /// memory for the current value
-  double * const PSQN_RESTRICT x_new = x_old + n_ele;
   /// bool for whether to use BFGS or SR1 updates
   bool use_bfgs = true;
 
-  base_worker(psqn_uint const n_ele, double * mem): n_ele(n_ele), B(mem) { }
+  base_worker(psqn_uint const n_ele, double * mem = nullptr):
+    n_ele(n_ele) {
+    if(mem) set_working_memory(mem);
+  }
   virtual ~base_worker() = default;
 
   /***
@@ -232,10 +255,9 @@ struct default_caller {
 
 /***
  template class to perform parts of the optimization that is common to
- different particular optimizers. The reporter class can be used to report
- results during the optimization. Use CRTP.
+ different particular optimizers. Uses CRTP.
  */
-template<class OptT>
+template<class OptT, class Tconstraint>
 class base_optimizer {
   OptT & opt_obj(){
     return *static_cast<OptT*>(this);
@@ -293,11 +315,140 @@ protected:
       n_grad++;
     else
       n_eval++;
-    return opt_obj().eval(val, gr, comp_grad);
+    double out{opt_obj().eval(val, gr, comp_grad)};
+    out += constraints_terms(val, gr, comp_grad);
+    return out;
   }
+
+  /// adds constraint terms from the augmented Lagrangian function
+  double constraints_terms(double const * val, double * PSQN_RESTRICT gr,
+                           bool const comp_grad){
+    if(!use_constraints)
+      return 0;
+
+    double out(0);
+    sum_violations_sq = 0;
+    for(size_t i = 0; i < constraints.size(); ++i){
+      auto &c = constraints[i];
+      double const constraint_val{c(val, comp_grad)};
+      out += -lagrang_mult[i] * constraint_val +
+        penalty * .5 * constraint_val * constraint_val;
+      sum_violations_sq += constraint_val * constraint_val;
+
+      if(comp_grad){
+        psqn_uint const * idx_j{c.indices()};
+        for(psqn_uint j = 0; j < c.n_constrained(); ++j, ++idx_j){
+          if(opt_obj().any_masked && opt_obj().masked_parameters[*idx_j])
+            c.gr[j] = 0;
+          else {
+            c.gr[j] *= (penalty * constraint_val - lagrang_mult[i]);
+            gr[*idx_j] += c.gr[j];
+          }
+        }
+      }
+    }
+
+    return out;
+  }
+
+  /// should augmented Lagrangian terms be included
+  bool use_constraints{false};
+
+  /// the working memory when using constraints
+  std::unique_ptr<double[]> constraints_wk_mem_ptr;
+  double * PSQN_RESTRICT constraints_wk_mem{nullptr};
+
+  /// the multipliers from the augmented Lagrangian method
+  double * PSQN_RESTRICT lagrang_mult{nullptr};
+  /// the penalty factor from the augmented Lagrangian method
+  double penalty{};
+  /// the sum of the constrain violations squared
+  double sum_violations_sq{};
+
+  /// add diagonal entries from the augmented Lagrangian terms
+  void add_constraints_B_diag(double * PSQN_RESTRICT x){
+    if(!use_constraints)
+      return;
+
+    for(auto &c : constraints){
+      // add the diagonal entries
+      double const * b_diag{c.B};
+      psqn_uint const n_constrained{c.n_constrained()};
+      psqn_uint const * idx_j{c.indices()};
+      for(psqn_uint j = 0; j < n_constrained; ++j, b_diag += j + 1, ++idx_j)
+        x[*idx_j] += *b_diag;
+    }
+  }
+
+  /// accounts for the augmented Lagrangian terms in B.x
+  void add_constraints_B_vec_terms
+    (double const * PSQN_RESTRICT val, double * PSQN_RESTRICT res){
+    if(!use_constraints)
+      return;
+
+    double * const tmp_mem{constraints_wk_mem};
+    for(auto &c : constraints){
+      std::fill(tmp_mem, tmp_mem + c.n_constrained(), 0.);
+      lp::mat_vec_dot(c.B, val, tmp_mem, c.n_constrained(), c.indices());
+
+      psqn_uint const * idx_j{c.indices()};
+      for(psqn_uint j = 0; j < c.n_constrained(); ++j, ++idx_j)
+        res[*idx_j] += tmp_mem[j];
+    }
+  }
+
+  void alloc_n_set_constraint_mem(){
+    // compute the required memory
+    {
+      size_t n_mem{}, max_constraints{};
+
+      for(auto &c : constraints){
+        size_t const n_const = c.n_constrained();
+        n_mem += Tconstraint::n_perm_mem(n_const);
+        max_constraints = std::max(max_constraints, n_const);
+      }
+
+      n_mem += std::max
+        (Tconstraint::n_temp_mem(max_constraints), max_constraints);
+      constraints_wk_mem_ptr.reset(new double[n_mem]);
+    }
+
+    // set the working memory
+    constraints_wk_mem = constraints_wk_mem_ptr.get();
+    for(auto &c : constraints){
+      c.set_working_memory(constraints_wk_mem);
+      constraints_wk_mem += Tconstraint::n_perm_mem(c.n_constrained());
+    }
+  }
+
+#ifdef PSQN_USE_EIGEN
+  /// add the Hessian terms from the augmented Lagrangian terms
+  void add_constraints_to_sparse_hess
+    (Eigen::SparseMatrix<double> &sparse_B_mat){
+    if(!use_constraints)
+      return;
+
+    for(auto &c : constraints){
+      psqn_uint const n_constrained{c.n_constrained()};
+      double const * B = c.B;
+      psqn_uint const * const idx = c.indices();
+      for(psqn_uint j = 0; j < n_constrained; ++j){
+        for(psqn_uint i = 0; i < j; ++i){
+          sparse_B_mat.coeffRef(idx[i], idx[j]) += *B;
+          sparse_B_mat.coeffRef(idx[j], idx[i]) += *B++;
+        }
+        sparse_B_mat.coeffRef(idx[j], idx[j]) += *B++;
+      }
+    }
+  }
+
+#endif // #ifdef PSQN_USE_EIGEN
 
 public:
   ~base_optimizer() = default;
+
+  /// the current constraints
+  std::vector<Tconstraint> constraints;
 
   /***
     conjugate gradient method with diagonal preconditioning. Solves B.y = x
@@ -317,6 +468,8 @@ public:
 #ifdef PSQN_USE_EIGEN
       Eigen::SparseMatrix<double> &sparse_B_mat =
         opt_obj().get_hess_sparse_ref();
+      add_constraints_to_sparse_hess(sparse_B_mat);
+
       Eigen::ConjugateGradient
         <Eigen::SparseMatrix<double>, Eigen::Lower | Eigen::Upper,
          Eigen::IncompleteCholesky<double, Eigen::Lower | Eigen::Upper> > cg;
@@ -365,6 +518,7 @@ public:
     // setup before first iteration
     if(do_pre){
       opt_obj().get_diag(B_diag);
+      add_constraints_B_diag(B_diag);
       double *b = B_diag;
       for(psqn_uint i = 0; i < n_par(); ++i, ++b)
         *b = 1. / *b; // want to use multiplication rather than division
@@ -401,6 +555,7 @@ public:
       ++n_cg;
       std::fill(B_p, B_p + n_par(), 0.);
       comp_B_vec(p, B_p);
+      add_constraints_B_vec_terms(p, B_p);
 
       double const p_B_p = lp::vec_dot(p, B_p, n_par());
       if(p_B_p <= 0){
@@ -621,19 +776,34 @@ public:
      double const cg_tol = .5, bool const strong_wolfe = true,
      psqn_uint const max_cg = 0,
      precondition const pre_method = precondition::diag){
-    reset_counters();
+    // checks
+    if(c1 < 0)
+      throw std::invalid_argument("c1 < 0");
+    if(c1 >= c2 || c2 >= 1)
+      throw std::invalid_argument("c1 >= c2 || c2 >= 1");
+
+    if(!use_constraints)
+      reset_counters();
     for(auto &f : opt_obj().funcs){
       f.reset();
       f.use_bfgs = use_bfgs;
     }
+    if(use_constraints)
+      for(auto &c : constraints){
+        c.reset();
+        c.use_bfgs = use_bfgs;
+      }
 
     std::unique_ptr<double[]> gr(new double[n_par()]),
                              dir(new double[n_par()]);
 
     // evaluate the gradient at the current value
-    double fval = opt_obj().eval(val, gr.get(), true);
+    double fval = eval_base(val, gr.get(), true);
     for(auto &f : opt_obj().funcs)
       f.record();
+    if(use_constraints)
+      for(auto &c : constraints)
+        c.record();
 
     info_code info = info_code::max_it_reached;
     int n_line_search_fail = 0;
@@ -683,13 +853,103 @@ public:
       }
 
       // update the Hessian and take another iteration
-      if(n_line_search_fail < 1)
+      if(n_line_search_fail < 1){
       	opt_obj().update_Hessian_approx();
-      else
+        if(use_constraints)
+          for(auto &c : constraints)
+            c.update_Hes(constraints_wk_mem);
+      }
+      else {
       	opt_obj().reset_Hessian_approx();
+        if(use_constraints)
+          for(auto &c : constraints){
+            c.reset();
+            c.record();
+          }
+      }
     }
 
     return { fval, info, n_eval, n_grad, n_cg };
+  }
+
+  /***
+   optimizes the partially separable function accounting for constraints.
+
+   @param multipliers staring values for the multipliers. There needs to be the
+   same number of multipliers as the number of constraints.
+   @param penalty_start starting value for the penalty parameter.
+   @param max_it_outer maximum number of augmented Lagrangian steps.
+   @param violations_norm_thresh threshold for the norm of the constraint
+   violations.
+   @param tau multiplier used for the penalty parameter between each outer
+   iterations.
+
+   The remaining parameters are like optim. Notice that the value of the
+   output is with the additional terms from the augmented Lagrangian function.
+   */
+  optim_info_aug_Lagrang optim_aug_Lagrang
+    (double * val, double * multipliers, double const penalty_start,
+     double const rel_eps, psqn_uint const max_it,
+     psqn_uint const max_it_outer, double const violations_norm_thresh,
+     double const c1, double const c2, double const tau = 1.5,
+     bool const use_bfgs = true, int const trace = 0,
+     double const cg_tol = .5, bool const strong_wolfe = true,
+     psqn_uint const max_cg = 0,
+     precondition const pre_method = precondition::diag){
+    // checks
+    if(tau < 1)
+      throw std::invalid_argument("tau < 1");
+    if(penalty_start <= 0)
+      throw std::invalid_argument("penalty_start <= 0");
+
+    // setup
+    penalty = penalty_start;
+    lagrang_mult = multipliers;
+    alloc_n_set_constraint_mem();
+    sum_violations_sq = std::numeric_limits<double>::infinity();
+    reset_counters();
+
+    // resets the use_constraints
+    struct set_flag_false {
+      bool &flag;
+      set_flag_false(bool &flag): flag{flag} { }
+      ~set_flag_false() { flag = false; }
+    } reset_use_constraints{use_constraints};
+    use_constraints = true;
+
+    // perform the minimization
+    optim_info inner_res;
+    psqn_uint n_outer_it{};
+    info_code info{info_code::max_it_reached};
+    for(; n_outer_it < max_it_outer; ++n_outer_it){
+      inner_res = optim(val, rel_eps, max_it, c1, c2, use_bfgs, trace,
+                        cg_tol, strong_wolfe, max_cg, pre_method);
+
+      if(inner_res.info != info_code::converged){
+        info = inner_res.info;
+        break;
+      }
+
+      // check constrains are satisfied
+      if(sqrt(sum_violations_sq) < violations_norm_thresh){
+        info = info_code::converged;
+        break;
+      }
+
+      // update the multipliers
+      for(size_t i = 0; i < constraints.size(); ++i){
+        double const constraint_val{constraints[i](val, false)};
+        lagrang_mult[i] -= penalty * constraint_val;
+      }
+
+      // update the penalty
+      penalty *= tau;
+    }
+
+    constraints_wk_mem_ptr.reset(nullptr); // not needed anymore
+    n_outer_it = std::min(n_outer_it + 1, max_it_outer);
+    return { inner_res.value, info, n_eval, n_grad, n_cg, n_outer_it,
+             penalty };
   }
 
   /***
@@ -720,20 +980,90 @@ public:
   }
 };
 
+/// type of constraint
+enum constraint_type : char {
+  non_lin_eq = 1
+};
+
+/**
+ base class for the constraints. Uses CRTP but requires, somewhat strangely,
+ that one also inherits from base_worker.
+ */
+template<class Tconstraint>
+class constraint_base {
+  Tconstraint &impl(){
+    return *static_cast<Tconstraint*>(this);
+  }
+
+  Tconstraint const &impl() const {
+    return *static_cast<Tconstraint const*>(this);
+  }
+
+public:
+  /// the type of constraint
+  constraint_type type() const {
+    return impl().type();
+  }
+
+  /// return the number of constraints
+  psqn_uint n_constrained() const {
+    return impl().n_constrained();
+  }
+
+  /// returns a pointer to the zero based indices of the constrainte variables
+  psqn_uint const * indices() const {
+    return impl().indices();
+  }
+
+  /// evaluates the constraint or the gradient of the constraint
+  double operator()(double const * PSQN_RESTRICT par, bool const comp_grad){
+    // copy values
+    psqn_uint const * idx_i{indices()};
+    for(psqn_uint i = 0; i < n_constrained(); ++i, ++idx_i)
+      impl().x_new[i] = par[*idx_i];
+
+    if(!comp_grad)
+      return impl().func(impl().x_new);
+
+    return impl().grad(impl().x_new, impl().gr);
+  }
+};
+
+/***
+ The default constraint class. Does nothing but shows which members function
+ that needs to be implemented and how to inherit from the two required classes.
+ */
+struct default_constraint : public base_worker,
+                            public constraint_base<default_constraint>
+{
+  default_constraint(): base_worker(0) { }
+
+  /// the member functions do not need to be constexpr!
+  static constexpr constraint_type type() {
+    return constraint_type::non_lin_eq;
+  }
+  static constexpr psqn_uint n_constrained() { return 0; }
+  static constexpr psqn_uint const * indices() { return nullptr; }
+  static constexpr double func(double const*) { return 0; }
+  static constexpr double grad(double const*, double *) { return 0; }
+};
+
 /***
  The reporter class can be used to report results during the optimization.
  */
 template<class EFunc, class TReporter = dummy_reporter,
          class Tinterrupter = dummy_interrupter,
-         class Tcaller = default_caller<EFunc> >
+         class Tcaller = default_caller<EFunc>,
+         class Tconstraint = default_constraint>
 class optimizer :
-  public base_optimizer<optimizer<EFunc, TReporter, Tinterrupter, Tcaller> >
+  public base_optimizer
+    <optimizer<EFunc, TReporter, Tinterrupter, Tcaller, Tconstraint>,
+     Tconstraint>
 {
   using Reporter = TReporter;
   using interrupter = Tinterrupter;
 
-  using base_opt =
-    base_optimizer<optimizer<EFunc, TReporter, interrupter, Tcaller> >;
+  using base_opt = base_optimizer<optimizer, Tconstraint>;
   friend base_opt;
 
   /***
@@ -775,10 +1105,8 @@ class optimizer :
       if(!comp_grad)
         return call_obj.eval_func(func, static_cast<double const *>(x_new));
 
-      double const out = call_obj.eval_grad(
+      return call_obj.eval_grad(
         func, static_cast<double const *>(x_new), gr);
-
-      return out;
     }
   };
 
@@ -908,10 +1236,10 @@ private:
   class comp_B_vec_obj {
     bool is_first_call = true;
     double * B_start;
-    optimizer<EFunc, Reporter, interrupter, Tcaller> &obj;
+    optimizer &obj;
   public:
-    comp_B_vec_obj(double * mem,
-                   optimizer<EFunc, Reporter, interrupter, Tcaller> &obj):
+    comp_B_vec_obj
+    (double * mem, optimizer &obj):
     B_start(mem), obj(obj) { }
 
 
@@ -972,14 +1300,14 @@ public:
       if(max_priv < private_dim)
         max_priv = private_dim;
 
-      out += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
+      out += worker::n_perm_mem(n_ele);
     }
 
     constexpr std::size_t mult = cacheline_size() / sizeof(double),
                             min_size = 2L * mult;
 
-    std::size_t thread_mem = std::max<std::size_t>(
-      3L * (global_dim + max_priv), min_size);
+    std::size_t thread_mem = std::max(
+      worker::n_temp_mem(global_dim + max_priv), min_size);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
@@ -1431,16 +1759,18 @@ public:
  */
 template<class EFunc, class TReporter = dummy_reporter,
          class Tinterrupter = dummy_interrupter,
-         class Tcaller = default_caller<EFunc> >
+         class Tcaller = default_caller<EFunc>,
+         class Tconstraint = default_constraint >
 class optimizer_generic :
   public base_optimizer
-  <optimizer_generic<EFunc, TReporter, Tinterrupter, Tcaller> >
+  <optimizer_generic<EFunc, TReporter, Tinterrupter, Tcaller, Tconstraint>,
+   Tconstraint>
 {
   using Reporter = TReporter;
   using interrupter = Tinterrupter;
+  using constraint = Tconstraint;
 
-  using base_opt =
-    base_optimizer<optimizer_generic<EFunc, TReporter, interrupter, Tcaller> >;
+  using base_opt = base_optimizer<optimizer_generic, Tconstraint>;
   friend base_opt;
 
   /***
@@ -1583,10 +1913,9 @@ private:
 
   // class to compute B.x for base_optimizer
   class comp_B_vec_obj {
-    optimizer_generic<EFunc, Reporter, interrupter, Tcaller> &obj;
+    optimizer_generic &obj;
   public:
-    comp_B_vec_obj
-    (optimizer_generic<EFunc, Reporter, interrupter, Tcaller> &obj):
+    comp_B_vec_obj(optimizer_generic &obj):
     obj(obj) { }
 
     void operator()(double const * const PSQN_RESTRICT val,
@@ -1639,7 +1968,7 @@ public:
       if(max_args < n_args)
         max_args = n_args;
 
-      out += n_args * 4L + (n_args * (n_args + 1L)) / 2L;
+      out += worker::n_perm_mem(n_args);
     }
 
     constexpr std::size_t mult = cacheline_size() / sizeof(double),
@@ -1648,7 +1977,7 @@ public:
 
     std::size_t thread_mem = std::max<std::size_t>(
       2L * n_par + n_extra, min_size);
-    thread_mem = std::max<std::size_t>(thread_mem, 3L * max_args);
+    thread_mem = std::max(thread_mem, worker::n_temp_mem(max_args));
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
@@ -1930,12 +2259,14 @@ private:
       psqn_uint const n_args = f.n_args;
       double const * B = f.B;
       psqn_uint const * const idx = f.indices();
-      for(psqn_uint j = 0; j < n_args; ++j)
-        for(psqn_uint i = 0; i <= j; ++i){
-          if(i < j)
-            sparse_B_mat_triplets.emplace_back(idx[i], idx[j], *B   );
-          sparse_B_mat_triplets  .emplace_back(idx[j], idx[i], *B++);
+      for(psqn_uint j = 0; j < n_args; ++j){
+        for(psqn_uint i = 0; i < j; ++i){
+          sparse_B_mat_triplets.emplace_back(idx[i], idx[j], *B   );
+          sparse_B_mat_triplets.emplace_back(idx[j], idx[i], *B++);
         }
+
+        sparse_B_mat_triplets.emplace_back(idx[j], idx[j], *B++);
+      }
     }
 
     sparse_B_mat.resize(n_par, n_par);

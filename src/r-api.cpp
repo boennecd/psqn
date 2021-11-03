@@ -62,15 +62,10 @@ class r_worker_psqn {
 public:
   r_worker_psqn(SEXP func, int iarg, SEXP rho):
   f(func, rho),
-  f_idx(([&]() -> IntegerVector {
-    IntegerVector out(1L);
-    out[0] = iarg + 1L;
-    return out;
-  })()),
+  f_idx(IntegerVector::create(iarg + 1)),
   g_dim(([&]() -> psqn_uint {
-    NumericVector dum(0);
     scomp_grad[0] = false;
-    SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
+    SEXP res = PROTECT(f(f_idx, NumericVector::create(), scomp_grad));
     if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) != 2L){
       UNPROTECT(1);
       throw std::invalid_argument(
@@ -81,9 +76,8 @@ public:
     return out;
   })()),
   p_dim(([&]() -> psqn_uint {
-    NumericVector dum(0);
     scomp_grad[0] = false;
-    SEXP res =  PROTECT(f(f_idx, dum, scomp_grad));
+    SEXP res =  PROTECT(f(f_idx, NumericVector::create(), scomp_grad));
     if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) != 2L){
       UNPROTECT(1);
       throw std::invalid_argument(
@@ -154,21 +148,26 @@ List wrap_optim_info(NumericVector par_res, PSQN::optim_info res){
       _["counts"] = counts, _["convergence"] = info >= 0L);
 }
 
-// to call clear_mask on an object
-template<class TOpt>
-struct clear_mask_caller {
-  TOpt &obj;
-  bool do_clear;
-  clear_mask_caller(TOpt &obj, bool const do_clear):
-    obj(obj), do_clear(do_clear) { }
-  ~clear_mask_caller(){ if(do_clear) obj.clear_masked(); }
-};
+List wrap_optim_info(NumericVector par_res, NumericVector multipliers,
+                     PSQN::optim_info_aug_Lagrang res){
+  NumericVector counts = NumericVector::create(
+    res.n_eval, res.n_grad,  res.n_cg, res.n_aug_Lagrang);
+  counts.names() = CharacterVector::create(
+    "function", "gradient", "n_cg", "n_aug_Lagrang");
+
+  int const info = static_cast<int>(res.info);
+  return List::create(
+    _["par"] = par_res, _["multipliers"] = multipliers, _["value"] = res.value,
+      _["info"] = info, _["counts"] = counts, _["convergence"] = info >= 0L,
+        _["penalty"] = res.penalty);
+}
 
 //' Partially Separable Function Optimization
 //'
 //' @description
 //' Optimization method for specially structured partially separable
-//' functions.
+//' functions. The \code{psqn_aug_Lagrang} function supports non-linear
+//' equality constraints using an augmented Lagrangian method.
 //'
 //' @param par Initial values for the parameters. It is a concatenated
 //' vector of the global parameters and all the private parameters.
@@ -222,7 +221,7 @@ struct clear_mask_caller {
 //' gradient iterations.
 //'
 //' @return
-//' An object with the following elements:
+//' \code{pqne}: An object with the following elements:
 //' \item{par}{the estimated global and private parameters.}
 //' \item{value}{function value at \code{par}.}
 //' \item{info}{information code. 0 implies convergence.
@@ -267,7 +266,7 @@ struct clear_mask_caller {
 //'   list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
 //' }, simplify = FALSE)
 //'
-//' # evalutes the negative log integrand.
+//' # evaluates the negative log integrand.
 //' #
 //' # Args:
 //' #   i cluster/element function index.
@@ -314,6 +313,64 @@ struct clear_mask_caller {
 //' # compare with
 //' beta
 //' c(sapply(sim_dat, "[[", "u"))
+//'
+//' # add equality constraints
+//' idx_constrained <- list(c(2L, 19L), c(1L, 5L, 8L))
+//'
+//' # evaluates the c(x) in equalities c(x) = 0.
+//' #
+//' # Args:
+//' #   i constrain index.
+//' #   par the constrained parameters. It has length zero if we need to pass the
+//' #       one-based indices of the parameters that the i'th constrain depends on.
+//' #   what integer which is zero if the function should be returned and one if the
+//' #        gradient should be computed.
+//' consts <- function(i, par, what){
+//'   if(length(par) == 0)
+//'     # need to return the indices
+//'     return(idx_constrained[[i]])
+//'
+//'   if(i == 1){
+//'     # a linear equality constrain. It is implemented as a non-linear constrain
+//'     # though
+//'     out <- sum(par) - 3
+//'     if(what == 1)
+//'       attr(out, "grad") <- rep(1, length(par))
+//'
+//'   } else if(i == 2){
+//'     # the parameters need to be on a circle
+//'     out <- sum(par^2) - 1
+//'     if(what == 1)
+//'       attr(out, "grad") <- 2 * par
+//'   }
+//'
+//'   out
+//' }
+//'
+//' # optimize with the constraints
+//' res_consts <- psqn_aug_Lagrang(
+//'   par = rep(0, p + q * n_clusters), fn = r_func, consts = consts,
+//'   n_ele_func = n_clusters, n_constraints = length(idx_constrained))
+//'
+//' res_consts
+//' res_consts$multipliers # the estimated multipliers
+//' res_consts$penalty # the penalty parameter
+//'
+//' # the function value is higher (worse) as expected
+//' res$value - res_consts$value
+//'
+//' # the two constraints are satisfied
+//' sum(res_consts$par[idx_constrained[[1]]]) - 3   # ~ 0
+//' sum(res_consts$par[idx_constrained[[2]]]^2) - 1 # ~ 0
+//'
+//' # we can also use another pre conditioner
+//' res_consts_chol <- psqn_aug_Lagrang(
+//'   par = rep(0, p + q * n_clusters), fn = r_func, consts = consts,
+//'   n_ele_func = n_clusters, n_constraints = length(idx_constrained),
+//'   pre_method = 2L)
+//'
+//' res_consts_chol
+//'
 //' @export
 // [[Rcpp::export]]
 List psqn
@@ -352,7 +409,6 @@ List psqn
   if(optim.n_par != static_cast<psqn_uint>(par.size()))
     throw std::invalid_argument("psqn: invalid parameter size");
   optim.set_masked(mask.begin(), mask.end());
-  clear_mask_caller<opt_obj> clearer(optim, mask.size() > 0);
 
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);
@@ -361,6 +417,217 @@ List psqn
                          static_cast<PSQN::precondition>(pre_method));
 
   return wrap_optim_info(par_arg, res);
+}
+
+/// the class to handle constraints
+class r_constraint_psqn : public PSQN::base_worker,
+                          public PSQN::constraint_base<r_constraint_psqn>
+{
+  simple_R_func3 f;
+  IntegerVector f_idx;
+  IntegerVector mutable what = IntegerVector(1);
+  NumericVector mutable par = NumericVector(n_ele);
+  std::unique_ptr<psqn_uint[]> const indices_vec;
+
+public:
+  // needed because of the unique_ptr
+  r_constraint_psqn(const r_constraint_psqn &other):
+  base_worker(other.n_ele),
+  f(other.f),
+  f_idx(clone(other.f_idx)),
+  indices_vec(([&]() -> std::unique_ptr<psqn_uint[]> {
+    std::unique_ptr<psqn_uint[]> out(new psqn_uint[n_ele]);
+    std::copy(other.indices_vec.get(), other.indices_vec.get() + n_ele,
+              out.get());
+    return out;
+  })()) { }
+
+  r_constraint_psqn(SEXP func, unsigned iarg, SEXP rho):
+  base_worker(([&]() -> psqn_uint {
+    simple_R_func3 f_tmp(func, rho);
+    SEXP res = PROTECT(f_tmp(
+      IntegerVector::create(iarg + 1L), NumericVector::create(),
+      IntegerVector::create(0)));
+    if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) < 1){
+      UNPROTECT(1);
+      throw std::invalid_argument(
+          "fn returns does not return an integer vector or the length is less than one with zero length par");
+    }
+
+    R_len_t const out = Rf_xlength(res);
+    UNPROTECT(1);
+    return out;
+  })()),
+  f(func, rho),
+  f_idx(IntegerVector::create(iarg + 1)),
+  indices_vec(([&]() -> std::unique_ptr<psqn_uint[]> {
+    std::unique_ptr<psqn_uint[]> out(new psqn_uint[n_ele]);
+    SEXP res = PROTECT(f(f_idx, NumericVector::create(),
+                         IntegerVector::create(0)));
+
+    if(!Rf_isInteger(res) or !Rf_isVector(res) or
+         static_cast<psqn_uint>(Rf_xlength(res)) != n_ele){
+      UNPROTECT(1);
+      throw std::invalid_argument(
+          "fn returns does not return an integer vector or the length differes between calls with zero length par");
+    }
+
+    int const * vals = INTEGER(res);
+    for(psqn_uint i = 0L; i < n_ele; ++i){
+      if(vals[i] < 1L){
+        UNPROTECT(1);
+        throw std::invalid_argument("index less than one provided");
+      }
+      out[i] = vals[i] - 1L;
+    }
+
+    UNPROTECT(1);
+    return out;
+  })()) { }
+
+  static constexpr PSQN::constraint_type type() {
+    return PSQN::constraint_type::non_lin_eq;
+  }
+
+  psqn_uint n_constrained() const {
+    return n_ele;
+  }
+  psqn_uint const * indices() const {
+    return indices_vec.get();
+  }
+
+  double func(double const *point) {
+    std::copy(point, point + n_ele, &par[0]);
+    what[0] = 0;
+    SEXP res =  PROTECT(f(f_idx, par, what));
+    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L){
+      UNPROTECT(1);
+      throw std::invalid_argument(
+          "fn returns invalid output with comp_grad = FALSE");
+    }
+    double const out = *REAL(res);
+    UNPROTECT(1);
+    return out;
+  }
+
+  double grad(double const *point, double *gr) {
+    std::copy(point, point + n_ele, &par[0]);
+    what[0] = 1;
+    SEXP res =  PROTECT(f(f_idx, par, what));
+    CharacterVector which("grad");
+    SEXP gr_val = PROTECT(Rf_getAttrib(res, which));
+
+    if(!Rf_isReal(res) or !Rf_isVector(res) or Rf_xlength(res) != 1L or
+         Rf_isNull(gr_val) or !Rf_isReal(gr_val) or
+         static_cast<psqn_uint>(Rf_xlength(gr_val)) != n_ele){
+      UNPROTECT(2);
+      throw std::invalid_argument(
+          "fn returns invalid output with comp_grad = TRUE");
+    }
+
+    lp::copy(gr, REAL(gr_val), n_ele);
+    double const out = *REAL(res);
+    UNPROTECT(2);
+    return out;
+  }
+};
+
+//' @rdname psqn
+//'
+//' @param consts Function to compute the constraints which must be equal to
+//' zero. See the example Section.
+//' @param multipliers Staring values for the multipliers in the augmented
+//' Lagrangian method. There needs to be the same number of multipliers as the
+//' number of constraints. An empty vector,\code{numeric()}, yields zero as
+//' the starting value for all multipliers.
+//' @param penalty_start Starting value for the penalty parameterin the
+//' augmented Lagrangian method.
+//' @param max_it_outer Maximum number of augmented Lagrangian steps.
+//' @param violations_norm_thresh Threshold for the norm of the constraint
+//' violations.
+//' @param tau Multiplier used for the penalty parameter between each outer
+//' iterations.
+//'
+//' @return
+//' \code{psqn_aug_Lagrang}: Like \code{psqn} with a few exceptions:
+//' \item{multipliers}{final multipliers from the the augmented Lagrangian
+//' method.}
+//' \item{counts}{has an additional element called \code{n_aug_Lagrang} with the
+//' number of augmented Lagrangian iterations.}
+//' \item{penalty}{the final penalty parameter from the the augmented Lagrangian
+//' method.}
+//'
+//' @export
+// [[Rcpp::export]]
+List psqn_aug_Lagrang
+  (NumericVector par, SEXP fn, unsigned const n_ele_func,
+   SEXP consts, unsigned const n_constraints,
+   NumericVector multipliers =  NumericVector::create(),
+   double const penalty_start = 1,
+   double const rel_eps = .00000001,
+   unsigned const max_it = 100L, unsigned const max_it_outer = 100,
+   double const violations_norm_thresh = 0.000001,
+   unsigned const n_threads = 1L,
+   double const c1 = .0001, double const c2 = .9,
+   double const tau = 1.5,
+   bool const use_bfgs = true, int const trace = 0L,
+   double const cg_tol = .5, bool const strong_wolfe = true,
+   SEXP env = R_NilValue, int const max_cg = 0L,
+   int const pre_method = 1L,
+   IntegerVector const mask = IntegerVector::create()){
+  if(n_ele_func < 1L)
+    throw std::invalid_argument("psqn: n_ele_func < 1L");
+
+  if(multipliers.size() == 0)
+    multipliers = NumericVector(n_constraints);
+
+  if(Rf_isNull(env))
+    env = Environment::global_env();
+  if(!Rf_isEnvironment(env))
+    throw std::invalid_argument("psqn: env is not an environment");
+  if(!Rf_isFunction(fn))
+    throw std::invalid_argument("psqn: fn is not a function");
+  if(pre_method < 0L or pre_method > 2L)
+    throw std::invalid_argument("psqn: invalid pre_method");
+  if(!Rf_isFunction(consts))
+    throw std::invalid_argument("psqn: consts is not a function");
+
+  // create the element functions
+  std::vector<r_worker_psqn> funcs;
+  funcs.reserve(n_ele_func);
+  for(psqn_uint i = 0; i < n_ele_func; ++i)
+    funcs.emplace_back(fn, i, env);
+
+  using opt_obj =
+    PSQN::optimizer<r_worker_psqn, PSQN::R_reporter,
+                    PSQN::R_interrupter, PSQN::default_caller<r_worker_psqn>,
+                    r_constraint_psqn>;
+  opt_obj optim(funcs, n_threads);
+
+  // create the constraints
+  optim.constraints.reserve(n_constraints);
+  for(psqn_uint i = 0; i < n_constraints; ++i)
+    optim.constraints.emplace_back(consts, i, env);
+
+  // check that we pass a parameter value of the right length
+  if(optim.n_par != static_cast<psqn_uint>(par.size()))
+    throw std::invalid_argument("psqn: invalid parameter size");
+  optim.set_masked(mask.begin(), mask.end());
+
+  NumericVector par_arg = clone(par),
+        multipliers_arg = clone(multipliers);
+  optim.set_n_threads(n_threads);
+
+  auto res = optim.optim_aug_Lagrang(
+    &par_arg[0], &multipliers_arg[0], penalty_start, rel_eps, max_it,
+    max_it_outer, violations_norm_thresh, c1, c2, tau, use_bfgs, trace,
+    cg_tol, strong_wolfe, max_cg, static_cast<PSQN::precondition>(pre_method));
+
+  // evaluate the function without the additional terms
+  optim.constraints.clear();
+  res.value = optim.eval(&par_arg[0], nullptr, false);
+
+  return wrap_optim_info(par_arg, multipliers_arg, res);
 }
 
 
@@ -492,11 +759,10 @@ List psqn_bfgs
   return wrap_optim_info(par_res, out);
 }
 
-
 class r_worker_optimizer_generic {
   simple_R_func3 f;
   IntegerVector f_idx;
-  LogicalVector mutable scomp_grad = LogicalVector(1L);
+  LogicalVector mutable scomp_grad = LogicalVector(1);
   psqn_uint const n_args_val;
   NumericVector mutable par = NumericVector(n_args_val);
   std::unique_ptr<psqn_uint[]> const indices_vec;
@@ -506,9 +772,7 @@ public:
   r_worker_optimizer_generic(const r_worker_optimizer_generic &other):
   f(other.f),
   f_idx(clone(other.f_idx)),
-  scomp_grad(1L),
   n_args_val(other.n_args_val),
-  par(n_args_val),
   indices_vec(([&]() -> std::unique_ptr<psqn_uint[]> {
     std::unique_ptr<psqn_uint[]> out(new psqn_uint[n_args_val]);
     std::copy(other.indices_vec.get(), other.indices_vec.get() + n_args_val,
@@ -518,15 +782,10 @@ public:
 
   r_worker_optimizer_generic(SEXP func, int iarg, SEXP rho):
   f(func, rho),
-  f_idx(([&]() -> IntegerVector {
-    IntegerVector out(1L);
-    out[0] = iarg + 1L;
-    return out;
-  })()),
+  f_idx(IntegerVector::create(iarg + 1)),
   n_args_val(([&]() -> psqn_uint {
-    NumericVector dum(0);
     scomp_grad[0] = false;
-    SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
+    SEXP res = PROTECT(f(f_idx, NumericVector::create(), scomp_grad));
     if(!Rf_isInteger(res) or !Rf_isVector(res) or Rf_xlength(res) < 1){
       UNPROTECT(1);
       throw std::invalid_argument(
@@ -540,9 +799,8 @@ public:
   indices_vec(([&]() -> std::unique_ptr<psqn_uint[]> {
     std::unique_ptr<psqn_uint[]> out(new psqn_uint[n_args_val]);
 
-    NumericVector dum(0);
     scomp_grad[0] = false;
-    SEXP res = PROTECT(f(f_idx, dum, scomp_grad));
+    SEXP res = PROTECT(f(f_idx, NumericVector::create(), scomp_grad));
 
     if(!Rf_isInteger(res) or !Rf_isVector(res) or
          static_cast<psqn_uint>(Rf_xlength(res)) != n_args_val){
@@ -677,8 +935,8 @@ public:
 //' # Args:
 //' #   i cluster/element function index.
 //' #   par the parameters that this element function depends on. It has length zero
-//' #       if we need to pass the one-based indices of the parameters that this the
-//' #       i'th element function depends on.
+//' #       if we need to pass the one-based indices of the parameters that the i'th
+//' #       element function depends on.
 //' #   comp_grad TRUE of the gradient should be computed.
 //' r_func <- function(i, par, comp_grad){
 //'   z <- dat[[i]]
@@ -791,7 +1049,6 @@ List psqn_generic
     throw std::invalid_argument("psqn_generic: invalid parameter size");
 
   optim.set_masked(mask.begin(), mask.end());
-  clear_mask_caller<opt_obj> clearer(optim, mask.size() > 0);
 
   NumericVector par_arg = clone(par);
   optim.set_n_threads(n_threads);

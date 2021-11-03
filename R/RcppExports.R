@@ -5,7 +5,8 @@
 #'
 #' @description
 #' Optimization method for specially structured partially separable
-#' functions.
+#' functions. The \code{psqn_aug_Lagrang} function supports non-linear
+#' equality constraints using an augmented Lagrangian method.
 #'
 #' @param par Initial values for the parameters. It is a concatenated
 #' vector of the global parameters and all the private parameters.
@@ -59,7 +60,7 @@
 #' gradient iterations.
 #'
 #' @return
-#' An object with the following elements:
+#' \code{pqne}: An object with the following elements:
 #' \item{par}{the estimated global and private parameters.}
 #' \item{value}{function value at \code{par}.}
 #' \item{info}{information code. 0 implies convergence.
@@ -104,7 +105,7 @@
 #'   list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
 #' }, simplify = FALSE)
 #'
-#' # evalutes the negative log integrand.
+#' # evaluates the negative log integrand.
 #' #
 #' # Args:
 #' #   i cluster/element function index.
@@ -151,9 +152,97 @@
 #' # compare with
 #' beta
 #' c(sapply(sim_dat, "[[", "u"))
+#'
+#' # add equality constraints
+#' idx_constrained <- list(c(2L, 19L), c(1L, 5L, 8L))
+#'
+#' # evaluates the c(x) in equalities c(x) = 0.
+#' #
+#' # Args:
+#' #   i constrain index.
+#' #   par the constrained parameters. It has length zero if we need to pass the
+#' #       one-based indices of the parameters that the i'th constrain depends on.
+#' #   what integer which is zero if the function should be returned and one if the
+#' #        gradient should be computed.
+#' consts <- function(i, par, what){
+#'   if(length(par) == 0)
+#'     # need to return the indices
+#'     return(idx_constrained[[i]])
+#'
+#'   if(i == 1){
+#'     # a linear equality constrain. It is implemented as a non-linear constrain
+#'     # though
+#'     out <- sum(par) - 3
+#'     if(what == 1)
+#'       attr(out, "grad") <- rep(1, length(par))
+#'
+#'   } else if(i == 2){
+#'     # the parameters need to be on a circle
+#'     out <- sum(par^2) - 1
+#'     if(what == 1)
+#'       attr(out, "grad") <- 2 * par
+#'   }
+#'
+#'   out
+#' }
+#'
+#' # optimize with the constraints
+#' res_consts <- psqn_aug_Lagrang(
+#'   par = rep(0, p + q * n_clusters), fn = r_func, consts = consts,
+#'   n_ele_func = n_clusters, n_constraints = length(idx_constrained))
+#'
+#' res_consts
+#' res_consts$multipliers # the estimated multipliers
+#' res_consts$penalty # the penalty parameter
+#'
+#' # the function value is higher (worse) as expected
+#' res$value - res_consts$value
+#'
+#' # the two constraints are satisfied
+#' sum(res_consts$par[idx_constrained[[1]]]) - 3   # ~ 0
+#' sum(res_consts$par[idx_constrained[[2]]]^2) - 1 # ~ 0
+#'
+#' # we can also use another pre conditioner
+#' res_consts_chol <- psqn_aug_Lagrang(
+#'   par = rep(0, p + q * n_clusters), fn = r_func, consts = consts,
+#'   n_ele_func = n_clusters, n_constraints = length(idx_constrained),
+#'   pre_method = 2L)
+#'
+#' res_consts_chol
+#'
 #' @export
 psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
     .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
+}
+
+#' @rdname psqn
+#'
+#' @param consts Function to compute the constraints which must be equal to
+#' zero. See the example Section.
+#' @param multipliers Staring values for the multipliers in the augmented
+#' Lagrangian method. There needs to be the same number of multipliers as the
+#' number of constraints. An empty vector,\code{numeric()}, yields zero as
+#' the starting value for all multipliers.
+#' @param penalty_start Starting value for the penalty parameterin the
+#' augmented Lagrangian method.
+#' @param max_it_outer Maximum number of augmented Lagrangian steps.
+#' @param violations_norm_thresh Threshold for the norm of the constraint
+#' violations.
+#' @param tau Multiplier used for the penalty parameter between each outer
+#' iterations.
+#'
+#' @return
+#' \code{psqn_aug_Lagrang}: Like \code{psqn} with a few exceptions:
+#' \item{multipliers}{final multipliers from the the augmented Lagrangian
+#' method.}
+#' \item{counts}{has an additional element called \code{n_aug_Lagrang} with the
+#' number of augmented Lagrangian iterations.}
+#' \item{penalty}{the final penalty parameter from the the augmented Lagrangian
+#' method.}
+#'
+#' @export
+psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
+    .Call(`_psqn_psqn_aug_Lagrang`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
 }
 
 #' BFGS Implementation Used Internally in the psqn Package
@@ -280,8 +369,8 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' # Args:
 #' #   i cluster/element function index.
 #' #   par the parameters that this element function depends on. It has length zero
-#' #       if we need to pass the one-based indices of the parameters that this the
-#' #       i'th element function depends on.
+#' #       if we need to pass the one-based indices of the parameters that the i'th
+#' #       element function depends on.
 #' #   comp_grad TRUE of the gradient should be computed.
 #' r_func <- function(i, par, comp_grad){
 #'   z <- dat[[i]]
