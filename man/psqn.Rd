@@ -94,7 +94,7 @@ zero. See the example Section.}
 
 \item{multipliers}{Staring values for the multipliers in the augmented
 Lagrangian method. There needs to be the same number of multipliers as the
-number of constraints. An empty vector,\code{numeric()}, yields zero as
+number of constraints. An empty vector, \code{numeric()}, yields zero as
 the starting value for all multipliers.}
 
 \item{penalty_start}{Starting value for the penalty parameterin the

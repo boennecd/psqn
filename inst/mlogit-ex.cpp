@@ -119,8 +119,65 @@ public:
   }
 };
 
-using mlogit_topim = PSQN::optimizer<m_logit_func, PSQN::R_reporter,
-                                     PSQN::R_interrupter>;
+/***
+ as an example, we provide a toy example of an equality constraint. We impose
+ that some of the parameters (including the private ones) are on a ball. You
+ can skip this if you do not need constraints.
+ */
+class mlogit_constraint : public PSQN::base_worker,
+                          public PSQN::constraint_base<mlogit_constraint>
+{
+  double radius_sq;
+  std::vector<psqn_uint> indices_vec;
+
+public:
+  mlogit_constraint(Rcpp::IntegerVector indices_in, double const radius):
+  base_worker(indices_in.size()),
+  radius_sq{radius * radius}
+  {
+    // fill in the indices
+    indices_vec.reserve(indices_in.size());
+    for(int i : indices_in){
+      indices_vec.emplace_back
+        (static_cast<psqn_uint>(i - 1)); // assume one-based
+    }
+  }
+
+  /**
+   there may be non-linear in-equality constraints in the future and linear
+   constraints.
+   */
+  PSQN::constraint_type type() const {
+    return PSQN::constraint_type::non_lin_eq;
+  }
+
+  psqn_uint n_constrained() const {
+    return indices_vec.size();
+  }
+  psqn_uint const * indices() const {
+    return indices_vec.data();
+  }
+  double func(double const *par) const {
+    double out{0};
+    for(psqn_uint i = 0; i < n_constrained(); ++i){
+      out += par[i] * par[i];
+    }
+    return out - radius_sq;
+  }
+  double grad(double const *par, double *gr) const {
+    double out{0};
+    for(psqn_uint i = 0; i < n_constrained(); ++i){
+      out += par[i] * par[i];
+      gr[i] = 2 * par[i];
+    }
+    return out - radius_sq;
+  }
+};
+
+
+using mlogit_topim = PSQN::optimizer
+  <m_logit_func, PSQN::R_reporter, PSQN::R_interrupter,
+   PSQN::default_caller<m_logit_func>, mlogit_constraint>;
 
 /***
  creates a pointer to an object which is needed in the optim_mlogit
@@ -189,6 +246,71 @@ List optim_mlogit
   return List::create(
     _["par"] = par, _["value"] = res.value, _["info"] = info,
     _["counts"] = counts,
+    _["convergence"] =  res.info == PSQN::info_code::converged );
+}
+
+/**
+ like optim_mlogit but possibly with constraints. The additional parameters are
+
+ @param consts list of lists which each has elements indices and radius. The
+ former is the one-based indices of the constraint parameters and the later is
+ the radius of the ball.
+ @param max_it_outer maximum number of augmented Lagrangian step.
+ @param penalty_start starting value for the augmented Lagrangian method.
+ */
+// [[Rcpp::export]]
+List optim_aug_Lagrang_mlogit
+  (NumericVector val, SEXP ptr, List consts, double const rel_eps,
+   unsigned const max_it, unsigned const n_threads, double const c1,
+   double const c2, unsigned const max_it_outer, double const penalty_start = 1,
+   bool const use_bfgs = true,
+   int const trace = 0L, double const cg_tol = .5,
+   bool const strong_wolfe = true, psqn_uint const max_cg = 0L,
+   int const pre_method = 1L){
+  XPtr<mlogit_topim> optim(ptr);
+
+  // check that we pass a parameter value of the right length
+  if(optim->n_par != static_cast<psqn_uint>(val.size()))
+    throw std::invalid_argument("optim_mlogit: invalid parameter size");
+
+  // add the constraints
+  optim->constraints.reserve(consts.size());
+  for(SEXP l : consts){
+    List l_list(l);
+    optim->constraints.emplace_back(as<IntegerVector>(l_list["indices"]),
+                                    as<NumericVector>(l_list["radius"])[0]);
+  }
+
+  NumericVector par = clone(val);
+  // the multipliers for the augmented Lagrangian method
+  NumericVector multipliers(consts.size(), 0);
+  optim->set_n_threads(n_threads);
+
+  auto res = optim->optim_aug_Lagrang
+    (&par[0], &multipliers[0], penalty_start,
+     rel_eps, max_it,
+     max_it_outer, 1e-5,  /* violations_norm_thresh */
+     c1, c2,
+     1.5, /* tau */
+     use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
+     static_cast<PSQN::precondition>(pre_method));
+
+  // must remember to remove the constraints again
+  optim->constraints.clear();
+
+  NumericVector counts = NumericVector::create(
+    res.n_eval, res.n_grad,  res.n_cg, res.n_aug_Lagrang);
+  counts.names() = CharacterVector::create
+    ("function", "gradient", "n_cg", "n_aug_Lagrang");
+
+  // we have to compute the function value again if we want it without the
+  // additional terms from the augmented Lagrangian method
+  res.value = optim->eval(&par[0], nullptr, false);
+
+  int const info = static_cast<int>(res.info);
+  return List::create(
+    _["par"] = par, _["multipliers"] = multipliers, _["value"] = res.value,
+      _["info"] = info, _["counts"] = counts, _["penalty"] = res.penalty,
     _["convergence"] =  res.info == PSQN::info_code::converged );
 }
 

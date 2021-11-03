@@ -221,7 +221,7 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #' zero. See the example Section.
 #' @param multipliers Staring values for the multipliers in the augmented
 #' Lagrangian method. There needs to be the same number of multipliers as the
-#' number of constraints. An empty vector,\code{numeric()}, yields zero as
+#' number of constraints. An empty vector, \code{numeric()}, yields zero as
 #' the starting value for all multipliers.
 #' @param penalty_start Starting value for the penalty parameterin the
 #' augmented Lagrangian method.
@@ -329,7 +329,7 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' the vignette in the package for examples.
 #'
 #' @return
-#' A list like \code{\link{psqn}}.
+#' A list like \code{\link{psqn}} and \code{\link{psqn_aug_Lagrang}}.
 #'
 #' @references
 #' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
@@ -439,6 +439,76 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' all.equal(res_optim, R_res$par, tolerance = 1e-5)
 #' all.equal(R_res$par[to_fix], par_fix[to_fix]) # the parameters are fixed
 #'
+#' # add equality constraints
+#' idx_constrained <- list(c(2L, 19L, 11L, 7L), c(3L, 5L, 8L), 9:7)
+#'
+#' # evaluates the c(x) in equalities c(x) = 0.
+#' #
+#' # Args:
+#' #   i constrain index.
+#' #   par the constrained parameters. It has length zero if we need to pass the
+#' #       one-based indices of the parameters that the i'th constrain depends on.
+#' #   what integer which is zero if the function should be returned and one if the
+#' #        gradient should be computed.
+#' consts <- function(i, par, what){
+#'   if(length(par) == 0)
+#'     # need to return the indices
+#'     return(idx_constrained[[i]])
+#'
+#'   if(i == 1){
+#'     out <- exp(sum(par[1:2])) + exp(sum(par[3:4])) - 1
+#'     if(what == 1)
+#'       attr(out, "grad") <- c(rep(exp(sum(par[1:2])), 2),
+#'                              rep(exp(sum(par[3:4])), 2))
+#'
+#'   } else if(i == 2){
+#'     # the parameters need to be on a circle
+#'     out <- sum(par^2) - 1
+#'     if(what == 1)
+#'       attr(out, "grad") <- 2 * par
+#'   } else if(i == 3){
+#'     out <- sum(par) - .5
+#'     if(what == 1)
+#'       attr(out, "grad") <- rep(1, length(par))
+#'   }
+#'
+#'   out
+#' }
+#'
+#' # optimize with the constraints and masking
+#' res_consts <- psqn_aug_Lagrang_generic(
+#'   par = par_fix, fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+#'   trace = 0L, rel_eps = 1e-8, max_it = 1000L, env = environment(),
+#'   consts = consts, n_constraints = length(idx_constrained),
+#'   mask = to_fix - 1L)
+#'
+#' res_consts
+#'
+#' # the constraints are satisfied
+#' consts(1, res_consts$par[idx_constrained[[1]]], 0) # ~ 0
+#' consts(2, res_consts$par[idx_constrained[[2]]], 0) # ~ 0
+#' consts(3, res_consts$par[idx_constrained[[3]]], 0) # ~ 0
+#'
+#' # compare with the alabama package
+#' if(require(alabama)){
+#'     ala_fit <- auglag(
+#'       par_fix, R_func, R_func_gr,
+#'       heq = function(x){
+#'         c(x[to_fix] - par_fix[to_fix],
+#'           consts(1, x[idx_constrained[[1]]], 0),
+#'           consts(2, x[idx_constrained[[2]]], 0),
+#'           consts(3, x[idx_constrained[[3]]], 0))
+#'       }, control.outer = list(trace = 0L))
+#'
+#'     cat(sprintf("Difference in objective value is %.6f. Parametes are\n",
+#'                 ala_fit$value - res_consts$value))
+#'     print(rbind(alabama = ala_fit$par,
+#'                 psqn = res_consts$par))
+#'
+#'     cat("\nOutput from all.equal\n")
+#'     print(all.equal(ala_fit$par, res_consts$par))
+#' }
+#'
 #' # the overhead here is though quite large with the R interface from the psqn
 #' # package. A C++ implementation is much faster as shown in
 #' # vignette("psqn", package = "psqn"). The reason it is that it is very fast
@@ -447,5 +517,11 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' @export
 psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
     .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
+}
+
+#' @rdname psqn_generic
+#' @export
+psqn_aug_Lagrang_generic <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
+    .Call(`_psqn_psqn_aug_Lagrang_generic`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
 }
 

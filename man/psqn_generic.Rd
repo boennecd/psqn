@@ -2,6 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{psqn_generic}
 \alias{psqn_generic}
+\alias{psqn_aug_Lagrang_generic}
 \title{Generic Partially Separable Function Optimization}
 \usage{
 psqn_generic(
@@ -13,6 +14,32 @@ psqn_generic(
   n_threads = 1L,
   c1 = 1e-04,
   c2 = 0.9,
+  use_bfgs = TRUE,
+  trace = 0L,
+  cg_tol = 0.5,
+  strong_wolfe = TRUE,
+  env = NULL,
+  max_cg = 0L,
+  pre_method = 1L,
+  mask = as.integer(c())
+)
+
+psqn_aug_Lagrang_generic(
+  par,
+  fn,
+  n_ele_func,
+  consts,
+  n_constraints,
+  multipliers = as.numeric(c()),
+  penalty_start = 1L,
+  rel_eps = 1e-08,
+  max_it = 100L,
+  max_it_outer = 100L,
+  violations_norm_thresh = 1e-06,
+  n_threads = 1L,
+  c1 = 1e-04,
+  c2 = 0.9,
+  tau = 1.5,
   use_bfgs = TRUE,
   trace = 0L,
   cg_tol = 0.5,
@@ -62,9 +89,28 @@ Zero yields no preconditioning, one yields diagonal preconditioning, and
 two yields the incomplete Cholesky factorization from Eigen.}
 
 \item{mask}{zero based indices for parameters to mask (i.e. fix).}
+
+\item{consts}{Function to compute the constraints which must be equal to
+zero. See the example Section.}
+
+\item{multipliers}{Staring values for the multipliers in the augmented
+Lagrangian method. There needs to be the same number of multipliers as the
+number of constraints. An empty vector, \code{numeric()}, yields zero as
+the starting value for all multipliers.}
+
+\item{penalty_start}{Starting value for the penalty parameterin the
+augmented Lagrangian method.}
+
+\item{max_it_outer}{Maximum number of augmented Lagrangian steps.}
+
+\item{violations_norm_thresh}{Threshold for the norm of the constraint
+violations.}
+
+\item{tau}{Multiplier used for the penalty parameter between each outer
+iterations.}
 }
 \value{
-A list like \code{\link{psqn}}.
+A list like \code{\link{psqn}} and \code{\link{psqn_aug_Lagrang}}.
 }
 \description{
 Optimization method for generic partially separable functions.
@@ -184,6 +230,76 @@ res_optim[-to_fix] <- opt$par
 # we got the same
 all.equal(res_optim, R_res$par, tolerance = 1e-5)
 all.equal(R_res$par[to_fix], par_fix[to_fix]) # the parameters are fixed
+
+# add equality constraints
+idx_constrained <- list(c(2L, 19L, 11L, 7L), c(3L, 5L, 8L), 9:7)
+
+# evaluates the c(x) in equalities c(x) = 0.
+#
+# Args:
+#   i constrain index.
+#   par the constrained parameters. It has length zero if we need to pass the
+#       one-based indices of the parameters that the i'th constrain depends on.
+#   what integer which is zero if the function should be returned and one if the
+#        gradient should be computed.
+consts <- function(i, par, what){
+  if(length(par) == 0)
+    # need to return the indices
+    return(idx_constrained[[i]])
+
+  if(i == 1){
+    out <- exp(sum(par[1:2])) + exp(sum(par[3:4])) - 1
+    if(what == 1)
+      attr(out, "grad") <- c(rep(exp(sum(par[1:2])), 2),
+                             rep(exp(sum(par[3:4])), 2))
+
+  } else if(i == 2){
+    # the parameters need to be on a circle
+    out <- sum(par^2) - 1
+    if(what == 1)
+      attr(out, "grad") <- 2 * par
+  } else if(i == 3){
+    out <- sum(par) - .5
+    if(what == 1)
+      attr(out, "grad") <- rep(1, length(par))
+  }
+
+  out
+}
+
+# optimize with the constraints and masking
+res_consts <- psqn_aug_Lagrang_generic(
+  par = par_fix, fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+  trace = 0L, rel_eps = 1e-8, max_it = 1000L, env = environment(),
+  consts = consts, n_constraints = length(idx_constrained),
+  mask = to_fix - 1L)
+
+res_consts
+
+# the constraints are satisfied
+consts(1, res_consts$par[idx_constrained[[1]]], 0) # ~ 0
+consts(2, res_consts$par[idx_constrained[[2]]], 0) # ~ 0
+consts(3, res_consts$par[idx_constrained[[3]]], 0) # ~ 0
+
+# compare with the alabama package
+if(require(alabama)){
+    ala_fit <- auglag(
+      par_fix, R_func, R_func_gr,
+      heq = function(x){
+        c(x[to_fix] - par_fix[to_fix],
+          consts(1, x[idx_constrained[[1]]], 0),
+          consts(2, x[idx_constrained[[2]]], 0),
+          consts(3, x[idx_constrained[[3]]], 0))
+      }, control.outer = list(trace = 0L))
+
+    cat(sprintf("Difference in objective value is \%.6f. Parametes are\n",
+                ala_fit$value - res_consts$value))
+    print(rbind(alabama = ala_fit$par,
+                psqn = res_consts$par))
+
+    cat("\nOutput from all.equal\n")
+    print(all.equal(ala_fit$par, res_consts$par))
+}
 
 # the overhead here is though quite large with the R interface from the psqn
 # package. A C++ implementation is much faster as shown in

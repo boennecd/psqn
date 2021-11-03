@@ -538,7 +538,7 @@ public:
 //' zero. See the example Section.
 //' @param multipliers Staring values for the multipliers in the augmented
 //' Lagrangian method. There needs to be the same number of multipliers as the
-//' number of constraints. An empty vector,\code{numeric()}, yields zero as
+//' number of constraints. An empty vector, \code{numeric()}, yields zero as
 //' the starting value for all multipliers.
 //' @param penalty_start Starting value for the penalty parameterin the
 //' augmented Lagrangian method.
@@ -584,13 +584,15 @@ List psqn_aug_Lagrang
   if(Rf_isNull(env))
     env = Environment::global_env();
   if(!Rf_isEnvironment(env))
-    throw std::invalid_argument("psqn: env is not an environment");
+    throw std::invalid_argument("psqn_aug_Lagrang: env is not an environment");
   if(!Rf_isFunction(fn))
-    throw std::invalid_argument("psqn: fn is not a function");
+    throw std::invalid_argument("psqn_aug_Lagrang: fn is not a function");
   if(pre_method < 0L or pre_method > 2L)
-    throw std::invalid_argument("psqn: invalid pre_method");
+    throw std::invalid_argument("psqn_aug_Lagrang: invalid pre_method");
   if(!Rf_isFunction(consts))
-    throw std::invalid_argument("psqn: consts is not a function");
+    throw std::invalid_argument("psqn_aug_Lagrang: consts is not a function");
+  if(static_cast<unsigned>(multipliers.size()) != n_constraints)
+    throw std::invalid_argument("psqn_aug_Lagrang: multipliers.size() != n_constraints");
 
   // create the element functions
   std::vector<r_worker_psqn> funcs;
@@ -611,7 +613,7 @@ List psqn_aug_Lagrang
 
   // check that we pass a parameter value of the right length
   if(optim.n_par != static_cast<psqn_uint>(par.size()))
-    throw std::invalid_argument("psqn: invalid parameter size");
+    throw std::invalid_argument("psqn_aug_Lagrang: invalid parameter size");
   optim.set_masked(mask.begin(), mask.end());
 
   NumericVector par_arg = clone(par),
@@ -895,7 +897,7 @@ public:
 //' the vignette in the package for examples.
 //'
 //' @return
-//' A list like \code{\link{psqn}}.
+//' A list like \code{\link{psqn}} and \code{\link{psqn_aug_Lagrang}}.
 //'
 //' @references
 //' Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}
@@ -1005,6 +1007,76 @@ public:
 //' all.equal(res_optim, R_res$par, tolerance = 1e-5)
 //' all.equal(R_res$par[to_fix], par_fix[to_fix]) # the parameters are fixed
 //'
+//' # add equality constraints
+//' idx_constrained <- list(c(2L, 19L, 11L, 7L), c(3L, 5L, 8L), 9:7)
+//'
+//' # evaluates the c(x) in equalities c(x) = 0.
+//' #
+//' # Args:
+//' #   i constrain index.
+//' #   par the constrained parameters. It has length zero if we need to pass the
+//' #       one-based indices of the parameters that the i'th constrain depends on.
+//' #   what integer which is zero if the function should be returned and one if the
+//' #        gradient should be computed.
+//' consts <- function(i, par, what){
+//'   if(length(par) == 0)
+//'     # need to return the indices
+//'     return(idx_constrained[[i]])
+//'
+//'   if(i == 1){
+//'     out <- exp(sum(par[1:2])) + exp(sum(par[3:4])) - 1
+//'     if(what == 1)
+//'       attr(out, "grad") <- c(rep(exp(sum(par[1:2])), 2),
+//'                              rep(exp(sum(par[3:4])), 2))
+//'
+//'   } else if(i == 2){
+//'     # the parameters need to be on a circle
+//'     out <- sum(par^2) - 1
+//'     if(what == 1)
+//'       attr(out, "grad") <- 2 * par
+//'   } else if(i == 3){
+//'     out <- sum(par) - .5
+//'     if(what == 1)
+//'       attr(out, "grad") <- rep(1, length(par))
+//'   }
+//'
+//'   out
+//' }
+//'
+//' # optimize with the constraints and masking
+//' res_consts <- psqn_aug_Lagrang_generic(
+//'   par = par_fix, fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+//'   trace = 0L, rel_eps = 1e-8, max_it = 1000L, env = environment(),
+//'   consts = consts, n_constraints = length(idx_constrained),
+//'   mask = to_fix - 1L)
+//'
+//' res_consts
+//'
+//' # the constraints are satisfied
+//' consts(1, res_consts$par[idx_constrained[[1]]], 0) # ~ 0
+//' consts(2, res_consts$par[idx_constrained[[2]]], 0) # ~ 0
+//' consts(3, res_consts$par[idx_constrained[[3]]], 0) # ~ 0
+//'
+//' # compare with the alabama package
+//' if(require(alabama)){
+//'     ala_fit <- auglag(
+//'       par_fix, R_func, R_func_gr,
+//'       heq = function(x){
+//'         c(x[to_fix] - par_fix[to_fix],
+//'           consts(1, x[idx_constrained[[1]]], 0),
+//'           consts(2, x[idx_constrained[[2]]], 0),
+//'           consts(3, x[idx_constrained[[3]]], 0))
+//'       }, control.outer = list(trace = 0L))
+//'
+//'     cat(sprintf("Difference in objective value is %.6f. Parametes are\n",
+//'                 ala_fit$value - res_consts$value))
+//'     print(rbind(alabama = ala_fit$par,
+//'                 psqn = res_consts$par))
+//'
+//'     cat("\nOutput from all.equal\n")
+//'     print(all.equal(ala_fit$par, res_consts$par))
+//' }
+//'
 //' # the overhead here is though quite large with the R interface from the psqn
 //' # package. A C++ implementation is much faster as shown in
 //' # vignette("psqn", package = "psqn"). The reason it is that it is very fast
@@ -1057,4 +1129,80 @@ List psqn_generic
                          static_cast<PSQN::precondition>(pre_method));
 
   return wrap_optim_info(par_arg, res);
+}
+
+//' @rdname psqn_generic
+//' @export
+// [[Rcpp::export()]]
+List psqn_aug_Lagrang_generic
+  (NumericVector par, SEXP fn, unsigned const n_ele_func,
+   SEXP consts, unsigned const n_constraints,
+   NumericVector multipliers =  NumericVector::create(),
+   double const penalty_start = 1,
+   double const rel_eps = .00000001,
+   unsigned const max_it = 100L, unsigned const max_it_outer = 100,
+   double const violations_norm_thresh = 0.000001,
+   unsigned const n_threads = 1L,
+   double const c1 = .0001, double const c2 = .9,
+   double const tau = 1.5,
+   bool const use_bfgs = true, int const trace = 0L,
+   double const cg_tol = .5, bool const strong_wolfe = true,
+   SEXP env = R_NilValue, int const max_cg = 0L,
+   int const pre_method = 1L,
+   IntegerVector const mask = IntegerVector::create()){
+  if(n_ele_func < 1L)
+    throw std::invalid_argument("psqn: n_ele_func < 1L");
+
+  if(multipliers.size() == 0)
+    multipliers = NumericVector(n_constraints);
+
+  if(Rf_isNull(env))
+    env = Environment::global_env();
+  if(!Rf_isEnvironment(env))
+    throw std::invalid_argument("psqn_aug_Lagrang_generic: env is not an environment");
+  if(!Rf_isFunction(fn))
+    throw std::invalid_argument("psqn_aug_Lagrang_generic: fn is not a function");
+  if(pre_method < 0L or pre_method > 2L)
+    throw std::invalid_argument("psqn_aug_Lagrang_generic: invalid pre_method");
+  if(!Rf_isFunction(consts))
+    throw std::invalid_argument("psqn_aug_Lagrang_generic: consts is not a function");
+  if(static_cast<unsigned>(multipliers.size()) != n_constraints)
+    throw std::invalid_argument("psqn_aug_Lagrang_generic: multipliers.size() != n_constraints");
+
+  // create the element functions
+  std::vector<r_worker_optimizer_generic> funcs;
+  funcs.reserve(n_ele_func);
+  for(psqn_uint i = 0; i < n_ele_func; ++i)
+    funcs.emplace_back(fn, i, env);
+
+  using opt_obj =
+    PSQN::optimizer_generic
+    <r_worker_optimizer_generic, PSQN::R_reporter, PSQN::R_interrupter,
+     PSQN::default_caller<r_worker_optimizer_generic>, r_constraint_psqn>;
+  opt_obj optim(funcs, n_threads);
+
+  // create the constraints
+  optim.constraints.reserve(n_constraints);
+  for(psqn_uint i = 0; i < n_constraints; ++i)
+    optim.constraints.emplace_back(consts, i, env);
+
+  // check that we pass a parameter value of the right length
+  if(optim.n_par != static_cast<psqn_uint>(par.size()))
+    throw std::invalid_argument("psqn_aug_Lagrang_generic: invalid parameter size");
+  optim.set_masked(mask.begin(), mask.end());
+
+  NumericVector par_arg = clone(par),
+        multipliers_arg = clone(multipliers);
+  optim.set_n_threads(n_threads);
+
+  auto res = optim.optim_aug_Lagrang(
+    &par_arg[0], &multipliers_arg[0], penalty_start, rel_eps, max_it,
+    max_it_outer, violations_norm_thresh, c1, c2, tau, use_bfgs, trace,
+    cg_tol, strong_wolfe, max_cg, static_cast<PSQN::precondition>(pre_method));
+
+  // evaluate the function without the additional terms
+  optim.constraints.clear();
+  res.value = optim.eval(&par_arg[0], nullptr, false);
+
+  return wrap_optim_info(par_arg, multipliers_arg, res);
 }

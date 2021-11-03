@@ -937,6 +937,67 @@ clear_masked(optimizer) # remember to clear again!
 all.equal(mask_psqn_res$par, mask_psqn_res_cpp$par)
 ```
 
+#### Non-linear Equality Constraints
+
+Non-linear equality constraints are supported in both the R and the C++ 
+interface. We added a toy example in C++ code where we constrain some of the 
+parameters to be on a ball. We use the implementation below to make 
+a random set restrictions on some parameters.
+
+```{r non_lin_eq, cache = 1}
+# find the parameters we will restrict
+set.seed(1)
+restrict <- replicate(50L, {
+  # sample number of parameters, indices, and the radius
+  n_restrict <- sample(3:7, 1L)
+  indices <- sample.int(length(psqn_res$par), n_restrict)
+  radius <- runif(1, .2, 1.5)
+  list(indices = indices, radius = radius)
+}, simplify = FALSE)
+
+# apply the restriction
+psqn_restrict <- optim_aug_Lagrang_mlogit(
+  val = start_val, pre_method = 1L, ptr = optimizer, rel_eps = 1e-8, 
+  max_it = 1000L, n_threads = 2L, c1 = 1e-4, c2 = .9, use_bfgs = TRUE, 
+  trace = 0L, max_it_outer = 100L,
+  consts = restrict)
+
+psqn_restrict$info
+psqn_restrict$value
+
+# the value is higher (worse)
+psqn_restrict$value - psqn_res$value
+
+# evaluates the constraints from R (should be zero)
+consts <- function(i, par, what){
+  if(length(par) == 0)
+    # for the R version later
+    return(restrict[[i]]$indices)
+  
+  out <- sum(par^2) - restrict[[i]]$radius^2
+  if(what == 1)
+    attr(out, "grad") <- 2 * par
+  out
+}
+
+# check the constraints. All ~0
+sapply(seq_along(restrict), function(i)
+  consts(i, psqn_restrict$par[restrict[[i]]$indices], 0))
+
+# we can do the same from R
+psqn_restrict_R <- psqn_aug_Lagrang(
+  par = start_val, fn = r_func, n_ele_func = n_clusters, 
+  n_threads = 1L, c1 = 1e-4, c2 = .9, pre_method = 1L, 
+  consts = consts, n_constraints = length(restrict))
+
+# we got the same
+all.equal(psqn_restrict_R$par, psqn_restrict$par)
+
+# check the constraints. All ~0
+sapply(seq_along(restrict), function(i)
+  consts(i, psqn_restrict_R$par[restrict[[i]]$indices], 0))
+```
+
 ### Polynomial Example
 
 We consider the following trivial (regression) example as there is an 
