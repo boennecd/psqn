@@ -230,6 +230,7 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #' violations.
 #' @param tau Multiplier used for the penalty parameter between each outer
 #' iterations.
+#' @param n_constraints The number of constraints.
 #'
 #' @return
 #' \code{psqn_aug_Lagrang}: Like \code{psqn} with a few exceptions:

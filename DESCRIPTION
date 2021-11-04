@@ -32,6 +32,7 @@ Suggests:
     numDeriv, 
     lbfgsb3c, 
     lbfgs, 
-    Matrix
+    Matrix,
+    alabama
 VignetteBuilder: R.rsp
 SystemRequirements: C++11

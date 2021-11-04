@@ -92,6 +92,8 @@ two yields the incomplete Cholesky factorization from Eigen.}
 \item{consts}{Function to compute the constraints which must be equal to
 zero. See the example Section.}
 
+\item{n_constraints}{The number of constraints.}
+
 \item{multipliers}{Staring values for the multipliers in the augmented
 Lagrangian method. There needs to be the same number of multipliers as the
 number of constraints. An empty vector, \code{numeric()}, yields zero as

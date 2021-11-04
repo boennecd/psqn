@@ -547,6 +547,7 @@ public:
 //' violations.
 //' @param tau Multiplier used for the penalty parameter between each outer
 //' iterations.
+//' @param n_constraints The number of constraints.
 //'
 //' @return
 //' \code{psqn_aug_Lagrang}: Like \code{psqn} with a few exceptions:
