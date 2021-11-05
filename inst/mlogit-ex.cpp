@@ -283,7 +283,7 @@ List optim_aug_Lagrang_mlogit
 
   NumericVector par = clone(val);
   // the multipliers for the augmented Lagrangian method
-  NumericVector multipliers(consts.size(), 0);
+  NumericVector multipliers(consts.size(), 0.);
   optim->set_n_threads(n_threads);
 
   auto res = optim->optim_aug_Lagrang
