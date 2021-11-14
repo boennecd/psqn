@@ -87,102 +87,79 @@ inline void mat_vec_dot
  double const * PSQN_RESTRICT x2, double * const PSQN_RESTRICT r1,
  double * const PSQN_RESTRICT r2,
  psqn_uint const n1, psqn_uint const n2) noexcept {
-  psqn_uint const n = n1 + n2;
-  auto loop_body =
-    [&](double const xj, double &rj, psqn_uint const j) -> void {
-      psqn_uint i = 0L;
-      {
-        double       * ri = r1;
-        double const * xi = x1;
-        psqn_uint const iend = std::min(j, n1);
-        for(; i < iend; ++i, ++X, ++ri, ++xi){
-          *ri += *X *  xj;
-           rj += *X * *xi;
-        }
-        if(i < n1)
-          rj += *X++ * *xi;
-      }
+  /*
+   Write X as the matrix
+   [C_11, C_21^T,
+   C_21, C_22]
 
-      if(i == n1){ // still work to do
-        double       * ri = r2;
-        double const * xi = x2;
-        for(; i < j; ++i, ++X, ++ri, ++xi){
-          *ri += *X *  xj;
-           rj += *X * *xi;
-        }
-        rj += *X++ * *xi;
+   Then we handle the C_11 part, then the C_21 and C_21^T and then the last block
+   */
 
-      }
-  };
-
-  {
-    double const *xj = x1;
-    double       *rj = r1;
-    for(psqn_uint j = 0; j < n1; ++j, ++xj, ++rj)
-      loop_body(*xj, *rj, j);
+  for(psqn_uint j = 0; j < n1; ++j){
+    for(psqn_uint i = 0; i < j; ++i, ++X){
+      r1[i] += *X * x1[j];
+      r1[j] += *X * x1[i];
+    }
+    r1[j] += *X++ * x1[j];
   }
 
   {
-    double const *xj = x2;
-    double       *rj = r2;
-    for(psqn_uint j = n1; j < n; ++j, ++xj, ++rj)
-      loop_body(*xj, *rj, j);
+    double const * X_block{X};
+    for(psqn_uint j = 0; j < n2; ++j, X_block += j)
+      for(psqn_uint i = 0; i < n1; ++i, ++X_block){
+        r1[i] += *X_block * x2[j];
+        r2[j] += *X_block * x1[i];
+      }
+  }
+  {
+    double const * X_block{X + n1};
+    for(psqn_uint j = 0; j < n2; ++j, X_block += n1){
+      for(psqn_uint i = 0; i < j; ++i, ++X_block){
+        r2[i] += *X_block * x2[j];
+        r2[j] += *X_block * x2[i];
+      }
+      r2[j] += *X_block++ * x2[j];
+    }
   }
 }
 
 /**
  computes b <- b + Xx where b and x are separated into an nb1 and bn2
  dimensional vector but excluding the first n1 x n1 block of X.
+
+ X is assumed to be symmetric and we only store the upper triangular part.
  */
 inline void mat_vec_dot_excl_first
 (double const * PSQN_RESTRICT X, double const * PSQN_RESTRICT x1,
  double const * PSQN_RESTRICT x2, double * const PSQN_RESTRICT r1,
  double * const PSQN_RESTRICT r2,
  psqn_uint const n1, psqn_uint const n2) noexcept {
-  psqn_uint const n = n1 + n2;
-  auto loop_body =
-    [&](double const xj, double &rj, psqn_uint const j,
-        bool const excl) -> void {
-      psqn_uint const end_first = std::min(j, n1);
-      psqn_uint i = excl ? end_first : 0L;
-      if(excl)
-        X += end_first + (j < n1);
-      else {
-        double       * ri = r1;
-        double const * xi = x1;
-        psqn_uint const iend = end_first;
-        for(; i < iend; ++i, ++X, ++ri, ++xi){
-          *ri += *X *  xj;
-           rj += *X * *xi;
-        }
-        if(i < n1)
-          rj += *X++ * *xi;
-      }
+  /*
+    Write X as the matrix
+     [C_11, C_21^T,
+      C_21, C_22]
 
-      if(i == n1){ // still work to do
-        double       * ri = r2;
-        double const * xi = x2;
-        for(; i < j; ++i, ++X, ++ri, ++xi){
-          *ri += *X *  xj;
-           rj += *X * *xi;
-        }
-        rj += *X++ * *xi;
+   Then we handle the C_21 and C_21^T parts first and then the last block
+   */
 
-      }
-  };
-
+  X += (n1 * (n1 + 1)) / 2; // never needed
   {
-    double const *xj = x1;
-    double       *rj = r1;
-    for(psqn_uint j = 0; j < n1; ++j, ++xj, ++rj)
-      loop_body(*xj, *rj, j, true);
+    double const * X_block{X};
+    for(psqn_uint j = 0; j < n2; ++j, X_block += j)
+      for(psqn_uint i = 0; i < n1; ++i, ++X_block){
+        r1[i] += *X_block * x2[j];
+        r2[j] += *X_block * x1[i];
+      }
   }
-
   {
-    double const *xj = x2;
-    double       *rj = r2;
-    for(psqn_uint j = n1; j < n; ++j, ++xj, ++rj)
-      loop_body(*xj, *rj, j, false);
+    double const * X_block{X + n1};
+    for(psqn_uint j = 0; j < n2; ++j, X_block += n1){
+      for(psqn_uint i = 0; i < j; ++i, ++X_block){
+        r2[i] += *X_block * x2[j];
+        r2[j] += *X_block * x2[i];
+      }
+      r2[j] += *X_block++ * x2[j];
+    }
   }
 }
 

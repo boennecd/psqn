@@ -947,7 +947,7 @@ img {
 <a class="sourceLine" id="cb7-283" title="283"></a>
 <a class="sourceLine" id="cb7-284" title="284">  NumericVector par = clone(val);</a>
 <a class="sourceLine" id="cb7-285" title="285">  <span class="co">// the multipliers for the augmented Lagrangian method</span></a>
-<a class="sourceLine" id="cb7-286" title="286">  NumericVector multipliers(consts.size(), <span class="dv">0</span>);</a>
+<a class="sourceLine" id="cb7-286" title="286">  NumericVector multipliers(consts.size(), <span class="fl">0.</span>);</a>
 <a class="sourceLine" id="cb7-287" title="287">  optim-&gt;set_n_threads(n_threads);</a>
 <a class="sourceLine" id="cb7-288" title="288"></a>
 <a class="sourceLine" id="cb7-289" title="289">  <span class="kw">auto</span> res = optim-&gt;opti<span class="va">m_aug_Lagrang</span></a>
@@ -1328,24 +1328,24 @@ img {
 <a class="sourceLine" id="cb18-28" title="28"><span class="co">#&gt; # A tibble: 18 × 6</span></a>
 <a class="sourceLine" id="cb18-29" title="29"><span class="co">#&gt;    expression                      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb18-30" title="30"><span class="co">#&gt;    &lt;bch:expr&gt;                 &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb18-31" title="31"><span class="co">#&gt;  1    optim BFGS (2 threads)     1.13s    1.13s     0.880   42.38MB    0    </span></a>
-<a class="sourceLine" id="cb18-32" title="32"><span class="co">#&gt;  2          lbfgs (1 thread)  147.94ms 148.44ms     6.61    49.52MB    0.778</span></a>
-<a class="sourceLine" id="cb18-33" title="33"><span class="co">#&gt;  3          lbfgs(2 threads)  102.33ms 103.03ms     9.61    51.27MB    1.18 </span></a>
-<a class="sourceLine" id="cb18-34" title="34"><span class="co">#&gt;  4          lbfgs(4 threads)      58ms  58.57ms    16.9      49.5MB    2.18 </span></a>
-<a class="sourceLine" id="cb18-35" title="35"><span class="co">#&gt;  5       lbfgsb3c (1 thread)  266.37ms 267.01ms     3.73    36.59MB    0.393</span></a>
-<a class="sourceLine" id="cb18-36" title="36"><span class="co">#&gt;  6       lbfgsb3c(2 threads)   91.08ms  91.84ms    10.6     22.27MB    1.18 </span></a>
-<a class="sourceLine" id="cb18-37" title="37"><span class="co">#&gt;  7       lbfgsb3c(4 threads)   64.61ms  65.45ms    15.2     25.97MB    1.60 </span></a>
-<a class="sourceLine" id="cb18-38" title="38"><span class="co">#&gt;  8        psqn (R; 1 thread)  150.06ms 157.05ms     6.35     6.78MB    9.52 </span></a>
-<a class="sourceLine" id="cb18-39" title="39"><span class="co">#&gt;  9        psqn(R; 2 threads)  158.14ms 165.56ms     6.03     6.78MB    9.33 </span></a>
-<a class="sourceLine" id="cb18-40" title="40"><span class="co">#&gt; 10      psqn (1 thread, SR1)   17.62ms  17.75ms    56.3     27.58KB    0    </span></a>
-<a class="sourceLine" id="cb18-41" title="41"><span class="co">#&gt; 11      psqn(2 threads, SR1)   11.01ms  11.23ms    89.2     27.58KB    0    </span></a>
-<a class="sourceLine" id="cb18-42" title="42"><span class="co">#&gt; 12 psqn  (1 thread, opt pri.)  13.76ms  13.84ms    71.6     60.05KB    0    </span></a>
-<a class="sourceLine" id="cb18-43" title="43"><span class="co">#&gt; 13 psqn (2 threads, opt pri.)   7.65ms   7.93ms   124.      55.16KB    0    </span></a>
-<a class="sourceLine" id="cb18-44" title="44"><span class="co">#&gt; 14   psqn (1 thread; no pre)   14.29ms  14.76ms    67.2     27.58KB    0    </span></a>
-<a class="sourceLine" id="cb18-45" title="45"><span class="co">#&gt; 15 psqn (1 thread; Cholesky)   47.16ms  48.63ms    20.4     27.58KB    0    </span></a>
-<a class="sourceLine" id="cb18-46" title="46"><span class="co">#&gt; 16           psqn (1 thread)   10.62ms  10.84ms    92.1     27.58KB    0    </span></a>
-<a class="sourceLine" id="cb18-47" title="47"><span class="co">#&gt; 17           psqn(2 threads)    6.14ms   6.23ms   160.      27.58KB    0    </span></a>
-<a class="sourceLine" id="cb18-48" title="48"><span class="co">#&gt; 18           psqn(4 threads)    4.18ms   4.36ms   229.      27.58KB    0</span></a></code></pre></div>
+<a class="sourceLine" id="cb18-31" title="31"><span class="co">#&gt;  1    optim BFGS (2 threads)     1.12s    1.13s     0.887   42.38MB    0    </span></a>
+<a class="sourceLine" id="cb18-32" title="32"><span class="co">#&gt;  2          lbfgs (1 thread)  147.03ms 147.78ms     6.63    49.52MB    0.780</span></a>
+<a class="sourceLine" id="cb18-33" title="33"><span class="co">#&gt;  3          lbfgs(2 threads)  102.44ms 103.23ms     9.62    51.27MB    1.18 </span></a>
+<a class="sourceLine" id="cb18-34" title="34"><span class="co">#&gt;  4          lbfgs(4 threads)   57.62ms  58.59ms    16.8      49.5MB    2.17 </span></a>
+<a class="sourceLine" id="cb18-35" title="35"><span class="co">#&gt;  5       lbfgsb3c (1 thread)  263.11ms 264.32ms     3.77    36.59MB    0.396</span></a>
+<a class="sourceLine" id="cb18-36" title="36"><span class="co">#&gt;  6       lbfgsb3c(2 threads)   91.09ms  91.82ms    10.6     22.27MB    0.999</span></a>
+<a class="sourceLine" id="cb18-37" title="37"><span class="co">#&gt;  7       lbfgsb3c(4 threads)   64.88ms  65.52ms    15.1     25.97MB    1.79 </span></a>
+<a class="sourceLine" id="cb18-38" title="38"><span class="co">#&gt;  8        psqn (R; 1 thread)  149.31ms 156.23ms     6.39     6.78MB    9.58 </span></a>
+<a class="sourceLine" id="cb18-39" title="39"><span class="co">#&gt;  9        psqn(R; 2 threads)  157.64ms 165.47ms     6.06     6.78MB    9.39 </span></a>
+<a class="sourceLine" id="cb18-40" title="40"><span class="co">#&gt; 10      psqn (1 thread, SR1)   17.47ms  17.54ms    56.9     27.58KB    0    </span></a>
+<a class="sourceLine" id="cb18-41" title="41"><span class="co">#&gt; 11      psqn(2 threads, SR1)   11.08ms  11.25ms    88.6     27.58KB    0    </span></a>
+<a class="sourceLine" id="cb18-42" title="42"><span class="co">#&gt; 12 psqn  (1 thread, opt pri.)  13.69ms  13.75ms    72.6     60.05KB    0    </span></a>
+<a class="sourceLine" id="cb18-43" title="43"><span class="co">#&gt; 13 psqn (2 threads, opt pri.)   7.71ms   7.84ms   127.      55.16KB    0    </span></a>
+<a class="sourceLine" id="cb18-44" title="44"><span class="co">#&gt; 14   psqn (1 thread; no pre)   13.99ms  14.08ms    70.8     27.58KB    0    </span></a>
+<a class="sourceLine" id="cb18-45" title="45"><span class="co">#&gt; 15 psqn (1 thread; Cholesky)   45.87ms  46.37ms    21.5     27.58KB    0    </span></a>
+<a class="sourceLine" id="cb18-46" title="46"><span class="co">#&gt; 16           psqn (1 thread)   10.51ms  10.57ms    94.3     27.58KB    0    </span></a>
+<a class="sourceLine" id="cb18-47" title="47"><span class="co">#&gt; 17           psqn(2 threads)    6.12ms   6.33ms   155.      27.58KB    0    </span></a>
+<a class="sourceLine" id="cb18-48" title="48"><span class="co">#&gt; 18           psqn(4 threads)    3.92ms   3.97ms   245.      27.58KB    0</span></a></code></pre></div>
 <p>We see a large reduction. To be fair, we can use the C interface for the limited-memory BFGS methods to avoid re-allocating the gradient at every iteration. This will reduce their computation time. The R version of the quasi-Newton method is slower mainly as the R version to evaluate the log of the integrand and its derivative is slower than the version used by all the other methods. We can illustrate this by comparing with the computation time with the <code>eval_integrand</code>:</p>
 <div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb19-1" title="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
 <a class="sourceLine" id="cb19-2" title="2">  <span class="st">`</span><span class="dt">  R</span><span class="st">`</span> =<span class="st"> </span><span class="kw">eval_integrand</span>(true_params), </a>
@@ -1354,8 +1354,8 @@ img {
 <a class="sourceLine" id="cb19-5" title="5"><span class="co">#&gt; # A tibble: 2 × 6</span></a>
 <a class="sourceLine" id="cb19-6" title="6"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb19-7" title="7"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb19-8" title="8"><span class="co">#&gt; 1   R          3.01ms   3.28ms      283.  139.17KB     8.52</span></a>
-<a class="sourceLine" id="cb19-9" title="9"><span class="co">#&gt; 2 C++        251.81µs  258.4µs     3820.    2.49KB     0</span></a></code></pre></div>
+<a class="sourceLine" id="cb19-8" title="8"><span class="co">#&gt; 1   R          3.13ms   3.71ms      265.  139.17KB     8.54</span></a>
+<a class="sourceLine" id="cb19-9" title="9"><span class="co">#&gt; 2 C++        252.88µs 260.74µs     3709.    2.49KB     0</span></a></code></pre></div>
 <p>There is a big difference. Moreover, there is an overhead with repeatedly going back and forward between R and C++. A fair comparison would use an R implementation for all methods.</p>
 </div>
 <div id="masking-fixing-parameters" class="section level4">
@@ -2088,7 +2088,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <a class="sourceLine" id="cb29-10" title="10"><span class="kw">system.time</span>(glm_fit &lt;-<span class="st"> </span><span class="kw">glm.fit</span>(<span class="dt">x =</span> X, <span class="dt">y =</span> y, <span class="dt">family =</span> <span class="kw">poisson</span>(), </a>
 <a class="sourceLine" id="cb29-11" title="11">                               <span class="dt">start =</span> start))</a>
 <a class="sourceLine" id="cb29-12" title="12"><span class="co">#&gt;    user  system elapsed </span></a>
-<a class="sourceLine" id="cb29-13" title="13"><span class="co">#&gt; 153.878   0.368 154.354</span></a>
+<a class="sourceLine" id="cb29-13" title="13"><span class="co">#&gt; 155.251   0.328 155.587</span></a>
 <a class="sourceLine" id="cb29-14" title="14"></a>
 <a class="sourceLine" id="cb29-15" title="15"><span class="co"># we get (roughly) the same</span></a>
 <a class="sourceLine" id="cb29-16" title="16"><span class="kw">all.equal</span>(glm_fit<span class="op">$</span>coefficients, opt<span class="op">$</span>par)</a>
@@ -2103,87 +2103,81 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb30-1" title="1"><span class="co"># source the C++ version used in this package</span></a>
 <a class="sourceLine" id="cb30-2" title="2"><span class="kw">library</span>(Rcpp)</a>
 <a class="sourceLine" id="cb30-3" title="3"><span class="kw">sourceCpp</span>(<span class="kw">system.file</span>(<span class="st">&quot;generic_example.cpp&quot;</span>, <span class="dt">package =</span> <span class="st">&quot;psqn&quot;</span>))</a>
-<a class="sourceLine" id="cb30-4" title="4"><span class="co">#&gt; Registered S3 methods overwritten by &#39;RcppEigen&#39;:</span></a>
-<a class="sourceLine" id="cb30-5" title="5"><span class="co">#&gt;   method               from         </span></a>
-<a class="sourceLine" id="cb30-6" title="6"><span class="co">#&gt;   predict.fastLm       RcppArmadillo</span></a>
-<a class="sourceLine" id="cb30-7" title="7"><span class="co">#&gt;   print.fastLm         RcppArmadillo</span></a>
-<a class="sourceLine" id="cb30-8" title="8"><span class="co">#&gt;   summary.fastLm       RcppArmadillo</span></a>
-<a class="sourceLine" id="cb30-9" title="9"><span class="co">#&gt;   print.summary.fastLm RcppArmadillo</span></a>
-<a class="sourceLine" id="cb30-10" title="10"></a>
-<a class="sourceLine" id="cb30-11" title="11"><span class="co"># create the list to pass to C++</span></a>
-<a class="sourceLine" id="cb30-12" title="12">cpp_arg &lt;-<span class="st"> </span><span class="kw">lapply</span>(dat, <span class="cf">function</span>(x){</a>
-<a class="sourceLine" id="cb30-13" title="13">  x<span class="op">$</span>indices &lt;-<span class="st"> </span>x<span class="op">$</span>indices <span class="op">-</span><span class="st"> </span>1L <span class="co"># C++ needs zero-based indices</span></a>
-<a class="sourceLine" id="cb30-14" title="14">  x</a>
-<a class="sourceLine" id="cb30-15" title="15">})</a>
-<a class="sourceLine" id="cb30-16" title="16">ptr &lt;-<span class="st"> </span><span class="kw">get_generic_ex_obj</span>(cpp_arg, <span class="dt">max_threads =</span> 4L)</a>
-<a class="sourceLine" id="cb30-17" title="17"></a>
-<a class="sourceLine" id="cb30-18" title="18"><span class="co"># check that we get the same</span></a>
-<a class="sourceLine" id="cb30-19" title="19">noise &lt;-<span class="st"> </span><span class="kw">rnorm</span>(K)</a>
-<a class="sourceLine" id="cb30-20" title="20"><span class="kw">all.equal</span>(<span class="kw">eval_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb30-21" title="21">          <span class="kw">R_func</span>         (noise))</a>
+<a class="sourceLine" id="cb30-4" title="4"></a>
+<a class="sourceLine" id="cb30-5" title="5"><span class="co"># create the list to pass to C++</span></a>
+<a class="sourceLine" id="cb30-6" title="6">cpp_arg &lt;-<span class="st"> </span><span class="kw">lapply</span>(dat, <span class="cf">function</span>(x){</a>
+<a class="sourceLine" id="cb30-7" title="7">  x<span class="op">$</span>indices &lt;-<span class="st"> </span>x<span class="op">$</span>indices <span class="op">-</span><span class="st"> </span>1L <span class="co"># C++ needs zero-based indices</span></a>
+<a class="sourceLine" id="cb30-8" title="8">  x</a>
+<a class="sourceLine" id="cb30-9" title="9">})</a>
+<a class="sourceLine" id="cb30-10" title="10">ptr &lt;-<span class="st"> </span><span class="kw">get_generic_ex_obj</span>(cpp_arg, <span class="dt">max_threads =</span> 4L)</a>
+<a class="sourceLine" id="cb30-11" title="11"></a>
+<a class="sourceLine" id="cb30-12" title="12"><span class="co"># check that we get the same</span></a>
+<a class="sourceLine" id="cb30-13" title="13">noise &lt;-<span class="st"> </span><span class="kw">rnorm</span>(K)</a>
+<a class="sourceLine" id="cb30-14" title="14"><span class="kw">all.equal</span>(<span class="kw">eval_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb30-15" title="15">          <span class="kw">R_func</span>         (noise))</a>
+<a class="sourceLine" id="cb30-16" title="16"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-17" title="17"><span class="kw">all.equal</span>(gv &lt;-<span class="st"> </span><span class="kw">grad_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L),</a>
+<a class="sourceLine" id="cb30-18" title="18">          <span class="kw">R_func_gr</span>            (noise), </a>
+<a class="sourceLine" id="cb30-19" title="19">          <span class="dt">check.attributes =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb30-20" title="20"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-21" title="21"><span class="kw">all.equal</span>(<span class="kw">attr</span>(gv, <span class="st">&quot;value&quot;</span>), <span class="kw">R_func</span>(noise))</a>
 <a class="sourceLine" id="cb30-22" title="22"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-23" title="23"><span class="kw">all.equal</span>(gv &lt;-<span class="st"> </span><span class="kw">grad_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 1L),</a>
-<a class="sourceLine" id="cb30-24" title="24">          <span class="kw">R_func_gr</span>            (noise), </a>
-<a class="sourceLine" id="cb30-25" title="25">          <span class="dt">check.attributes =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb30-26" title="26"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-27" title="27"><span class="kw">all.equal</span>(<span class="kw">attr</span>(gv, <span class="st">&quot;value&quot;</span>), <span class="kw">R_func</span>(noise))</a>
-<a class="sourceLine" id="cb30-28" title="28"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-29" title="29"></a>
-<a class="sourceLine" id="cb30-30" title="30"><span class="co"># also gives the same with two threads</span></a>
-<a class="sourceLine" id="cb30-31" title="31"><span class="kw">all.equal</span>(<span class="kw">eval_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb30-32" title="32">          <span class="kw">R_func</span>         (noise))</a>
+<a class="sourceLine" id="cb30-23" title="23"></a>
+<a class="sourceLine" id="cb30-24" title="24"><span class="co"># also gives the same with two threads</span></a>
+<a class="sourceLine" id="cb30-25" title="25"><span class="kw">all.equal</span>(<span class="kw">eval_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb30-26" title="26">          <span class="kw">R_func</span>         (noise))</a>
+<a class="sourceLine" id="cb30-27" title="27"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-28" title="28"><span class="kw">all.equal</span>(gv &lt;-<span class="st"> </span><span class="kw">grad_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 2L),</a>
+<a class="sourceLine" id="cb30-29" title="29">          <span class="kw">R_func_gr</span>            (noise), </a>
+<a class="sourceLine" id="cb30-30" title="30">          <span class="dt">check.attributes =</span> <span class="ot">FALSE</span>)</a>
+<a class="sourceLine" id="cb30-31" title="31"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-32" title="32"><span class="kw">all.equal</span>(<span class="kw">attr</span>(gv, <span class="st">&quot;value&quot;</span>), <span class="kw">R_func</span>(noise))</a>
 <a class="sourceLine" id="cb30-33" title="33"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-34" title="34"><span class="kw">all.equal</span>(gv &lt;-<span class="st"> </span><span class="kw">grad_generic_ex</span>(noise, <span class="dt">ptr =</span> ptr, <span class="dt">n_threads =</span> 2L),</a>
-<a class="sourceLine" id="cb30-35" title="35">          <span class="kw">R_func_gr</span>            (noise), </a>
-<a class="sourceLine" id="cb30-36" title="36">          <span class="dt">check.attributes =</span> <span class="ot">FALSE</span>)</a>
-<a class="sourceLine" id="cb30-37" title="37"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-38" title="38"><span class="kw">all.equal</span>(<span class="kw">attr</span>(gv, <span class="st">&quot;value&quot;</span>), <span class="kw">R_func</span>(noise))</a>
-<a class="sourceLine" id="cb30-39" title="39"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-40" title="40"></a>
-<a class="sourceLine" id="cb30-41" title="41"><span class="co"># optimize and compare the result with one thread</span></a>
-<a class="sourceLine" id="cb30-42" title="42">psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 1L, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, <span class="dt">c2 =</span> <span class="fl">.1</span>, <span class="dt">trace =</span> 0L, </a>
-<a class="sourceLine" id="cb30-43" title="43">                      <span class="dt">pre_method =</span> 1L, <span class="dt">cg_tol =</span> <span class="fl">.5</span>)</a>
-<a class="sourceLine" id="cb30-44" title="44">  <span class="kw">optim_generic_ex</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> ptr, <span class="dt">rel_eps =</span> <span class="fl">1e-9</span>, <span class="dt">max_it =</span> 1000L, </a>
-<a class="sourceLine" id="cb30-45" title="45">                   <span class="dt">n_threads =</span> n_threads, <span class="dt">c1 =</span> c1, <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace, </a>
-<a class="sourceLine" id="cb30-46" title="46">                   <span class="dt">cg_tol =</span> cg_tol, <span class="dt">pre_method =</span> pre_method)</a>
-<a class="sourceLine" id="cb30-47" title="47"></a>
-<a class="sourceLine" id="cb30-48" title="48">opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start)</a>
-<a class="sourceLine" id="cb30-49" title="49"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</a>
-<a class="sourceLine" id="cb30-50" title="50"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-51" title="51"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</a>
-<a class="sourceLine" id="cb30-52" title="52"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-53" title="53">opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></a>
-<a class="sourceLine" id="cb30-54" title="54"><span class="co">#&gt; [1] -0.000102</span></a>
-<a class="sourceLine" id="cb30-55" title="55"></a>
-<a class="sourceLine" id="cb30-56" title="56"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, glm_fit<span class="op">$</span>coefficients, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</a>
-<a class="sourceLine" id="cb30-57" title="57"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-58" title="58"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, <span class="kw">R_func</span>(glm_fit<span class="op">$</span>coefficients))</a>
-<a class="sourceLine" id="cb30-59" title="59"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-60" title="60"></a>
-<a class="sourceLine" id="cb30-61" title="61"><span class="co"># compare counts</span></a>
-<a class="sourceLine" id="cb30-62" title="62">opt_psqn<span class="op">$</span>counts</a>
-<a class="sourceLine" id="cb30-63" title="63"><span class="co">#&gt; function gradient     n_cg </span></a>
-<a class="sourceLine" id="cb30-64" title="64"><span class="co">#&gt;       93       59       67</span></a>
-<a class="sourceLine" id="cb30-65" title="65">opt     <span class="op">$</span>counts</a>
-<a class="sourceLine" id="cb30-66" title="66"><span class="co">#&gt; function gradient </span></a>
-<a class="sourceLine" id="cb30-67" title="67"><span class="co">#&gt;      425      103</span></a>
-<a class="sourceLine" id="cb30-68" title="68"></a>
-<a class="sourceLine" id="cb30-69" title="69"><span class="co"># we can do the same with two threads</span></a>
-<a class="sourceLine" id="cb30-70" title="70">opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L)</a>
-<a class="sourceLine" id="cb30-71" title="71"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</a>
-<a class="sourceLine" id="cb30-72" title="72"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-73" title="73"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</a>
-<a class="sourceLine" id="cb30-74" title="74"><span class="co">#&gt; [1] TRUE</span></a>
-<a class="sourceLine" id="cb30-75" title="75">opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></a>
-<a class="sourceLine" id="cb30-76" title="76"><span class="co">#&gt; [1] -0.000102</span></a>
-<a class="sourceLine" id="cb30-77" title="77"></a>
-<a class="sourceLine" id="cb30-78" title="78"><span class="co"># compare counts</span></a>
-<a class="sourceLine" id="cb30-79" title="79">opt_psqn<span class="op">$</span>counts</a>
-<a class="sourceLine" id="cb30-80" title="80"><span class="co">#&gt; function gradient     n_cg </span></a>
-<a class="sourceLine" id="cb30-81" title="81"><span class="co">#&gt;       93       59       67</span></a>
-<a class="sourceLine" id="cb30-82" title="82">opt     <span class="op">$</span>counts</a>
-<a class="sourceLine" id="cb30-83" title="83"><span class="co">#&gt; function gradient </span></a>
-<a class="sourceLine" id="cb30-84" title="84"><span class="co">#&gt;      425      103</span></a></code></pre></div>
+<a class="sourceLine" id="cb30-34" title="34"></a>
+<a class="sourceLine" id="cb30-35" title="35"><span class="co"># optimize and compare the result with one thread</span></a>
+<a class="sourceLine" id="cb30-36" title="36">psqn_func &lt;-<span class="st"> </span><span class="cf">function</span>(par, <span class="dt">n_threads =</span> 1L, <span class="dt">c1 =</span> <span class="fl">1e-4</span>, <span class="dt">c2 =</span> <span class="fl">.1</span>, <span class="dt">trace =</span> 0L, </a>
+<a class="sourceLine" id="cb30-37" title="37">                      <span class="dt">pre_method =</span> 1L, <span class="dt">cg_tol =</span> <span class="fl">.5</span>)</a>
+<a class="sourceLine" id="cb30-38" title="38">  <span class="kw">optim_generic_ex</span>(<span class="dt">val =</span> par, <span class="dt">ptr =</span> ptr, <span class="dt">rel_eps =</span> <span class="fl">1e-9</span>, <span class="dt">max_it =</span> 1000L, </a>
+<a class="sourceLine" id="cb30-39" title="39">                   <span class="dt">n_threads =</span> n_threads, <span class="dt">c1 =</span> c1, <span class="dt">c2 =</span> c2, <span class="dt">trace =</span> trace, </a>
+<a class="sourceLine" id="cb30-40" title="40">                   <span class="dt">cg_tol =</span> cg_tol, <span class="dt">pre_method =</span> pre_method)</a>
+<a class="sourceLine" id="cb30-41" title="41"></a>
+<a class="sourceLine" id="cb30-42" title="42">opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start)</a>
+<a class="sourceLine" id="cb30-43" title="43"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</a>
+<a class="sourceLine" id="cb30-44" title="44"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-45" title="45"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</a>
+<a class="sourceLine" id="cb30-46" title="46"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-47" title="47">opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></a>
+<a class="sourceLine" id="cb30-48" title="48"><span class="co">#&gt; [1] -0.000102</span></a>
+<a class="sourceLine" id="cb30-49" title="49"></a>
+<a class="sourceLine" id="cb30-50" title="50"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, glm_fit<span class="op">$</span>coefficients, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</a>
+<a class="sourceLine" id="cb30-51" title="51"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-52" title="52"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, <span class="kw">R_func</span>(glm_fit<span class="op">$</span>coefficients))</a>
+<a class="sourceLine" id="cb30-53" title="53"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-54" title="54"></a>
+<a class="sourceLine" id="cb30-55" title="55"><span class="co"># compare counts</span></a>
+<a class="sourceLine" id="cb30-56" title="56">opt_psqn<span class="op">$</span>counts</a>
+<a class="sourceLine" id="cb30-57" title="57"><span class="co">#&gt; function gradient     n_cg </span></a>
+<a class="sourceLine" id="cb30-58" title="58"><span class="co">#&gt;       93       59       67</span></a>
+<a class="sourceLine" id="cb30-59" title="59">opt     <span class="op">$</span>counts</a>
+<a class="sourceLine" id="cb30-60" title="60"><span class="co">#&gt; function gradient </span></a>
+<a class="sourceLine" id="cb30-61" title="61"><span class="co">#&gt;      425      103</span></a>
+<a class="sourceLine" id="cb30-62" title="62"></a>
+<a class="sourceLine" id="cb30-63" title="63"><span class="co"># we can do the same with two threads</span></a>
+<a class="sourceLine" id="cb30-64" title="64">opt_psqn &lt;-<span class="st"> </span><span class="kw">psqn_func</span>(start, <span class="dt">n_threads =</span> 2L)</a>
+<a class="sourceLine" id="cb30-65" title="65"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>par, opt<span class="op">$</span>par, <span class="dt">tolerance =</span> <span class="fl">1e-3</span>)</a>
+<a class="sourceLine" id="cb30-66" title="66"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-67" title="67"><span class="kw">all.equal</span>(opt_psqn<span class="op">$</span>value, opt<span class="op">$</span>value)</a>
+<a class="sourceLine" id="cb30-68" title="68"><span class="co">#&gt; [1] TRUE</span></a>
+<a class="sourceLine" id="cb30-69" title="69">opt_psqn<span class="op">$</span>value <span class="op">-</span><span class="st"> </span>opt<span class="op">$</span>value <span class="co"># (negative values implies a better solution)</span></a>
+<a class="sourceLine" id="cb30-70" title="70"><span class="co">#&gt; [1] -0.000102</span></a>
+<a class="sourceLine" id="cb30-71" title="71"></a>
+<a class="sourceLine" id="cb30-72" title="72"><span class="co"># compare counts</span></a>
+<a class="sourceLine" id="cb30-73" title="73">opt_psqn<span class="op">$</span>counts</a>
+<a class="sourceLine" id="cb30-74" title="74"><span class="co">#&gt; function gradient     n_cg </span></a>
+<a class="sourceLine" id="cb30-75" title="75"><span class="co">#&gt;       93       59       67</span></a>
+<a class="sourceLine" id="cb30-76" title="76">opt     <span class="op">$</span>counts</a>
+<a class="sourceLine" id="cb30-77" title="77"><span class="co">#&gt; function gradient </span></a>
+<a class="sourceLine" id="cb30-78" title="78"><span class="co">#&gt;      425      103</span></a></code></pre></div>
 <p>The C++ version is much faster:</p>
 <div class="sourceCode" id="cb31"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb31-1" title="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
 <a class="sourceLine" id="cb31-2" title="2">  <span class="st">`</span><span class="dt">R version</span><span class="st">`</span> =<span class="st"> </span><span class="kw">optim</span>(start, R_func, R_func_gr, <span class="dt">method =</span> <span class="st">&quot;BFGS&quot;</span>), </a>
@@ -2199,10 +2193,10 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <a class="sourceLine" id="cb31-12" title="12"><span class="co">#&gt; # A tibble: 4 × 6</span></a>
 <a class="sourceLine" id="cb31-13" title="13"><span class="co">#&gt;   expression          min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb31-14" title="14"><span class="co">#&gt;   &lt;bch:expr&gt;     &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb31-15" title="15"><span class="co">#&gt; 1 R version         8.55s    8.66s     0.115    55.1MB     7.45</span></a>
-<a class="sourceLine" id="cb31-16" title="16"><span class="co">#&gt; 2 R w/ C++             2s    2.12s     0.473      26MB     0   </span></a>
-<a class="sourceLine" id="cb31-17" title="17"><span class="co">#&gt; 3 psqn             71.5ms  71.89ms    13.9      18.2KB     0   </span></a>
-<a class="sourceLine" id="cb31-18" title="18"><span class="co">#&gt; 4 psqn 2 threads  38.62ms  38.76ms    25.8      18.2KB     0</span></a></code></pre></div>
+<a class="sourceLine" id="cb31-15" title="15"><span class="co">#&gt; 1 R version         8.98s    9.05s     0.111    55.1MB     7.13</span></a>
+<a class="sourceLine" id="cb31-16" title="16"><span class="co">#&gt; 2 R w/ C++          2.15s    2.23s     0.449      26MB     0   </span></a>
+<a class="sourceLine" id="cb31-17" title="17"><span class="co">#&gt; 3 psqn            72.29ms  74.88ms    13.3      18.2KB     0   </span></a>
+<a class="sourceLine" id="cb31-18" title="18"><span class="co">#&gt; 4 psqn 2 threads  39.68ms  40.51ms    24.8      18.2KB     0</span></a></code></pre></div>
 <div id="generic-example-r-interface" class="section level4">
 <h4>Generic Example: R Interface</h4>
 <p>A R interface to the <code>optimizer_generic</code> class is provided through the <code>psqn_generic</code> function. We show an example below of how the R interface can be used to solve the same problem we had before:</p>
@@ -2244,7 +2238,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <a class="sourceLine" id="cb33-4" title="4"><span class="co">#&gt; # A tibble: 1 × 6</span></a>
 <a class="sourceLine" id="cb33-5" title="5"><span class="co">#&gt;   expression              min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb33-6" title="6"><span class="co">#&gt;   &lt;bch:expr&gt;         &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb33-7" title="7"><span class="co">#&gt; 1 psqn_func_R(start)    3.32s    3.38s     0.295    29.1KB     18.8</span></a></code></pre></div>
+<a class="sourceLine" id="cb33-7" title="7"><span class="co">#&gt; 1 psqn_func_R(start)    3.41s    3.47s     0.288    29.1KB     17.6</span></a></code></pre></div>
 </div>
 <div id="getting-the-hessian-approximation-1" class="section level4">
 <h4>Getting the Hessian Approximation</h4>
@@ -2393,9 +2387,9 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <a class="sourceLine" id="cb37-17" title="17"><span class="co">#&gt; # A tibble: 3 × 6</span></a>
 <a class="sourceLine" id="cb37-18" title="18"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb37-19" title="19"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb37-20" title="20"><span class="co">#&gt; 1 1 thread      350µs    361µs     2689.    18.2KB     0   </span></a>
-<a class="sourceLine" id="cb37-21" title="21"><span class="co">#&gt; 2 2 threads     168µs    174µs     5646.    18.2KB     4.06</span></a>
-<a class="sourceLine" id="cb37-22" title="22"><span class="co">#&gt; 3 3 threads     120µs    121µs     8077.    18.2KB     2.01</span></a>
+<a class="sourceLine" id="cb37-20" title="20"><span class="co">#&gt; 1 1 thread      368µs    381µs     2494.    18.2KB        0</span></a>
+<a class="sourceLine" id="cb37-21" title="21"><span class="co">#&gt; 2 2 threads     173µs    180µs     5402.    18.2KB        0</span></a>
+<a class="sourceLine" id="cb37-22" title="22"><span class="co">#&gt; 3 3 threads     123µs    129µs     6875.    18.2KB        0</span></a>
 <a class="sourceLine" id="cb37-23" title="23"></a>
 <a class="sourceLine" id="cb37-24" title="24"><span class="co"># next, we compile the file but having defined PSQN_NO_USE_KAHAN in the </span></a>
 <a class="sourceLine" id="cb37-25" title="25"><span class="co"># beginning</span></a>
@@ -2430,9 +2424,9 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <a class="sourceLine" id="cb37-54" title="54"><span class="co">#&gt; # A tibble: 3 × 6</span></a>
 <a class="sourceLine" id="cb37-55" title="55"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb37-56" title="56"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb37-57" title="57"><span class="co">#&gt; 1 1 thread      330µs    337µs     2904.    18.2KB     0   </span></a>
-<a class="sourceLine" id="cb37-58" title="58"><span class="co">#&gt; 2 2 threads     154µs    159µs     6178.    18.2KB     4.05</span></a>
-<a class="sourceLine" id="cb37-59" title="59"><span class="co">#&gt; 3 3 threads     110µs    111µs     8814.    18.2KB     2.01</span></a></code></pre></div>
+<a class="sourceLine" id="cb37-57" title="57"><span class="co">#&gt; 1 1 thread      360µs    369µs     2641.    18.2KB        0</span></a>
+<a class="sourceLine" id="cb37-58" title="58"><span class="co">#&gt; 2 2 threads     161µs    169µs     5681.    18.2KB        0</span></a>
+<a class="sourceLine" id="cb37-59" title="59"><span class="co">#&gt; 3 3 threads     115µs    119µs     7941.    18.2KB        0</span></a></code></pre></div>
 <p>The error is only slightly larger in the latter case in this example and the computation time is reduced because the <code>func</code> and <code>grad</code> member functions are cheap to evaluate computationally.</p>
 </div>
 </div>
@@ -2483,8 +2477,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <a class="sourceLine" id="cb38-35" title="35"><span class="co">#&gt; # A tibble: 2 × 6</span></a>
 <a class="sourceLine" id="cb38-36" title="36"><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></a>
 <a class="sourceLine" id="cb38-37" title="37"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></a>
-<a class="sourceLine" id="cb38-38" title="38"><span class="co">#&gt; 1 optim       134.7µs    150µs     6529.      384B     10.3</span></a>
-<a class="sourceLine" id="cb38-39" title="39"><span class="co">#&gt; 2 psqn_bfgs    97.8µs    111µs     8864.    2.49KB     12.5</span></a></code></pre></div>
+<a class="sourceLine" id="cb38-38" title="38"><span class="co">#&gt; 1 optim         136µs    150µs     6436.      384B     12.4</span></a>
+<a class="sourceLine" id="cb38-39" title="39"><span class="co">#&gt; 2 psqn_bfgs     101µs    109µs     8644.    2.49KB     16.8</span></a></code></pre></div>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>
