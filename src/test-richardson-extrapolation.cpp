@@ -10,7 +10,7 @@ context("testing numerical differentation") {
       out[1] = std::sin(3 * x);
     };
 
-    using comp_obj = PSQN::richard_extrapolation<decltype(func)>;
+    using comp_obj = PSQN::richardson_extrapolation<decltype(func)>;
 
     double res[2];
     constexpr unsigned order{6};

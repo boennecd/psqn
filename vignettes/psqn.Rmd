@@ -803,6 +803,33 @@ image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
 
 The true Hessian is very sparse. 
 
+#### Getting the True Hessian
+
+We can also get the true Hessian. This is computed with numerical 
+differentiation using Richardson extrapolation. We provide an example of this 
+below.
+
+```{r true_hess, cache = 1}
+# compute the hessian with the package
+system.time(hess <- true_hess_sparse(val = psqn_res$par, ptr = optimizer))
+
+# compare with numerical differentiation from R. We only check the first 
+# elements
+n_comp <- 160L
+system.time(
+  hess_num_deriv <- jacobian(
+      function(x) {
+        par <- psqn_res$par
+        par[1:n_comp] <- x
+        grad_mlogit(val = par, ptr = optimizer, n_threads = 2L)[1:n_comp]
+      }, 
+      head(psqn_res$par, n_comp)))
+
+# we got the same
+all.equal(Matrix::Matrix(hess_num_deriv, sparse = TRUE),
+          hess[1:n_comp, 1:n_comp])
+```
+
 #### Using Different Preconditioners
 We can use different preconditioners. We illustrate this below. Notice that 
 you have to define the `PSQN_USE_EIGEN` macro variable prior to including any of

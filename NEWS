@@ -1,6 +1,7 @@
 Changes in version 0.2.2
  * it is possible to mask (fix) some of the parameters.
  * the code has been refactored. This may yield a speedup in some cases.
+ * Computation of the hessian is now supported using numerical differentation.
 
 Changes in version 0.2.1
  * tests that compile files using Rcpp::sourceCpp() now do so in a temporary

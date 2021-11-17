@@ -52,16 +52,16 @@ namespace PSQN {
  *  multivariate.
  */
 template<class TFunctor>
-struct richard_extrapolation {
+struct richardson_extrapolation {
   /// returns the required amount of working memory
   static unsigned n_wk_mem(unsigned const n_vars, unsigned const order){
     return n_vars * (3 + order);
   }
 
-  richard_extrapolation(TFunctor &func, unsigned const order,
-                        double * wk_mem, double const eps,
-                        double const scale, double const tol,
-                        unsigned const n_vars):
+  richardson_extrapolation(TFunctor &func, unsigned const order,
+                           double * wk_mem, double const eps,
+                           double const scale, double const tol,
+                           unsigned const n_vars):
     func(func), n_vars{n_vars}, order{order}, eps{eps},
     scale{scale}, wk_mem{wk_mem}, tol{tol}
   {
@@ -136,7 +136,8 @@ struct richard_extrapolation {
       // update the last one
       mult *= scale_sq;
       for(unsigned k = 0; k < n_vars; ++k)
-        lhs[k] = (mult * rhs[k] - lhs[k]) / (mult - 1);
+        if(!converged[k])
+          lhs[k] = (mult * rhs[k] - lhs[k]) / (mult - 1);
     }
 
     std::copy(cur_apprx(0), cur_apprx(0) + n_vars, out);

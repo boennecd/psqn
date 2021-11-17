@@ -407,6 +407,30 @@ Eigen::SparseMatrix<double> get_sparse_Hess_approx_mlogit(SEXP ptr){
 }
 
 /***
+ returns the true Hessian as a sparse matrix.
+
+ @param ptr returned object from get_mlogit_optimizer
+ @param val where to evaluate the function at
+ @param eps determines the step size given by max(eps, |x| * eps)
+ @param scale scaling factor in the Richardson extrapolation
+ @param tol relative convergence criteria given by max(tol, |f| * tol)
+ @param order maximum number of iteration of the Richardson extrapolation
+ */
+// [[Rcpp::export]]
+Eigen::SparseMatrix<double> true_hess_sparse
+  (SEXP ptr, NumericVector val, double const eps = 0.001, double const scale = 2,
+   double const tol = 0.000000001, unsigned const order = 6){
+
+  XPtr<mlogit_topim> optim(ptr);
+
+  // check that we pass a parameter value of the right length
+  if(optim->n_par != static_cast<psqn_uint>(val.size()))
+    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+
+  return optim->true_hess_sparse(&val[0], eps, scale, tol, order);
+}
+
+/***
  sets the masked (fixed) parameters.
  @param ptr returned object from get_mlogit_optimizer.
  @param indices zero based indices of the masked parameters.

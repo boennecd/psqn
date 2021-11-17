@@ -12,6 +12,7 @@
 #include "intrapolate.h"
 #include "psqn-misc.h"
 #include "psqn-bfgs.h"
+#include "richardson-extrapolation.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -1713,8 +1714,92 @@ public:
     fill_sparse_B_mat();
     return sparse_B_mat;
   }
+
+  /***
+   returns the true Hessian as a sparse matrix.
+
+   @param val where to evaluate the function at
+   @param eps determines the step size given by max(eps, |x| * eps)
+   @param scale scaling factor in the Richardson extrapolation
+   @param tol relative convergence criteria given by max(tol, |f| * tol)
+   @param order maximum number of iteration of the Richardson extrapolation
+   */
+  Eigen::SparseMatrix<double> true_hess_sparse
+    (double const *val, double const eps = 1e-4, double const scale = 2,
+     double const tol = 1e-8, unsigned const order = 6){
+    // setup
+    std::vector<double> val_cp(n_par);
+    std::copy(val, val + n_par, val_cp.begin());
+    std::vector<double> hess_mem, wk_mem;
+
+    // compute the Hessian
+    for(auto &f : funcs){
+      psqn_uint const private_dim{f.func.private_dim()},
+                           n_vars{global_dim + private_dim},
+                   private_offset{f.par_start};
+      hess_mem.resize(n_vars * n_vars);
+
+      auto get_idx = [&](unsigned const i){
+        return i >= global_dim  ? i - global_dim + private_offset : i;
+      };
+
+      // compute the approximation of the worker's Hessian
+      {
+        double *h{hess_mem.data()};
+        for(psqn_uint i = 0; i < n_vars; ++i, h += n_vars){
+
+          auto deriv_functor = [&](double const x, double *gr){
+            psqn_uint const idx{get_idx(i)};
+            double const old_val{val_cp[idx]};
+            val_cp[idx] = x;
+
+            // unfortunately we have to call this every time
+            caller.setup(val_cp.data(), true);
+            f(val_cp.data(), val_cp.data() + private_offset, true, caller);
+
+            std::copy(f.gr, f.gr + n_vars, gr);
+            val_cp[idx] = old_val;
+          };
+
+          using comp_obj = richardson_extrapolation<decltype(deriv_functor)>;
+
+          unsigned const n_wk_mem{comp_obj::n_wk_mem(n_vars, order)};
+          if(wk_mem.size() < n_wk_mem)
+            wk_mem.resize(n_wk_mem);
+
+          comp_obj
+            (deriv_functor, order, wk_mem.data(), eps, scale, tol, n_vars)
+            (val_cp[get_idx(i)], h);
+        }
+
+        // make sure the matrix is symmetric
+        for(psqn_uint i = 1; i < n_vars; ++i)
+          for(psqn_uint j = 0; j < i; ++j){
+            double const avg
+              {(hess_mem[i + j * n_vars] + hess_mem[j + i * n_vars]) / 2};
+            hess_mem[i + j * n_vars] = avg;
+            hess_mem[j + i * n_vars] = avg;
+          }
+
+        // sets the Hessian on the object
+        double *B = f.B;
+        for(unsigned i = 0; i < n_vars; ++i)
+          for(unsigned j = 0; j <= i; ++j, ++B)
+            *B = hess_mem[j + i * n_vars];
+      }
+    }
+
+    fill_sparse_B_mat();
+    return sparse_B_mat;
+  }
+
 #else
   void get_hess_sparse() {
+    throw_no_eigen_error();
+  }
+
+  void true_hess_sparse(double const*, double const, double const,
+                        double const, unsigned const){
     throw_no_eigen_error();
   }
 #endif // PSQN_USE_EIGEN
