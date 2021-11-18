@@ -55,6 +55,14 @@ test_that("mixed logit model gives the same", {
   gr <- grad_mlogit(val = val, ptr = optimizer, n_threads = 2L)
   expect_equal(gr, gr_res)
 
+  # hess_truth <- Matrix(
+  #   numDeriv::jacobian(grad_mlogit, val, ptr = optimizer, n_threads = 1L),
+  #   sparse = TRUE)
+  # saveRDS(hess_truth, "test-cpp-api-true-hess.RDS")
+
+  hess <- true_hess_sparse(optimizer, val)
+  expect_true(isTRUE(all.equal(hess, readRDS("test-cpp-api-true-hess.RDS"))))
+
   rel_eps <- sqrt(.Machine$double.eps)
   opt <- optim_mlogit(
     val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,

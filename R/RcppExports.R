@@ -215,6 +215,125 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
     .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
 }
 
+#' Computes the Hessian.
+#'
+#' @description
+#' Computes the Hessian using numerical differentiation with Richardson
+#' extrapolation.
+#'
+#' @inheritParams psqn
+#' @param fn Function to compute the element functions and their derivatives.
+#' See \code{\link{psqn}}.
+#' @param val Where to evaluate the function at.
+#' @param eps Determines the step size. See the details.
+#' @param scale Scaling factor in the Richardson extrapolation. See the
+#' details.
+#' @param tol Relative convergence criteria. See the details.
+#' @param order Maximum number of iteration of the Richardson extrapolation.
+#'
+#' @details
+#' The function computes the Hessian using numerical differentiation with
+#' centered differences and subsequent use of Richardson
+#' extrapolation to refine the estimate.
+#'
+#' The additional arguments are as follows: The numerical differentiation
+#' is applied for each argument with a step size of
+#' \code{s = max(eps, |x| * eps)}.
+#' The Richardson extrapolation at iteration \code{i} uses a step size of
+#' \code{s * scale^(-i)}. The convergence threshold for each comportment of
+#' the gradient is \code{max(tol, |gr(x)[j]| * tol)}.
+#'
+#' The numerical differentiation is done on each element function and thus
+#' much more efficient then doing it on the whole gradient.
+#'
+#' @examples
+#' # assign model parameters, number of random effects, and fixed effects
+#' q <- 2 # number of private parameters per cluster
+#' p <- 1 # number of global parameters
+#' beta <- sqrt((1:p) / sum(1:p))
+#' Sigma <- diag(q)
+#'
+#' # simulate a data set
+#' set.seed(66608927)
+#' n_clusters <- 20L # number of clusters
+#' sim_dat <- replicate(n_clusters, {
+#'   n_members <- sample.int(8L, 1L) + 2L
+#'   X <- matrix(runif(p * n_members, -sqrt(6 / 2), sqrt(6 / 2)),
+#'               p)
+#'   u <- drop(rnorm(q) %*% chol(Sigma))
+#'   Z <- matrix(runif(q * n_members, -sqrt(6 / 2 / q), sqrt(6 / 2 / q)),
+#'               q)
+#'   eta <- drop(beta %*% X + u %*% Z)
+#'   y <- as.numeric((1 + exp(-eta))^(-1) > runif(n_members))
+#'
+#'   list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
+#' }, simplify = FALSE)
+#'
+#' # evaluates the negative log integrand.
+#' #
+#' # Args:
+#' #   i cluster/element function index.
+#' #   par the global and private parameter for this cluster. It has length
+#' #       zero if the number of parameters is requested. That is, a 2D integer
+#' #       vector the number of global parameters as the first element and the
+#' #       number of private parameters as the second element.
+#' #   comp_grad logical for whether to compute the gradient.
+#' r_func <- function(i, par, comp_grad){
+#'   dat <- sim_dat[[i]]
+#'   X <- dat$X
+#'   Z <- dat$Z
+#'
+#'   if(length(par) < 1)
+#'     # requested the dimension of the parameter
+#'     return(c(global_dim = NROW(dat$X), private_dim = NROW(dat$Z)))
+#'
+#'   y <- dat$y
+#'   Sigma_inv <- dat$Sigma_inv
+#'
+#'   beta <- par[1:p]
+#'   uhat <- par[1:q + p]
+#'   eta <- drop(beta %*% X + uhat %*% Z)
+#'   exp_eta <- exp(eta)
+#'
+#'   out <- -sum(y * eta) + sum(log(1 + exp_eta)) +
+#'     sum(uhat * (Sigma_inv %*% uhat)) / 2
+#'   if(comp_grad){
+#'     d_eta <- -y + exp_eta / (1 + exp_eta)
+#'     grad <- c(X %*% d_eta,
+#'               Z %*% d_eta + dat$Sigma_inv %*% uhat)
+#'     attr(out, "grad") <- grad
+#'   }
+#'
+#'   out
+#' }
+#'
+#' # compute the hessian
+#' set.seed(1)
+#' par <- runif(p + q * n_clusters, -1)
+#'
+#' hess <- psqn_hess(val = par, fn = r_func, n_ele_func = n_clusters)
+#'
+#' # compare with numerical differentiation from R
+#' if(require(numDeriv)){
+#'     hess_num <- jacobian(function(x){
+#'         out <- numeric(length(x))
+#'         for(i in seq_len(n_clusters)){
+#'             out_i <- r_func(i, x[c(1:p, 1:q + (i - 1L) * q + p)], TRUE)
+#'             out[1:p] <- out[1:p] + attr(out_i, "grad")[1:p]
+#'             out[1:q + (i - 1L) * q + p] <- attr(out_i, "grad")[1:q + p]
+#'         }
+#'         out
+#'     }, par)
+#'
+#'     cat("Output of all.equal\n")
+#'     print(all.equal(Matrix(hess_num, sparse = TRUE), hess))
+#' }
+#'
+#' @export
+psqn_hess <- function(val, fn, n_ele_func, n_threads = 1L, env = NULL, eps = 0.001, scale = 2L, tol = 0.000000001, order = 6L) {
+    .Call(`_psqn_psqn_hess`, val, fn, n_ele_func, n_threads, env, eps, scale, tol, order)
+}
+
 #' @rdname psqn
 #'
 #' @param consts Function to compute the constraints which must be equal to

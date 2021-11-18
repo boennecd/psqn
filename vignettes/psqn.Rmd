@@ -813,6 +813,10 @@ below.
 # compute the hessian with the package
 system.time(hess <- true_hess_sparse(val = psqn_res$par, ptr = optimizer))
 
+# we can also compute it from R
+system.time(hess_R <- psqn_hess(
+  val = psqn_res$par, fn = r_func, n_ele_func = n_clusters))
+
 # compare with numerical differentiation from R. We only check the first 
 # elements
 n_comp <- 160L
@@ -826,6 +830,7 @@ system.time(
       head(psqn_res$par, n_comp)))
 
 # we got the same
+all.equal(hess, hess_R)
 all.equal(Matrix::Matrix(hess_num_deriv, sparse = TRUE),
           hess[1:n_comp, 1:n_comp])
 ```

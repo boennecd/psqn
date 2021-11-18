@@ -59,6 +59,10 @@ test_that("mixed logit model gives the same", {
   do_check <- !names(opt) %in% "counts"
   expect_equal(opt[do_check], opt_res[do_check], tolerance = tol)
 
+  # Hessian is right
+  hess <- psqn_hess(val, fn = r_func, n_ele_func = n_clusters, n_threads = 1L)
+  expect_true(isTRUE(all.equal(hess, readRDS("test-cpp-api-true-hess.RDS"))))
+
   # we get the same with other preconditioners
   for(i in 0:2){
     opt <- psqn(

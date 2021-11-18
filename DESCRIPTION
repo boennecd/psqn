@@ -1,7 +1,7 @@
 Package: psqn
 Type: Package
 Title: Partially Separable Quasi-Newton
-Version: 0.2.2
+Version: 0.3.0
 Authors@R: c(person("Benjamin", "Christoffersen", 
                     email = "boennecd@gmail.com", 
                     role = c("cre", "aut"), 
@@ -13,7 +13,9 @@ Description: Provides quasi-Newton methods to minimize partially separable
 License: GPL-2
 Encoding: UTF-8
 RoxygenNote: 7.1.2
-Depends: R (>= 3.5.0)
+Depends: 
+    R (>= 3.5.0),
+    Matrix
 URL: https://github.com/boennecd/psqn
 BugReports: https://github.com/boennecd/psqn/issues
 LinkingTo: 
@@ -32,7 +34,6 @@ Suggests:
     numDeriv, 
     lbfgsb3c, 
     lbfgs, 
-    Matrix,
     alabama
 VignetteBuilder: R.rsp
 SystemRequirements: C++11

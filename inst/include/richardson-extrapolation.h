@@ -1,4 +1,3 @@
-#include <Rcpp.h>
 #include <cmath>
 #include <algorithm>
 #include <exception>
@@ -97,7 +96,7 @@ struct richardson_extrapolation {
     double const scale_sq{scale * scale};
     for(unsigned i = 0; i < order; ++i){
       /* the current stored output is
-       * A_i(h) A_(i - 1)(h / v) ... A_0(h / v^i)
+       * A_(i - 1)(h) A_(i - 2)(h / v) ... A_0(h / v^(i - 1))
        *
        * we need to update this to
        *

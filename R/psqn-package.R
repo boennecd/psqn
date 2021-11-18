@@ -1,4 +1,5 @@
 #' @importFrom Rcpp sourceCpp
+#' @import Matrix
 #' @useDynLib psqn, .registration = TRUE
 NULL
 

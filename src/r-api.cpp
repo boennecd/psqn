@@ -388,11 +388,11 @@ List psqn
 
   if(Rf_isNull(env))
     env = Environment::global_env();
-  if(!Rf_isEnvironment(env))
+  else if(!Rf_isEnvironment(env))
     throw std::invalid_argument("psqn: env is not an environment");
-  if(!Rf_isFunction(fn))
+  else if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn: fn is not a function");
-  if(pre_method < 0L or pre_method > 2L)
+  else if(pre_method < 0L or pre_method > 2L)
     throw std::invalid_argument("psqn: invalid pre_method");
 
   std::vector<r_worker_psqn> funcs;
@@ -417,6 +417,153 @@ List psqn
                          static_cast<PSQN::precondition>(pre_method));
 
   return wrap_optim_info(par_arg, res);
+}
+
+//' Computes the Hessian.
+//'
+//' @description
+//' Computes the Hessian using numerical differentiation with Richardson
+//' extrapolation.
+//'
+//' @inheritParams psqn
+//' @param fn Function to compute the element functions and their derivatives.
+//' See \code{\link{psqn}}.
+//' @param val Where to evaluate the function at.
+//' @param eps Determines the step size. See the details.
+//' @param scale Scaling factor in the Richardson extrapolation. See the
+//' details.
+//' @param tol Relative convergence criteria. See the details.
+//' @param order Maximum number of iteration of the Richardson extrapolation.
+//'
+//' @details
+//' The function computes the Hessian using numerical differentiation with
+//' centered differences and subsequent use of Richardson
+//' extrapolation to refine the estimate.
+//'
+//' The additional arguments are as follows: The numerical differentiation
+//' is applied for each argument with a step size of
+//' \code{s = max(eps, |x| * eps)}.
+//' The Richardson extrapolation at iteration \code{i} uses a step size of
+//' \code{s * scale^(-i)}. The convergence threshold for each comportment of
+//' the gradient is \code{max(tol, |gr(x)[j]| * tol)}.
+//'
+//' The numerical differentiation is done on each element function and thus
+//' much more efficient then doing it on the whole gradient.
+//'
+//' @examples
+//' # assign model parameters, number of random effects, and fixed effects
+//' q <- 2 # number of private parameters per cluster
+//' p <- 1 # number of global parameters
+//' beta <- sqrt((1:p) / sum(1:p))
+//' Sigma <- diag(q)
+//'
+//' # simulate a data set
+//' set.seed(66608927)
+//' n_clusters <- 20L # number of clusters
+//' sim_dat <- replicate(n_clusters, {
+//'   n_members <- sample.int(8L, 1L) + 2L
+//'   X <- matrix(runif(p * n_members, -sqrt(6 / 2), sqrt(6 / 2)),
+//'               p)
+//'   u <- drop(rnorm(q) %*% chol(Sigma))
+//'   Z <- matrix(runif(q * n_members, -sqrt(6 / 2 / q), sqrt(6 / 2 / q)),
+//'               q)
+//'   eta <- drop(beta %*% X + u %*% Z)
+//'   y <- as.numeric((1 + exp(-eta))^(-1) > runif(n_members))
+//'
+//'   list(X = X, Z = Z, y = y, u = u, Sigma_inv = solve(Sigma))
+//' }, simplify = FALSE)
+//'
+//' # evaluates the negative log integrand.
+//' #
+//' # Args:
+//' #   i cluster/element function index.
+//' #   par the global and private parameter for this cluster. It has length
+//' #       zero if the number of parameters is requested. That is, a 2D integer
+//' #       vector the number of global parameters as the first element and the
+//' #       number of private parameters as the second element.
+//' #   comp_grad logical for whether to compute the gradient.
+//' r_func <- function(i, par, comp_grad){
+//'   dat <- sim_dat[[i]]
+//'   X <- dat$X
+//'   Z <- dat$Z
+//'
+//'   if(length(par) < 1)
+//'     # requested the dimension of the parameter
+//'     return(c(global_dim = NROW(dat$X), private_dim = NROW(dat$Z)))
+//'
+//'   y <- dat$y
+//'   Sigma_inv <- dat$Sigma_inv
+//'
+//'   beta <- par[1:p]
+//'   uhat <- par[1:q + p]
+//'   eta <- drop(beta %*% X + uhat %*% Z)
+//'   exp_eta <- exp(eta)
+//'
+//'   out <- -sum(y * eta) + sum(log(1 + exp_eta)) +
+//'     sum(uhat * (Sigma_inv %*% uhat)) / 2
+//'   if(comp_grad){
+//'     d_eta <- -y + exp_eta / (1 + exp_eta)
+//'     grad <- c(X %*% d_eta,
+//'               Z %*% d_eta + dat$Sigma_inv %*% uhat)
+//'     attr(out, "grad") <- grad
+//'   }
+//'
+//'   out
+//' }
+//'
+//' # compute the hessian
+//' set.seed(1)
+//' par <- runif(p + q * n_clusters, -1)
+//'
+//' hess <- psqn_hess(val = par, fn = r_func, n_ele_func = n_clusters)
+//'
+//' # compare with numerical differentiation from R
+//' if(require(numDeriv)){
+//'     hess_num <- jacobian(function(x){
+//'         out <- numeric(length(x))
+//'         for(i in seq_len(n_clusters)){
+//'             out_i <- r_func(i, x[c(1:p, 1:q + (i - 1L) * q + p)], TRUE)
+//'             out[1:p] <- out[1:p] + attr(out_i, "grad")[1:p]
+//'             out[1:q + (i - 1L) * q + p] <- attr(out_i, "grad")[1:q + p]
+//'         }
+//'         out
+//'     }, par)
+//'
+//'     cat("Output of all.equal\n")
+//'     print(all.equal(Matrix(hess_num, sparse = TRUE), hess))
+//' }
+//'
+//' @export
+// [[Rcpp::export]]
+Eigen::SparseMatrix<double> psqn_hess
+  (NumericVector val, SEXP fn, unsigned const n_ele_func,
+   unsigned const n_threads = 1L, SEXP env = R_NilValue,
+   double const eps = 0.001, double const scale = 2,
+   double const tol = 0.000000001, unsigned const order = 6){
+  if(n_ele_func < 1L)
+    throw std::invalid_argument("n_ele_func < 1L");
+  else if(Rf_isNull(env))
+    env = Environment::global_env();
+  else if(!Rf_isEnvironment(env))
+    throw std::invalid_argument("env is not an environment");
+  else if(!Rf_isFunction(fn))
+    throw std::invalid_argument("fn is not a function");
+
+  std::vector<r_worker_psqn> funcs;
+  funcs.reserve(n_ele_func);
+  for(psqn_uint i = 0; i < n_ele_func; ++i)
+    funcs.emplace_back(fn, i, env);
+
+  using opt_obj =
+    PSQN::optimizer<r_worker_psqn, PSQN::R_reporter,
+                    PSQN::R_interrupter>;
+  opt_obj optim(funcs, n_threads);
+
+  // check that we pass a parameter value of the right length
+  if(optim.n_par != static_cast<psqn_uint>(val.size()))
+    throw std::invalid_argument("invalid parameter size");
+
+  return optim.true_hess_sparse(&val[0], eps, scale, tol, order);
 }
 
 /// the class to handle constraints
