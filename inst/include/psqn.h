@@ -1730,14 +1730,13 @@ public:
     // setup
     std::vector<double> val_cp(n_par);
     std::copy(val, val + n_par, val_cp.begin());
-    std::vector<double> hess_mem, wk_mem;
+    std::vector<double> wk_mem;
 
     // compute the Hessian
     for(auto &f : funcs){
       psqn_uint const private_dim{f.func.private_dim()},
                            n_vars{global_dim + private_dim},
                    private_offset{f.par_start};
-      hess_mem.resize(n_vars * n_vars);
 
       auto get_idx = [&](unsigned const i){
         return i >= global_dim  ? i - global_dim + private_offset : i;
@@ -1745,9 +1744,8 @@ public:
 
       // compute the approximation of the worker's Hessian
       {
-        double *h{hess_mem.data()};
-        for(psqn_uint i = 0; i < n_vars; ++i, h += n_vars){
-
+        double *h{f.B};
+        for(psqn_uint i = 0; i < n_vars; ++i, h += i){
           auto deriv_functor = [&](double const x, double *gr){
             psqn_uint const idx{get_idx(i)};
             double const old_val{val_cp[idx]};
@@ -1757,35 +1755,18 @@ public:
             caller.setup(val_cp.data(), true);
             f(val_cp.data(), val_cp.data() + private_offset, true, caller);
 
-            std::copy(f.gr, f.gr + n_vars, gr);
+            std::copy(f.gr, f.gr + i + 1, gr);
             val_cp[idx] = old_val;
           };
 
           using comp_obj = richardson_extrapolation<decltype(deriv_functor)>;
-
           unsigned const n_wk_mem{comp_obj::n_wk_mem(n_vars, order)};
-          if(wk_mem.size() < n_wk_mem)
-            wk_mem.resize(n_wk_mem);
+          wk_mem.resize(n_wk_mem);
 
           comp_obj
-            (deriv_functor, order, wk_mem.data(), eps, scale, tol, n_vars)
+            (deriv_functor, order, wk_mem.data(), eps, scale, tol, i + 1)
             (val_cp[get_idx(i)], h);
         }
-
-        // make sure the matrix is symmetric
-        for(psqn_uint i = 1; i < n_vars; ++i)
-          for(psqn_uint j = 0; j < i; ++j){
-            double const avg
-              {(hess_mem[i + j * n_vars] + hess_mem[j + i * n_vars]) / 2};
-            hess_mem[i + j * n_vars] = avg;
-            hess_mem[j + i * n_vars] = avg;
-          }
-
-        // sets the Hessian on the object
-        double *B = f.B;
-        for(unsigned i = 0; i < n_vars; ++i)
-          for(unsigned j = 0; j <= i; ++j, ++B)
-            *B = hess_mem[j + i * n_vars];
       }
     }
 
