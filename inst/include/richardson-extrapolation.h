@@ -114,7 +114,7 @@ struct richardson_extrapolation {
         mult *= scale_sq;
         for(unsigned k = 0; k < n_vars; ++k)
           if(!converged[k])
-            lhs[k] = (mult * rhs[k] - lhs[k]) / (mult - 1);
+            lhs[k] = rhs[k] + (rhs[k] - lhs[k]) / (mult - 1);
       }
 
       // check if we pass the relative error
@@ -136,7 +136,7 @@ struct richardson_extrapolation {
       mult *= scale_sq;
       for(unsigned k = 0; k < n_vars; ++k)
         if(!converged[k])
-          lhs[k] = (mult * rhs[k] - lhs[k]) / (mult - 1);
+          lhs[k] = rhs[k] + (rhs[k] - lhs[k]) / (mult - 1);
     }
 
     std::copy(cur_apprx(0), cur_apprx(0) + n_vars, out);
