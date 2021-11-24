@@ -21,7 +21,8 @@ psqn(
   env = NULL,
   max_cg = 0L,
   pre_method = 1L,
-  mask = as.integer(c())
+  mask = as.integer(c()),
+  gr_tol = -1
 )
 
 psqn_aug_Lagrang(
@@ -47,7 +48,8 @@ psqn_aug_Lagrang(
   env = NULL,
   max_cg = 0L,
   pre_method = 1L,
-  mask = as.integer(c())
+  mask = as.integer(c()),
+  gr_tol = -1
 )
 }
 \arguments{
@@ -88,6 +90,9 @@ Zero yields no preconditioning, one yields diagonal preconditioning, and
 two yields the incomplete Cholesky factorization from Eigen.}
 
 \item{mask}{zero based indices for parameters to mask (i.e. fix).}
+
+\item{gr_tol}{convergence tolerance for the Euclidean norm of the gradient. A negative
+value yields no check.}
 
 \item{consts}{Function to compute the constraints which must be equal to
 zero. See the example Section.}

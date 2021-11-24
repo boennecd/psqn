@@ -13,7 +13,8 @@ psqn_bfgs(
   c1 = 1e-04,
   c2 = 0.9,
   trace = 0L,
-  env = NULL
+  env = NULL,
+  gr_tol = -1
 )
 }
 \arguments{
@@ -37,6 +38,9 @@ optimization.}
 
 \item{env}{Environment to evaluate \code{fn} and \code{gr} in.
 \code{NULL} yields the global environment.}
+
+\item{gr_tol}{convergence tolerance for the Euclidean norm of the gradient. A negative
+value yields no check.}
 }
 \value{
 An object like the object returned by \code{\link{psqn}}.
@@ -79,6 +83,13 @@ system.time(replicate(1000,
                       optim    (c(-1.2, 1), fn, gr, method = "BFGS")))
 system.time(replicate(1000,
                       psqn_bfgs(c(-1.2, 1), fn, gr_psqn)))
+
+# we can use an alternative convergence criterion
+org <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4)
+sqrt(sum(gr_psqn(org$par)^2))
+
+new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4, gr_tol = 1e-8)
+sqrt(sum(gr_psqn(new_res$par)^2))
 }
 \references{
 Nocedal, J. and Wright, S. J. (2006). \emph{Numerical Optimization}

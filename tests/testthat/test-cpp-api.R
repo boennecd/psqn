@@ -99,6 +99,27 @@ test_that("mixed logit model gives the same", {
     expect_equal(opt$par, opt_new$par, info = i, tolerance = 4 * sqrt(rel_eps))
   }
 
+  # the gradient tolerance works
+  start_priv <- opt$par
+  start_priv[-seq_along(beta)] <- 0
+
+  gr_tol <- 1e-7
+  start <- optim_mlogit_private(
+    start_priv, optimizer, rel_eps = 1, n_threads = 1, gr_tol = gr_tol, max_it = 1000,
+    c1 = 1e-4, c2 = .9)
+  gr_start <- grad_mlogit(val = start, ptr = optimizer, n_threads = 2L)
+  gr_start <- gr_start[-seq_along(beta)]
+  n_clusters <- length(sim_dat)
+  gr_norm <- tapply(gr_start, gl(n_clusters, q), function(x) sqrt(sum(x^2)))
+  expect_true(all(gr_norm < gr_tol))
+
+  opt <- optim_mlogit(
+    val = val, ptr = optimizer, rel_eps = 1, max_it = 1000L,
+    c1 = 1e-4, c2 = .9, n_threads = 2L, gr_tol = gr_tol)
+  gr_opt <- grad_mlogit(val = opt$par, ptr = optimizer, n_threads = 2L)
+
+  expect_lt(sqrt(sum(gr_opt^2)), gr_tol)
+
   # works with masking
   idx_mask <- c(7L, 0L, 20L, 15L)
   par_fix <- c(0.2582, 0.36515, 0.44721, 0.5164, 0.57735, -0.01619, 0.94384,

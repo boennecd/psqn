@@ -31,6 +31,8 @@
 #' Zero yields no preconditioning, one yields diagonal preconditioning, and
 #' two yields the incomplete Cholesky factorization from Eigen.
 #' @param mask zero based indices for parameters to mask (i.e. fix).
+#' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+#' value yields no check.
 #'
 #' @details
 #' The function follows the method described by Nocedal and Wright (2006)
@@ -211,8 +213,8 @@
 #' res_consts_chol
 #'
 #' @export
-psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
-    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
+psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c()), gr_tol = -1.) {
+    .Call(`_psqn_psqn`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask, gr_tol)
 }
 
 #' Computes the Hessian.
@@ -361,8 +363,8 @@ psqn_hess <- function(val, fn, n_ele_func, n_threads = 1L, env = NULL, eps = 0.0
 #' method.}
 #'
 #' @export
-psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
-    .Call(`_psqn_psqn_aug_Lagrang`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
+psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c()), gr_tol = -1.) {
+    .Call(`_psqn_psqn_aug_Lagrang`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask, gr_tol)
 }
 
 #' BFGS Implementation Used Internally in the psqn Package
@@ -386,6 +388,9 @@ psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipl
 #' attribute called \code{"value"}.
 #' @param env Environment to evaluate \code{fn} and \code{gr} in.
 #' \code{NULL} yields the global environment.
+#' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+#' value yields no check.
+#'
 #' @export
 #'
 #' @examples
@@ -421,8 +426,15 @@ psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipl
 #'                       optim    (c(-1.2, 1), fn, gr, method = "BFGS")))
 #' system.time(replicate(1000,
 #'                       psqn_bfgs(c(-1.2, 1), fn, gr_psqn)))
-psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .0001, c2 = .9, trace = 0L, env = NULL) {
-    .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env)
+#'
+#' # we can use an alternative convergence criterion
+#' org <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4)
+#' sqrt(sum(gr_psqn(org$par)^2))
+#'
+#' new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4, gr_tol = 1e-8)
+#' sqrt(sum(gr_psqn(new_res$par)^2))
+psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .0001, c2 = .9, trace = 0L, env = NULL, gr_tol = -1.) {
+    .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env, gr_tol)
 }
 
 #' Generic Partially Separable Function Optimization
@@ -635,13 +647,13 @@ psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .000
 #' # to evaluate the element functions in this case
 #'
 #' @export
-psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
-    .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
+psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_threads = 1L, c1 = .0001, c2 = .9, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c()), gr_tol = -1.) {
+    .Call(`_psqn_psqn_generic`, par, fn, n_ele_func, rel_eps, max_it, n_threads, c1, c2, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask, gr_tol)
 }
 
 #' @rdname psqn_generic
 #' @export
-psqn_aug_Lagrang_generic <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c())) {
-    .Call(`_psqn_psqn_aug_Lagrang_generic`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask)
+psqn_aug_Lagrang_generic <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c()), gr_tol = -1.) {
+    .Call(`_psqn_psqn_aug_Lagrang_generic`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask, gr_tol)
 }
 

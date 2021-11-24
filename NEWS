@@ -2,8 +2,9 @@ Changes in version 0.3.0
  * it is possible to mask (fix) some of the parameters. Non-linear equality
    constraints are also supported with an augmented Lagrangian method.
  * the code has been refactored. This may yield a speedup in some cases.
- * computation of the hessian is now supported using numerical differentation
+ * computation of the hessian is now supported using numerical differentiation
    with Richardson extrapolation to refine the estimate.
+ * the gradient norm can be used as a convergence criterion.
 
 Changes in version 0.2.1
  * tests that compile files using Rcpp::sourceCpp() now do so in a temporary

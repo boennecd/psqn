@@ -219,6 +219,8 @@ SEXP get_mlogit_optimizer(List data, unsigned const max_threads){
  @param pre_method preconditioning method in conjugate gradient method.
  zero yields no preconditioning, one yields diagonal preconditioning, and
  two yields the incomplete Cholesky factorization from Eigen.
+ @param gr_tol convergence tolerance for the Euclidean norm of the gradient.
+ A negative value yields no check.
  */
 // [[Rcpp::export]]
 List optim_mlogit
@@ -226,7 +228,8 @@ List optim_mlogit
    unsigned const n_threads, double const c1,
    double const c2, bool const use_bfgs = true, int const trace = 0L,
    double const cg_tol = .5, bool const strong_wolfe = true,
-   psqn_uint const max_cg = 0L, int const pre_method = 1L){
+   psqn_uint const max_cg = 0L, int const pre_method = 1L,
+   double const gr_tol = 1.){
   XPtr<mlogit_topim> optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -237,7 +240,8 @@ List optim_mlogit
   optim->set_n_threads(n_threads);
   auto res = optim->optim(&par[0], rel_eps, max_it, c1, c2,
                           use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
-                          static_cast<PSQN::precondition>(pre_method));
+                          static_cast<PSQN::precondition>(pre_method),
+                          gr_tol);
   NumericVector counts = NumericVector::create(
     res.n_eval, res.n_grad,  res.n_cg);
   counts.names() = CharacterVector::create("function", "gradient", "n_cg");
@@ -257,6 +261,8 @@ List optim_mlogit
  the radius of the ball.
  @param max_it_outer maximum number of augmented Lagrangian step.
  @param penalty_start starting value for the augmented Lagrangian method.
+ @param gr_tol convergence tolerance for the Euclidean norm of the gradient.
+ A negative value yields no check.
  */
 // [[Rcpp::export]]
 List optim_aug_Lagrang_mlogit
@@ -266,7 +272,7 @@ List optim_aug_Lagrang_mlogit
    bool const use_bfgs = true,
    int const trace = 0L, double const cg_tol = .5,
    bool const strong_wolfe = true, psqn_uint const max_cg = 0L,
-   int const pre_method = 1L){
+   int const pre_method = 1L, double const gr_tol = -1.){
   XPtr<mlogit_topim> optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -293,7 +299,8 @@ List optim_aug_Lagrang_mlogit
      c1, c2,
      1.5, /* tau */
      use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
-     static_cast<PSQN::precondition>(pre_method));
+     static_cast<PSQN::precondition>(pre_method),
+     gr_tol);
 
   // must remember to remove the constraints again
   optim->constraints.clear();
@@ -323,11 +330,14 @@ List optim_aug_Lagrang_mlogit
  @param max_it maximum number iterations.
  @param n_threads number of threads to use.
  @param c1,c2 thresholds for Wolfe condition.
+ @param gr_tol convergence tolerance for the Euclidean norm of the gradient.
+ A negative value yields no check.
  */
 // [[Rcpp::export]]
 NumericVector optim_mlogit_private
   (NumericVector val, SEXP ptr, double const rel_eps, unsigned const max_it,
-   unsigned const n_threads, double const c1, double const c2){
+   unsigned const n_threads, double const c1, double const c2,
+   double const gr_tol = -1.){
   XPtr<mlogit_topim> optim(ptr);
 
   // check that we pass a parameter value of the right length
@@ -336,7 +346,8 @@ NumericVector optim_mlogit_private
 
   NumericVector par = clone(val);
   optim->set_n_threads(n_threads);
-  double const res = optim->optim_priv(&par[0], rel_eps, max_it, c1, c2);
+  double const res = optim->optim_priv(&par[0], rel_eps, max_it, c1, c2,
+                                       gr_tol);
   par.attr("value") = res;
   return par;
 }

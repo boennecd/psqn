@@ -37,13 +37,15 @@ public:
  @param c1,c2 thresholds for Wolfe condition.
  @param strong_wolfe true if the strong Wolfe condition should be used.
  @param trace controls the amount of tracing information.
+ @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+ value yields no check.
  */
 template<class Reporter = dummy_reporter,
          class interrupter = dummy_interrupter>
 optim_info bfgs(
     problem &prob, double *val, double const rel_eps = .00000001,
     psqn_uint const max_it = 100, double const c1 = .0001,
-    double const c2 = .9, int const trace = 0L){
+    double const c2 = .9, int const trace = 0L, double const gr_tol = -1){
   // allocate the memory we need
   /* non-const due to
    *    https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg531670.html */
@@ -301,7 +303,9 @@ optim_info bfgs(
     }
 
     bool const has_converged =
-      abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
+      abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps) &&
+      // TODO: implement something like BLAS nrm2 function
+      (gr_tol <= 0 || lp::vec_dot(gr, n_ele) < gr_tol * gr_tol);
     if(has_converged){
       info = info_code::converged;
       break;

@@ -20,4 +20,8 @@ test_that("we get the right result with the Rosenbrock Banana function", {
   expect_equal(res$value, 0)
   expect_true(res$convergence)
   expect_equal(res$info, 0L)
+
+  gr_tol <- 1e-8
+  res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1, gr_tol = gr_tol)
+  expect_lt(sqrt(sum(gr_psqn(res$par)^2)), gr_tol)
 })

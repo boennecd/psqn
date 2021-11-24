@@ -192,6 +192,8 @@ List wrap_optim_info(NumericVector par_res, NumericVector multipliers,
 //' Zero yields no preconditioning, one yields diagonal preconditioning, and
 //' two yields the incomplete Cholesky factorization from Eigen.
 //' @param mask zero based indices for parameters to mask (i.e. fix).
+//' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+//' value yields no check.
 //'
 //' @details
 //' The function follows the method described by Nocedal and Wright (2006)
@@ -382,7 +384,8 @@ List psqn
    double const cg_tol = .5, bool const strong_wolfe = true,
    SEXP env = R_NilValue, int const max_cg = 0L,
    int const pre_method = 1L,
-   IntegerVector const mask = IntegerVector::create()){
+   IntegerVector const mask = IntegerVector::create(),
+   double const gr_tol = -1.){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn: n_ele_func < 1L");
 
@@ -414,7 +417,8 @@ List psqn
   optim.set_n_threads(n_threads);
   auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
                          use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
-                         static_cast<PSQN::precondition>(pre_method));
+                         static_cast<PSQN::precondition>(pre_method),
+                         gr_tol);
 
   return wrap_optim_info(par_arg, res);
 }
@@ -722,7 +726,8 @@ List psqn_aug_Lagrang
    double const cg_tol = .5, bool const strong_wolfe = true,
    SEXP env = R_NilValue, int const max_cg = 0L,
    int const pre_method = 1L,
-   IntegerVector const mask = IntegerVector::create()){
+   IntegerVector const mask = IntegerVector::create(),
+   double const gr_tol = -1.){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn: n_ele_func < 1L");
 
@@ -771,7 +776,8 @@ List psqn_aug_Lagrang
   auto res = optim.optim_aug_Lagrang(
     &par_arg[0], &multipliers_arg[0], penalty_start, rel_eps, max_it,
     max_it_outer, violations_norm_thresh, c1, c2, tau, use_bfgs, trace,
-    cg_tol, strong_wolfe, max_cg, static_cast<PSQN::precondition>(pre_method));
+    cg_tol, strong_wolfe, max_cg, static_cast<PSQN::precondition>(pre_method),
+    gr_tol);
 
   // evaluate the function without the additional terms
   optim.constraints.clear();
@@ -850,6 +856,9 @@ public:
 //' attribute called \code{"value"}.
 //' @param env Environment to evaluate \code{fn} and \code{gr} in.
 //' \code{NULL} yields the global environment.
+//' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+//' value yields no check.
+//'
 //' @export
 //'
 //' @examples
@@ -885,12 +894,19 @@ public:
 //'                       optim    (c(-1.2, 1), fn, gr, method = "BFGS")))
 //' system.time(replicate(1000,
 //'                       psqn_bfgs(c(-1.2, 1), fn, gr_psqn)))
+//'
+//' # we can use an alternative convergence criterion
+//' org <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4)
+//' sqrt(sum(gr_psqn(org$par)^2))
+//'
+//' new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4, gr_tol = 1e-8)
+//' sqrt(sum(gr_psqn(new_res$par)^2))
 // [[Rcpp::export]]
 List psqn_bfgs
   (NumericVector par, SEXP fn, SEXP gr,
    double const rel_eps = .00000001, unsigned int const max_it = 100,
    double const c1 = .0001, double const c2 = .9, int const trace = 0L,
-   SEXP env = R_NilValue){
+   SEXP env = R_NilValue, double const gr_tol = -1.){
   if(Rf_isNull(env))
     env = Environment::global_env();
   if(!Rf_isEnvironment(env))
@@ -904,7 +920,7 @@ List psqn_bfgs
 
   NumericVector par_res = clone(par);
   auto const out = PSQN::bfgs<PSQN::R_reporter, PSQN::R_interrupter>
-    (problem, &par_res[0], rel_eps, max_it, c1, c2, trace);
+    (problem, &par_res[0], rel_eps, max_it, c1, c2, trace, gr_tol);
 
   return wrap_optim_info(par_res, out);
 }
@@ -1241,7 +1257,8 @@ List psqn_generic
    double const cg_tol = .5, bool const strong_wolfe = true,
    SEXP env = R_NilValue, int const max_cg = 0L,
    int const pre_method = 1L,
-   IntegerVector const mask = IntegerVector::create()){
+   IntegerVector const mask = IntegerVector::create(),
+   double const gr_tol = -1.){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn_generic: n_ele_func < 1L");
 
@@ -1274,7 +1291,8 @@ List psqn_generic
   optim.set_n_threads(n_threads);
   auto res = optim.optim(&par_arg[0], rel_eps, max_it, c1, c2,
                          use_bfgs, trace, cg_tol, strong_wolfe, max_cg,
-                         static_cast<PSQN::precondition>(pre_method));
+                         static_cast<PSQN::precondition>(pre_method),
+                         gr_tol);
 
   return wrap_optim_info(par_arg, res);
 }
@@ -1297,7 +1315,8 @@ List psqn_aug_Lagrang_generic
    double const cg_tol = .5, bool const strong_wolfe = true,
    SEXP env = R_NilValue, int const max_cg = 0L,
    int const pre_method = 1L,
-   IntegerVector const mask = IntegerVector::create()){
+   IntegerVector const mask = IntegerVector::create(),
+   double const gr_tol = -1.){
   if(n_ele_func < 1L)
     throw std::invalid_argument("psqn: n_ele_func < 1L");
 
@@ -1346,7 +1365,8 @@ List psqn_aug_Lagrang_generic
   auto res = optim.optim_aug_Lagrang(
     &par_arg[0], &multipliers_arg[0], penalty_start, rel_eps, max_it,
     max_it_outer, violations_norm_thresh, c1, c2, tau, use_bfgs, trace,
-    cg_tol, strong_wolfe, max_cg, static_cast<PSQN::precondition>(pre_method));
+    cg_tol, strong_wolfe, max_cg, static_cast<PSQN::precondition>(pre_method),
+    gr_tol);
 
   // evaluate the function without the additional terms
   optim.constraints.clear();

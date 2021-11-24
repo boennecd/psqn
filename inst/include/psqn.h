@@ -769,6 +769,8 @@ public:
    @param max_cg maximum number of conjugate gradient iterations in each
    iteration. Use zero if there should not be a limit.
    @param pre_method preconditioning method.
+   @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+   value yields no check.
    */
   optim_info optim
     (double * val, double const rel_eps, psqn_uint const max_it,
@@ -776,7 +778,8 @@ public:
      bool const use_bfgs = true, int const trace = 0,
      double const cg_tol = .5, bool const strong_wolfe = true,
      psqn_uint const max_cg = 0,
-     precondition const pre_method = precondition::diag){
+     precondition const pre_method = precondition::diag,
+     double const gr_tol = -1){
     // checks
     if(c1 < 0)
       throw std::invalid_argument("c1 < 0");
@@ -847,7 +850,9 @@ public:
       }
 
       bool const has_converged =
-        abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps);
+        abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps)  &&
+        // TODO: implement something like BLAS nrm2 function
+        (gr_tol <= 0 || lp::vec_dot(gr.get(), n_par()) < gr_tol * gr_tol);
       if(has_converged){
         info = info_code::converged;
         break;
@@ -884,6 +889,8 @@ public:
    violations.
    @param tau multiplier used for the penalty parameter between each outer
    iterations.
+   @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+   value yields no check.
 
    The remaining parameters are like optim. Notice that the value of the
    output is with the additional terms from the augmented Lagrangian function.
@@ -896,7 +903,8 @@ public:
      bool const use_bfgs = true, int const trace = 0,
      double const cg_tol = .5, bool const strong_wolfe = true,
      psqn_uint const max_cg = 0,
-     precondition const pre_method = precondition::diag){
+     precondition const pre_method = precondition::diag,
+     double const gr_tol = -1){
     // checks
     if(tau < 1)
       throw std::invalid_argument("tau < 1");
@@ -924,7 +932,7 @@ public:
     info_code info{info_code::max_it_reached};
     for(; n_outer_it < max_it_outer; ++n_outer_it){
       inner_res = optim(val, rel_eps, max_it, c1, c2, use_bfgs, trace,
-                        cg_tol, strong_wolfe, max_cg, pre_method);
+                        cg_tol, strong_wolfe, max_cg, pre_method, gr_tol);
 
       if(inner_res.info != info_code::converged){
         info = inner_res.info;
@@ -1591,6 +1599,8 @@ public:
    @param rel_eps relative convergence threshold.
    @param max_it maximum number of iterations.
    @param c1,c2 thresholds for Wolfe condition.
+   @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+   value yields no check.
 
    If you supply a non-default Tcaller class, Tcaller.setup is only called
    on the starting values. Thus, this function only yields valid results if
@@ -1598,7 +1608,7 @@ public:
    */
   double optim_priv
   (double * val, double const rel_eps, psqn_uint const max_it,
-   double const c1, double const c2){
+   double const c1, double const c2, double const gr_tol = -1){
     double out(0.);
     caller.setup(val, true);
 
@@ -1610,7 +1620,8 @@ public:
       sub_problem prob(f, val, caller);
       double * const p_val = val + f.par_start;
 
-      auto const opt_out = bfgs(prob, p_val, rel_eps, max_it, c1, c2, 0L);
+      auto const opt_out =
+        bfgs(prob, p_val, rel_eps, max_it, c1, c2, 0L, gr_tol);
       out += opt_out.value;
     }
 

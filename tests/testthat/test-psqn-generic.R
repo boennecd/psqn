@@ -95,6 +95,15 @@ test_that("the R and C++ interface gives the same and correct result", {
   expect_equal(Cpp_res_mask, R_res_mask)
   clear_masked(ptr)
 
+  # the gradient tolerance works
+  gr_tol <- 1e-6
+  Cpp_res <- optim_generic_ex(
+    val = numeric(K), ptr = ptr, rel_eps = 1, max_it = 1000L,
+    n_threads = 2L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5,
+    gr_tol = gr_tol)
+  expect_lt(sqrt(sum(grad_generic_ex(Cpp_res$par, ptr, 1)^2)),
+            gr_tol)
+
   # we the right result with other preconditioners
   for(i in 0:2){
     Cpp_res <- optim_generic_ex(
