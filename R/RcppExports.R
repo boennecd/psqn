@@ -355,11 +355,11 @@ psqn_hess <- function(val, fn, n_ele_func, n_threads = 1L, env = NULL, eps = 0.0
 #'
 #' @return
 #' \code{psqn_aug_Lagrang}: Like \code{psqn} with a few exceptions:
-#' \item{multipliers}{final multipliers from the the augmented Lagrangian
+#' \item{multipliers}{final multipliers from the augmented Lagrangian
 #' method.}
 #' \item{counts}{has an additional element called \code{n_aug_Lagrang} with the
 #' number of augmented Lagrangian iterations.}
-#' \item{penalty}{the final penalty parameter from the the augmented Lagrangian
+#' \item{penalty}{the final penalty parameter from the augmented Lagrangian
 #' method.}
 #'
 #' @export
