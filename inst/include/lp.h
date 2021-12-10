@@ -3,6 +3,11 @@
 #include <algorithm>
 #include "constant.h"
 #include "psqn-misc.h"
+#include <numeric>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace lp {
 using PSQN::psqn_uint;
@@ -19,19 +24,41 @@ inline void vec_diff
     *res = *x - *y;
 }
 
-inline double vec_dot(double const *x, psqn_uint const n) noexcept {
+template<bool DoParallel>
+double vec_dot(double const *x, psqn_uint const n) noexcept {
+  return std::accumulate(x, x + n, 0., [](double const res, double xi){
+    return res + xi * xi;
+  });
+}
+
+template<>
+inline double vec_dot<true>(double const *x, psqn_uint const n) noexcept {
   double out(0.);
-  for(psqn_uint i = 0; i < n; ++i, ++x)
-    out += *x * *x;
+#ifdef _OPENMP
+#pragma omp parallel for if(n > 10000) reduction(+:out) // TODO: very hard coded
+#endif
+  for(psqn_uint i = 0; i < n; ++i)
+    out += x[i] * x[i];
   return out;
 }
 
-inline double vec_dot
+template<bool DoParallel>
+double vec_dot
+(double const * PSQN_RESTRICT x, double const * PSQN_RESTRICT y,
+ psqn_uint const n) noexcept {
+  return std::inner_product(x, x + n, y, 0.);
+}
+
+template<>
+inline double vec_dot<true>
 (double const * PSQN_RESTRICT x, double const * PSQN_RESTRICT y,
  psqn_uint const n) noexcept {
   double out(0.);
-  for(psqn_uint i = 0; i < n; ++i, ++x, ++y)
-    out += *x * *y;
+#ifdef _OPENMP
+#pragma omp parallel for if(n > 10000) reduction(+:out) // TODO: very hard coded
+#endif
+  for(psqn_uint i = 0; i < n; ++i)
+    out += x[i] * y[i];
   return out;
 }
 

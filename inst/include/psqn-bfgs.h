@@ -100,13 +100,13 @@ optim_info bfgs(
     if(!all_unchanged){
       lp::vec_diff(gr , gr_old, y, n_ele);
 
-      double const s_y = lp::vec_dot(y, s, n_ele);
+      double const s_y = lp::vec_dot<false>(y, s, n_ele);
       if(s_y > 0){
         // TODO: implement damped BFGS?
         if(first_call){
           first_call = false;
           // make update on page 143
-          double const scal = s_y / lp::vec_dot(y, n_ele);
+          double const scal = s_y / lp::vec_dot<false>(y, n_ele);
           double *h = H;
           for(psqn_uint i = 0; i < n_ele; ++i, h += i + 1)
             *h = scal;
@@ -114,7 +114,7 @@ optim_info bfgs(
 
         std::fill(wrk, wrk + n_ele, 0.);
         lp::mat_vec_dot(H, y, wrk, n_ele);
-        double const y_H_y = lp::vec_dot(y, wrk, n_ele);
+        double const y_H_y = lp::vec_dot<false>(y, wrk, n_ele);
         lp::bfgs_update(H, s, wrk, y_H_y, 1. / s_y, n_ele);
 
       } else
@@ -148,11 +148,11 @@ optim_info bfgs(
         x_mem[i] = x0[i] + alpha * dir[i];
       ++n_grad;
       fnew = prob.grad(const_cast<double const *>(x_mem), gr0);
-      return lp::vec_dot(gr0, dir, n_ele);
+      return lp::vec_dot<false>(gr0, dir, n_ele);
     };
 
     // the above at alpha = 0
-    double dpsi_zero = lp::vec_dot(gr0, dir, n_ele);
+    double dpsi_zero = lp::vec_dot<false>(gr0, dir, n_ele);
     if(dpsi_zero > 0)
       // not a descent direction
       return false;
@@ -305,7 +305,7 @@ optim_info bfgs(
     bool const has_converged =
       abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps) &&
       // TODO: implement something like BLAS nrm2 function
-      (gr_tol <= 0 || lp::vec_dot(gr, n_ele) < gr_tol * gr_tol);
+      (gr_tol <= 0 || lp::vec_dot<false>(gr, n_ele) < gr_tol * gr_tol);
     if(has_converged){
       info = info_code::converged;
       break;

@@ -124,11 +124,11 @@ public:
       lp::vec_diff(gr, gr_old, y, n_ele);
 
       if(use_bfgs){
-        double const s_y = lp::vec_dot(y, s, n_ele);
+        double const s_y = lp::vec_dot<false>(y, s, n_ele);
         if(first_call){
           first_call = false;
           // make update on page 143
-          double const scal = lp::vec_dot(y, n_ele) / s_y;
+          double const scal = lp::vec_dot<false>(y, n_ele) / s_y;
           double *b = B;
           for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
             *b = scal;
@@ -137,7 +137,7 @@ public:
         // perform BFGS update
         std::fill(wrk, wrk + n_ele, 0.);
         lp::mat_vec_dot(B, s, wrk, n_ele);
-        double const s_B_s = lp::vec_dot(s, wrk, n_ele);
+        double const s_B_s = lp::vec_dot<false>(s, wrk, n_ele);
 
         lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
 
@@ -148,7 +148,7 @@ public:
             *wi = wrk;
           for(psqn_uint i = 0; i < n_ele; ++i, ++yi, ++wi)
             *yi = theta * *yi + (1 - theta) * *wi;
-          double const s_r = lp::vec_dot(y, s, n_ele);
+          double const s_r = lp::vec_dot<false>(y, s, n_ele);
           lp::rank_one_update(B, y, 1. / s_r, n_ele);
 
         } else
@@ -160,7 +160,7 @@ public:
           first_call = false;
           // make update on page 143
           double const scal =
-            lp::vec_dot(y, n_ele) / lp::vec_dot(y, s, n_ele);
+            lp::vec_dot<false>(y, n_ele) / lp::vec_dot<false>(y, s, n_ele);
           double *b = B;
           for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
             *b = scal;
@@ -173,9 +173,9 @@ public:
           wrk[i] *= -1;
           wrk[i] += y[i];
         }
-        double const s_w = lp::vec_dot(s, wrk, n_ele),
-          s_norm = sqrt(abs(lp::vec_dot(s, n_ele))),
-          wrk_norm = sqrt(abs(lp::vec_dot(wrk, n_ele)));
+        double const s_w = lp::vec_dot<false>(s, wrk, n_ele),
+                  s_norm = sqrt(abs(lp::vec_dot<false>(s, n_ele))),
+                wrk_norm = sqrt(abs(lp::vec_dot<false>(wrk, n_ele)));
         constexpr double r = 1e-8;
         if(abs(s_w) > r * s_norm * wrk_norm)
           lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
@@ -462,7 +462,7 @@ public:
   bool conj_grad(double const * PSQN_RESTRICT x, double * PSQN_RESTRICT y,
                  double tol, psqn_uint const max_cg,
                  int const trace, precondition const pre_method){
-    double const x_norm = sqrt(abs(lp::vec_dot(x, n_par()))),
+    double const x_norm = sqrt(abs(lp::vec_dot<true>(x, n_par()))),
                 tol_use = std::min(tol, sqrt(x_norm));
 
     if(pre_method == precondition::choleksy){
@@ -528,8 +528,11 @@ public:
     auto diag_solve = [&](double       * PSQN_RESTRICT vy,
                           double const * PSQN_RESTRICT vx) -> void {
       double * di = B_diag;
+#ifdef _OPENMP
+#pragma omp parallel for if(n_par() > 10000) // TODO: very hard coded
+#endif
       for(psqn_uint i = 0; i < n_par(); ++i)
-        *vy++ = *vx++ * *di++;
+        vy[i] = vx[i] * di[i];
     };
 
     std::fill(y, y + n_par(), 0.);
@@ -546,7 +549,8 @@ public:
     }
 
     auto get_r_v_dot = [&]() -> double {
-      return do_pre ? lp::vec_dot(r, v, n_par()) : lp::vec_dot(r, n_par());
+      return do_pre ? lp::vec_dot<true>(r, v, n_par())
+                    : lp::vec_dot<true>(r, n_par());
     };
 
     auto comp_B_vec = opt_obj().get_comp_B_vec();
@@ -558,18 +562,20 @@ public:
       comp_B_vec(p, B_p);
       add_constraints_B_vec_terms(p, B_p);
 
-      double const p_B_p = lp::vec_dot(p, B_p, n_par());
+      double const p_B_p = lp::vec_dot<true>(p, B_p, n_par());
       if(p_B_p <= 0){
         // negative curvature. Thus, exit
         if(i < 1L)
           // set output to be the gradient
-          for(psqn_uint j = 0; j < n_par(); ++j)
-            y[j] = x[j];
+          lp::copy(y, x, n_par());
 
         break;
       }
       double const alpha = old_r_v_dot / p_B_p;
 
+#ifdef _OPENMP
+#pragma omp parallel for if(n_par() > 10000) // TODO: very hard coded
+#endif
       for(psqn_uint j = 0; j < n_par(); ++j){
         y[j] += alpha *   p[j];
         r[j] += alpha * B_p[j];
@@ -578,14 +584,17 @@ public:
       if(do_pre)
         diag_solve(v, r);
       double const r_v_dot = get_r_v_dot(),
-                   t_val   = do_pre ? sqrt(abs(lp::vec_dot(r, n_par()))) :
-                                      sqrt(abs(r_v_dot));
+                   t_val   = do_pre ? sqrt(abs(lp::vec_dot<true>(r, n_par())))
+                                    : sqrt(abs(r_v_dot));
       OptT::Reporter::cg_it(trace, i, max_cg, t_val, eps);
       if(t_val < eps)
         break;
 
       double const beta = r_v_dot / old_r_v_dot;
       old_r_v_dot = r_v_dot;
+#ifdef _OPENMP
+#pragma omp parallel for if(n_par() > 10000) // TODO: very hard coded
+#endif
       for(psqn_uint j = 0; j < n_par(); ++j){
         p[j] *= beta;
         p[j] -= do_pre ? v[j] : r[j];
@@ -617,6 +626,9 @@ public:
 
     // declare 1D functions
     auto psi = [&](double const alpha) -> double {
+#ifdef _OPENMP
+#pragma omp parallel for if(n_par() > 10000) // TODO: very hard coded
+#endif
       for(psqn_uint i = 0; i < n_par(); ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
@@ -625,15 +637,18 @@ public:
 
     // returns the function value and the gradient
     auto dpsi = [&](double const alpha) -> double {
+#ifdef _OPENMP
+#pragma omp parallel for if(n_par() > 10000) // TODO: very hard coded
+#endif
       for(psqn_uint i = 0; i < n_par(); ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
       fnew = eval_base(x_mem, gr0, true);
-      return lp::vec_dot(gr0, dir, n_par());
+      return lp::vec_dot<true>(gr0, dir, n_par());
     };
 
     // the above at alpha = 0
-    double const dpsi_zero = lp::vec_dot(gr0, dir, n_par());
+    double const dpsi_zero = lp::vec_dot<true>(gr0, dir, n_par());
     if(dpsi_zero > 0)
       // not a descent direction
       return false;
@@ -852,7 +867,7 @@ public:
       bool const has_converged =
         abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps)  &&
         // TODO: implement something like BLAS nrm2 function
-        (gr_tol <= 0 || lp::vec_dot(gr.get(), n_par()) < gr_tol * gr_tol);
+        (gr_tol <= 0 || lp::vec_dot<true>(gr.get(), n_par()) < gr_tol * gr_tol);
       if(has_converged){
         info = info_code::converged;
         break;

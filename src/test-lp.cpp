@@ -162,7 +162,7 @@ context("testing lp namespace") {
 
     std::fill(H_y, H_y + n, 0.);
     lp::mat_vec_dot(X, y, H_y, n);
-    double const y_H_y = lp::vec_dot(y, H_y, n);
+    double const y_H_y = lp::vec_dot<false>(y, H_y, n);
 
     lp::bfgs_update(X, x, H_y, y_H_y, scal, n);
     for(size_t i = 0; i < n_upper; ++i)
