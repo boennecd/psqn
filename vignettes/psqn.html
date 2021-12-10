@@ -1143,13 +1143,13 @@ img {
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the hessian with the package</span></span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">system.time</span>(hess <span class="ot">&lt;-</span> <span class="fu">true_hess_sparse</span>(<span class="at">val =</span> psqn_res<span class="sc">$</span>par, <span class="at">ptr =</span> optimizer))</span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    0.03    0.00    0.03</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.029   0.000   0.028</span></span>
 <span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="co"># we can also compute it from R</span></span>
 <span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="fu">system.time</span>(hess_R <span class="ot">&lt;-</span> <span class="fu">psqn_hess</span>(</span>
 <span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">val =</span> psqn_res<span class="sc">$</span>par, <span class="at">fn =</span> r_func, <span class="at">n_ele_func =</span> n_clusters))</span>
 <span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.571   0.028   0.598</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.552   0.004   0.555</span></span>
 <span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a><span class="co"># compare with numerical differentiation from R. We only check the first </span></span>
 <span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="co"># elements</span></span>
@@ -1163,7 +1163,7 @@ img {
 <span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>      }, </span>
 <span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>      <span class="fu">head</span>(psqn_res<span class="sc">$</span>par, n_comp)))</span>
 <span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.794   0.003   0.402</span></span>
+<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   0.649   0.012   0.332</span></span>
 <span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a><span class="co"># we got the same</span></span>
 <span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(hess, hess_R)</span>
@@ -1239,27 +1239,28 @@ img {
 <span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">          psqn(2 threads)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">psqn_func</span>    (start_val, <span class="at">n_threads =</span> 2L),</span>
 <span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">          psqn(4 threads)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">psqn_func</span>    (start_val, <span class="at">n_threads =</span> 4L),</span>
 <span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">check =</span> <span class="cn">FALSE</span>, <span class="at">min_time =</span> <span class="dv">5</span>)</span>
-<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 18 × 6</span></span>
-<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    expression                      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
-<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    &lt;bch:expr&gt;                 &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1    optim BFGS (2 threads)     1.21s    1.27s     0.755   42.38MB    0    </span></span>
-<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2          lbfgs (1 thread)  148.68ms 150.05ms     6.61    49.52MB    2.11 </span></span>
-<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3          lbfgs(2 threads)  103.41ms  105.1ms     9.46    51.27MB    2.89 </span></span>
-<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4          lbfgs(4 threads)   58.55ms  60.09ms    16.5      49.5MB    4.41 </span></span>
-<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5       lbfgsb3c (1 thread)  266.88ms 272.55ms     3.66    36.59MB    0.975</span></span>
-<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6       lbfgsb3c(2 threads)   93.45ms   94.2ms    10.5     22.27MB    1.09 </span></span>
-<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7       lbfgsb3c(4 threads)   66.17ms  66.83ms    14.8     25.97MB    1.80 </span></span>
-<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8        psqn (R; 1 thread)  201.85ms 204.52ms     4.87     7.91MB    9.75 </span></span>
-<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9        psqn(R; 2 threads)  203.43ms 207.28ms     4.79     7.91MB    7.45 </span></span>
-<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10      psqn (1 thread, SR1)   18.19ms  18.37ms    53.7     27.58KB    0    </span></span>
-<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 11      psqn(2 threads, SR1)   10.86ms  11.29ms    86.1     27.58KB    0    </span></span>
-<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12 psqn  (1 thread, opt pri.)  14.01ms  14.56ms    66.8     60.45KB    0    </span></span>
-<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 13 psqn (2 threads, opt pri.)   7.68ms    8.1ms   116.      55.16KB    0    </span></span>
-<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 14   psqn (1 thread; no pre)   14.47ms  15.06ms    64.6     27.58KB    0    </span></span>
-<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 15 psqn (1 thread; Cholesky)   58.14ms  59.53ms    15.2     27.58KB    0    </span></span>
-<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16           psqn (1 thread)   10.76ms  11.07ms    88.3     27.58KB    0    </span></span>
-<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 17           psqn(2 threads)    5.99ms   6.16ms   160.      27.58KB    0    </span></span>
-<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18           psqn(4 threads)    3.73ms   3.92ms   252.      27.58KB    0</span></span></code></pre></div>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: Some expressions had a GC in every iteration; so filtering is disabled.</span></span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 18 × 6</span></span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    expression                      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    &lt;bch:expr&gt;                 &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  1    optim BFGS (2 threads)     1.17s    1.19s     0.844   42.38MB    0.169</span></span>
+<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  2          lbfgs (1 thread)  149.31ms 154.06ms     6.43    49.52MB    2.53 </span></span>
+<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  3          lbfgs(2 threads)  103.61ms 104.73ms     9.35    51.27MB    2.98 </span></span>
+<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  4          lbfgs(4 threads)   58.03ms  59.72ms    16.4      49.5MB    4.76 </span></span>
+<span id="cb19-35"><a href="#cb19-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  5       lbfgsb3c (1 thread)  265.84ms 269.63ms     3.70    36.59MB    0.780</span></span>
+<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  6       lbfgsb3c(2 threads)   92.47ms  96.38ms    10.3     22.27MB    1.39 </span></span>
+<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  7       lbfgsb3c(4 threads)   66.98ms  68.49ms    14.4     25.97MB    2.20 </span></span>
+<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  8        psqn (R; 1 thread)  204.63ms 211.09ms     4.73     7.91MB    6.90 </span></span>
+<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  9        psqn(R; 2 threads)  203.37ms 211.69ms     4.61     7.91MB    6.34 </span></span>
+<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 10      psqn (1 thread, SR1)   17.77ms  18.23ms    54.6     27.58KB    0    </span></span>
+<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 11      psqn(2 threads, SR1)   12.27ms  12.69ms    77.5     27.58KB    0    </span></span>
+<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 12 psqn  (1 thread, opt pri.)  13.85ms  14.72ms    67.4     60.45KB    0    </span></span>
+<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 13 psqn (2 threads, opt pri.)    7.8ms   8.05ms   124.      55.16KB    0    </span></span>
+<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 14   psqn (1 thread; no pre)   14.24ms  14.36ms    69.4     27.58KB    0    </span></span>
+<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 15 psqn (1 thread; Cholesky)   53.62ms  55.39ms    17.0     27.58KB    0    </span></span>
+<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 16           psqn (1 thread)   10.69ms  10.87ms    90.6     27.58KB    0    </span></span>
+<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 17           psqn(2 threads)    6.23ms   6.29ms   157.      27.58KB    0    </span></span>
+<span id="cb19-48"><a href="#cb19-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 18           psqn(4 threads)    3.78ms   3.99ms   250.      27.58KB    0</span></span></code></pre></div>
 <p>We see a large reduction. To be fair, we can use the C interface for the limited-memory BFGS methods to avoid re-allocating the gradient at every iteration. This will reduce their computation time. The R version of the quasi-Newton method is slower mainly as the R version to evaluate the log of the integrand and its derivative is slower than the version used by all the other methods. We can illustrate this by comparing with the computation time with the <code>eval_integrand</code>:</p>
 <div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>bench<span class="sc">::</span><span class="fu">mark</span>(</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">  R</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">eval_integrand</span>(true_params), </span>
@@ -1268,8 +1269,8 @@ img {
 <span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 6</span></span>
 <span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1   R          6.95ms   7.81ms      120.  185.56KB     3.72</span></span>
-<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 C++        252.16µs 254.66µs     3850.    2.49KB     0</span></span></code></pre></div>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1   R           6.9ms   7.42ms      129.  185.56KB     6.80</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 C++         254.2µs 256.33µs     3849.    2.49KB     0</span></span></code></pre></div>
 <p>There is a big difference. Moreover, there is an overhead with repeatedly going back and forward between R and C++. A fair comparison would use an R implementation for all methods.</p>
 </div>
 <div id="masking-fixing-parameters" class="section level4">
@@ -1365,14 +1366,14 @@ img {
 <span id="cb22-39"><a href="#cb22-39" aria-hidden="true" tabindex="-1"></a><span class="co"># check the constraints. All ~0</span></span>
 <span id="cb22-40"><a href="#cb22-40" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(<span class="fu">seq_along</span>(restrict), <span class="cf">function</span>(i)</span>
 <span id="cb22-41"><a href="#cb22-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">consts</span>(i, psqn_restrict<span class="sc">$</span>par[restrict[[i]]<span class="sc">$</span>indices], <span class="dv">0</span>))</span>
-<span id="cb22-42"><a href="#cb22-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [1] -1.84e-07  1.60e-07 -3.18e-10 -1.56e-11 -2.20e-08 -1.95e-10 -3.65e-10</span></span>
-<span id="cb22-43"><a href="#cb22-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [8] -1.58e-11 -2.08e-11 -3.01e-11 -4.32e-08  1.18e-11 -2.59e-09 -2.80e-10</span></span>
-<span id="cb22-44"><a href="#cb22-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [15]  3.58e-11 -8.83e-10 -7.69e-06 -5.31e-11  4.97e-10 -2.05e-06  6.91e-12</span></span>
-<span id="cb22-45"><a href="#cb22-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [22] -4.32e-10  1.18e-09  5.10e-09  1.30e-11 -1.82e-10 -8.72e-11  4.29e-11</span></span>
-<span id="cb22-46"><a href="#cb22-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [29] -5.77e-12  8.57e-09  2.02e-06 -8.76e-09 -1.46e-06  2.52e-09 -1.47e-11</span></span>
-<span id="cb22-47"><a href="#cb22-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [36]  2.53e-09 -3.94e-06 -4.72e-11 -2.64e-10  3.35e-11  2.80e-11  5.51e-11</span></span>
-<span id="cb22-48"><a href="#cb22-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [43] -8.13e-11 -7.57e-11 -3.10e-08 -1.01e-08  1.04e-07 -3.32e-11  3.24e-09</span></span>
-<span id="cb22-49"><a href="#cb22-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [50] -2.24e-10</span></span>
+<span id="cb22-42"><a href="#cb22-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [1]  1.37e-07 -4.63e-07  1.32e-10  6.21e-12  3.94e-08 -4.64e-11 -2.19e-11</span></span>
+<span id="cb22-43"><a href="#cb22-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [8] -1.31e-09 -1.63e-12  5.39e-10  2.53e-08 -9.12e-12 -1.80e-09  4.52e-11</span></span>
+<span id="cb22-44"><a href="#cb22-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [15]  2.90e-11  4.12e-10  6.56e-06 -2.62e-11 -3.63e-10  1.75e-06 -9.11e-12</span></span>
+<span id="cb22-45"><a href="#cb22-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [22]  6.45e-10 -4.75e-09  7.54e-09  5.45e-12  8.38e-11 -6.01e-11 -2.70e-11</span></span>
+<span id="cb22-46"><a href="#cb22-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [29]  1.46e-10  2.45e-10 -9.98e-07  1.30e-08  1.27e-06 -2.05e-09  1.14e-11</span></span>
+<span id="cb22-47"><a href="#cb22-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [36]  8.51e-11  3.14e-06 -3.50e-11 -1.86e-10  2.56e-11 -5.80e-12  7.05e-11</span></span>
+<span id="cb22-48"><a href="#cb22-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [43] -4.23e-11  4.48e-11  1.28e-08 -2.75e-09 -2.21e-07 -2.82e-11  6.06e-09</span></span>
+<span id="cb22-49"><a href="#cb22-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [50]  6.45e-11</span></span>
 <span id="cb22-50"><a href="#cb22-50" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-51"><a href="#cb22-51" aria-hidden="true" tabindex="-1"></a><span class="co"># we can do the same from R</span></span>
 <span id="cb22-52"><a href="#cb22-52" aria-hidden="true" tabindex="-1"></a>psqn_restrict_R <span class="ot">&lt;-</span> <span class="fu">psqn_aug_Lagrang</span>(</span>
@@ -1382,7 +1383,7 @@ img {
 <span id="cb22-56"><a href="#cb22-56" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-57"><a href="#cb22-57" aria-hidden="true" tabindex="-1"></a><span class="co"># we got the same</span></span>
 <span id="cb22-58"><a href="#cb22-58" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(psqn_restrict_R<span class="sc">$</span>par, psqn_restrict<span class="sc">$</span>par)</span>
-<span id="cb22-59"><a href="#cb22-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 8.51e-05&quot;</span></span>
+<span id="cb22-59"><a href="#cb22-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [1] &quot;Mean relative difference: 7.16e-05&quot;</span></span>
 <span id="cb22-60"><a href="#cb22-60" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-61"><a href="#cb22-61" aria-hidden="true" tabindex="-1"></a><span class="co"># check the constraints. All ~0</span></span>
 <span id="cb22-62"><a href="#cb22-62" aria-hidden="true" tabindex="-1"></a><span class="fu">sapply</span>(<span class="fu">seq_along</span>(restrict), <span class="cf">function</span>(i)</span>
@@ -2004,7 +2005,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a><span class="fu">system.time</span>(glm_fit <span class="ot">&lt;-</span> <span class="fu">glm.fit</span>(<span class="at">x =</span> X, <span class="at">y =</span> y, <span class="at">family =</span> <span class="fu">poisson</span>(), </span>
 <span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a>                               <span class="at">start =</span> start))</span>
 <span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 158.633   0.781 159.387</span></span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 156.182   0.384 156.540</span></span>
 <span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a><span class="co"># we get (roughly) the same</span></span>
 <span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(glm_fit<span class="sc">$</span>coefficients, opt<span class="sc">$</span>par)</span>
@@ -2109,10 +2110,10 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 4 × 6</span></span>
 <span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   expression          min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;bch:expr&gt;     &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 R version          9.2s    9.35s     0.107    55.1MB     1.39</span></span>
-<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 R w/ C++          2.24s    2.25s     0.445      26MB     0   </span></span>
-<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 psqn            76.65ms  82.05ms    12.3      18.2KB     0   </span></span>
-<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 psqn 2 threads   40.7ms  41.09ms    23.0      18.2KB     0</span></span></code></pre></div>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 R version         8.65s    8.69s     0.115    55.1MB     4.95</span></span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 R w/ C++          2.29s    2.37s     0.423      26MB     0   </span></span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 psqn            72.66ms  73.05ms    13.7      18.2KB     0   </span></span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 4 psqn 2 threads  41.67ms   42.5ms    23.6      18.2KB     0</span></span></code></pre></div>
 <div id="generic-example-r-interface" class="section level4">
 <h4>Generic Example: R Interface</h4>
 <p>A R interface to the <code>optimizer_generic</code> class is provided through the <code>psqn_generic</code> function. We show an example below of how the R interface can be used to solve the same problem we had before:</p>
@@ -2154,7 +2155,7 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 6</span></span>
 <span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   expression              min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;bch:expr&gt;         &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 psqn_func_R(start)    3.57s    3.69s     0.271    29.3KB     2.85</span></span></code></pre></div>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 psqn_func_R(start)    3.34s    3.46s     0.289    29.3KB     10.8</span></span></code></pre></div>
 </div>
 <div id="getting-the-hessian-approximation-1" class="section level4">
 <h4>Getting the Hessian Approximation</h4>
@@ -2303,9 +2304,9 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 3 × 6</span></span>
 <span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 1 thread      378µs    397µs     2445.    18.2KB        0</span></span>
-<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 2 threads     184µs    192µs     5141.    18.2KB        0</span></span>
-<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 3 threads     128µs    134µs     7305.    18.2KB        0</span></span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 1 thread      371µs    384µs     2518.    18.2KB     0   </span></span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 2 threads     173µs    177µs     5514.    18.2KB     2.02</span></span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 3 threads     122µs    128µs     7607.    18.2KB     0</span></span>
 <span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a><span class="co"># next, we compile the file but having defined PSQN_NO_USE_KAHAN in the </span></span>
 <span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a><span class="co"># beginning</span></span>
@@ -2340,9 +2341,9 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb38-54"><a href="#cb38-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 3 × 6</span></span>
 <span id="cb38-55"><a href="#cb38-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb38-56"><a href="#cb38-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb38-57"><a href="#cb38-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 1 thread      367µs    386µs     2502.    18.2KB        0</span></span>
-<span id="cb38-58"><a href="#cb38-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 2 threads     165µs    174µs     5601.    18.2KB        0</span></span>
-<span id="cb38-59"><a href="#cb38-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 3 threads     118µs    123µs     7725.    18.2KB        0</span></span></code></pre></div>
+<span id="cb38-57"><a href="#cb38-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 1 thread      361µs    372µs     2648.    18.2KB     0   </span></span>
+<span id="cb38-58"><a href="#cb38-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 2 threads     162µs    170µs     5754.    18.2KB     0   </span></span>
+<span id="cb38-59"><a href="#cb38-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 3 3 threads     113µs    121µs     8027.    18.2KB     2.02</span></span></code></pre></div>
 <p>The error is only slightly larger in the latter case in this example and the computation time is reduced because the <code>func</code> and <code>grad</code> member functions are cheap to evaluate computationally.</p>
 </div>
 </div>
@@ -2393,8 +2394,8 @@ f(\vec x) &amp;= \sum_{i = 1}^n
 <span id="cb39-35"><a href="#cb39-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 6</span></span>
 <span id="cb39-36"><a href="#cb39-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   expression      min   median `itr/sec` mem_alloc `gc/sec`</span></span>
 <span id="cb39-37"><a href="#cb39-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   &lt;bch:expr&gt; &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;</span></span>
-<span id="cb39-38"><a href="#cb39-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 optim         136µs    178µs     5603.      384B     4.09</span></span>
-<span id="cb39-39"><a href="#cb39-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 psqn_bfgs     100µs    112µs     8626.    2.49KB     2.02</span></span></code></pre></div>
+<span id="cb39-38"><a href="#cb39-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 1 optim         138µs    151µs     6354.      384B     8.24</span></span>
+<span id="cb39-39"><a href="#cb39-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 2 psqn_bfgs    99.8µs    106µs     9053.    2.49KB    10.3</span></span></code></pre></div>
 </div>
 <div id="bfgs-and-partially-separable-quasi-newton" class="section level3">
 <h3>BFGS and Partially Separable Quasi-Newton</h3>

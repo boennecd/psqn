@@ -35,7 +35,7 @@ template<>
 inline double vec_dot<true>(double const *x, psqn_uint const n) noexcept {
   double out(0.);
 #ifdef _OPENMP
-#pragma omp parallel for if(n > 10000) reduction(+:out) // TODO: very hard coded
+#pragma omp parallel for reduction(+:out)
 #endif
   for(psqn_uint i = 0; i < n; ++i)
     out += x[i] * x[i];
@@ -55,7 +55,7 @@ inline double vec_dot<true>
  psqn_uint const n) noexcept {
   double out(0.);
 #ifdef _OPENMP
-#pragma omp parallel for if(n > 10000) reduction(+:out) // TODO: very hard coded
+#pragma omp parallel for reduction(+:out)
 #endif
   for(psqn_uint i = 0; i < n; ++i)
     out += x[i] * y[i];
