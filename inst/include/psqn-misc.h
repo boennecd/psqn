@@ -31,7 +31,8 @@ enum info_code : int {
 enum precondition : int {
    non = 0,
    diag = 1,
-   choleksy = 2
+   choleksy = 2,
+   custom = 3
 };
 
 struct optim_info {

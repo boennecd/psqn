@@ -514,16 +514,20 @@ public:
            * PSQN_RESTRICT B_p     = p      + n_par(),
            * PSQN_RESTRICT v       = B_p    + n_par(),
            * PSQN_RESTRICT B_diag  = v      + n_par();
-    bool const do_pre = pre_method == precondition::diag;
+    bool const do_pre_diag{pre_method == precondition::diag},
+               do_pre_custom{pre_method == precondition::custom},
+               do_pre{do_pre_diag || do_pre_custom};
 
     // setup before first iteration
-    if(do_pre){
+    if(do_pre_diag){
       opt_obj().get_diag(B_diag);
       add_constraints_B_diag(B_diag);
       double *b = B_diag;
       for(psqn_uint i = 0; i < n_par(); ++i, ++b)
         *b = 1. / *b; // want to use multiplication rather than division
-    }
+    } else if(do_pre_custom)
+      opt_obj().setup_custom_preconditioning();
+
 
     auto diag_solve = [&](double       * PSQN_RESTRICT vy,
                           double const * PSQN_RESTRICT vx) -> void {
@@ -542,8 +546,12 @@ public:
         p[i] = x[i];
     }
 
-    if(do_pre){
+    if(do_pre_diag){
       diag_solve(v, r);
+      for(psqn_uint i = 0; i < n_par(); ++i)
+        p[i] = -v[i];
+    } else if(do_pre_custom){
+      opt_obj().custom_preconditioning(v, const_cast<double const*>(r));
       for(psqn_uint i = 0; i < n_par(); ++i)
         p[i] = -v[i];
     }
@@ -581,8 +589,10 @@ public:
         r[j] += alpha * B_p[j];
       }
 
-      if(do_pre)
+      if(do_pre_diag)
         diag_solve(v, r);
+      else if(do_pre_custom)
+        opt_obj().custom_preconditioning(v, const_cast<double const*>(r));
       double const r_v_dot = get_r_v_dot(),
                    t_val   = do_pre ? sqrt(abs(lp::vec_dot<true>(r, n_par())))
                                     : sqrt(abs(r_v_dot));
@@ -1099,10 +1109,18 @@ class optimizer :
     EFunc const func;
     /// indices of first set of private parameters
     psqn_uint const par_start;
+    /**
+     * memory for the Cholesky decomposition for the preconditioning. There
+     * needs to be enough memory for
+     * (func.private_dim() * (func.private_dim() + 1)) / 2
+     */
+    double * const precond_factorization;
 
-    worker(EFunc &&func, double * mem, psqn_uint const par_start):
+    worker(EFunc &&func, double * mem, psqn_uint const par_start,
+           double * precond_factorization):
       base_worker(func.global_dim() + func.private_dim(), mem),
-      func(func), par_start(par_start) {
+      func(func), par_start(par_start),
+      precond_factorization{precond_factorization} {
       reset();
     }
 
@@ -1131,6 +1149,43 @@ class optimizer :
 
       return call_obj.eval_grad(
         func, static_cast<double const *>(x_new), gr);
+    }
+
+    /**
+     * sets the precond_factorization using the current Hessian approximation.
+     * The amount of passed working memory has to be equal to
+     * 2 * func.private_dim()^2.
+     */
+    void set_precond_factorization(double *wrk){
+      psqn_uint const d_global {func.global_dim()},
+                      d_private{func.private_dim()};
+
+      // we have to copy the current Hessian approximation
+      double * const A{wrk};
+      wrk += d_private * d_private;
+
+      // copy the part of the Hessian we need
+      {
+        double *a{A};
+        double const *B_shift{B + (d_global * (d_global + 1)) / 2};
+        for(psqn_uint j = 0; j < d_private; ++j,
+            B_shift += j + d_global, a += d_private)
+          lp::copy(a, B_shift + d_global, j + 1);
+      }
+
+      lp::setup_precondition_chol
+        (A, precond_factorization, d_private, wrk);
+    }
+
+    /**
+     * perform the preconditioning on elements
+     * par_start, ..., par_start + func.private_dim() - 1
+     */
+    void apply_precond(double * const res, double const * const rhs){
+      psqn_uint const d_private{func.private_dim()};
+      lp::copy(res + par_start, rhs + par_start, d_private);
+      lp::precondition_chol_solve
+        (precond_factorization, res + par_start, d_private);
     }
   };
 
@@ -1201,21 +1256,24 @@ public:
 
 private:
   /***
-   size of the allocated working memory. The first element is needed for
-   the workers. The second element is needed during the computation for the
-   master thread. The third element is number required per thread.
+   size of the allocated working memory.
+   The first element is needed for the workers.
+   The second element is needed for the preconditioning.
+   The third element is needed during the computation for the master thread.
+   The fourth element is number required per thread.
   */
-  std::array<std::size_t, 3L> const n_mem;
+  std::array<std::size_t, 4L> const n_mem;
   /// maximum number of threads to use
   psqn_uint const max_threads;
   /// working memory
-  std::unique_ptr<double[]> mem =
-    std::unique_ptr<double[]>(
-        new double[n_mem[0] + n_mem[1] + max_threads * n_mem[2]]);
+  std::unique_ptr<double[]> mem
+    {new double[n_mem[0] + n_mem[1] + n_mem[2] + max_threads * n_mem[3]]};
+  /// pointer to memory that is used for the preconditioning
+  double * const precond_mem{mem.get() + n_mem[0]};
   /// pointer to temporary memory to use on the master thread
-  double * const temp_mem = mem.get() + n_mem[0];
+  double * const temp_mem{precond_mem + n_mem[1]};
   /// pointer to temporary memory to be used by the threads
-  double * const temp_thread_mem = temp_mem + n_mem[1];
+  double * const temp_thread_mem{temp_mem + n_mem[2]};
 
   /// element functions
   std::vector<worker> funcs;
@@ -1240,7 +1298,7 @@ private:
 
   /// returns working memory for this thread
   double * get_thread_mem(int const thread_num) const noexcept {
-    return temp_thread_mem + thread_num * n_mem[2];
+    return temp_thread_mem + thread_num * n_mem[3];
   }
 
   double * get_thread_mem() const noexcept {
@@ -1250,13 +1308,13 @@ private:
   /// number of threads to use
   int n_threads = 1L;
 
-  // function need for base_optimizer to get temporary memory
+  /// function need for base_optimizer to get temporary memory
   double * get_internals_mem() {
     // need memory for B_start!
     return temp_mem + (global_dim * (global_dim + 1)) / 2;
   }
 
-  // class to compute B.x for base_optimizer
+  /// class to compute B.x for base_optimizer
   class comp_B_vec_obj {
     bool is_first_call = true;
     double * B_start;
@@ -1276,6 +1334,102 @@ private:
 
   comp_B_vec_obj get_comp_B_vec() {
     return comp_B_vec_obj(temp_mem, *this);
+  }
+
+  /// aggregates the current hessian approximation for the global parameters
+  void aggregate_global_hess_aprx
+    (double * const PSQN_RESTRICT B_start) const noexcept {
+    psqn_uint const B_sub_ele = (global_dim * (global_dim + 1)) / 2;
+
+    // initialize the thread memory
+    for(int t = 0; t < n_threads; ++t)
+      std::fill(get_thread_mem(t), get_thread_mem(t) + B_sub_ele, 0);
+
+    psqn_uint const n_funcs{static_cast<psqn_uint>(funcs.size())};
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+#endif
+    {
+      double * wk_mem{get_thread_mem()};
+#ifdef _OPENMP
+#pragma omp for
+#endif
+      for(psqn_uint i = 0; i < n_funcs; ++i){
+        auto &f = funcs[i];
+        double * PSQN_RESTRICT  b{wk_mem};
+        double const *b_inc{f.B};
+        for(psqn_uint j = 0; j < B_sub_ele; ++j)
+          *b++ += *b_inc++;
+      }
+    }
+
+    // aggregate the result
+    std::fill(B_start, B_start + B_sub_ele, 0);
+    for(int t = 0; t < n_threads; ++t){
+      double * PSQN_RESTRICT  b{B_start};
+      double const *b_inc{get_thread_mem(t)};
+      for(psqn_uint j = 0; j < B_sub_ele; ++j)
+        *b++ += *b_inc++;
+    }
+  }
+
+  void setup_custom_preconditioning(){
+#ifdef PSQN_W_LAPACK
+    // handle the global parameters
+    aggregate_global_hess_aprx(precond_mem);
+    {
+      double * const A{get_thread_mem()};
+      double * const wk_mem{A + global_dim * global_dim};
+      double const *hess{precond_mem};
+      double *a{A};
+      for(psqn_uint j = 0; j < global_dim; ++j, hess += j, a += global_dim)
+        lp::copy(a, hess, j + 1);
+
+      lp::setup_precondition_chol(A, precond_mem, global_dim, wk_mem);
+    }
+
+    // handle the private parameters
+    psqn_uint const n_funcs{static_cast<psqn_uint>(funcs.size())};
+#ifdef _OPENMP
+#pragma omp parallel num_threads(n_threads)
+#endif
+    {
+      double * r_mem{get_thread_mem()};
+
+#ifdef _OPENMP
+#pragma omp for schedule(static)
+#endif
+      for(psqn_uint i = 0; i < n_funcs; ++i)
+        funcs[i].set_precond_factorization(r_mem);
+    }
+
+#else // #ifdef PSQN_W_LAPACK
+    throw std::runtime_error("not build with LAPACK");
+#endif
+  }
+
+  /***
+   * applies the custom preconditioning. setup_custom_preconditioning must be
+   * called before
+   */
+  void custom_preconditioning
+    (double * const res, double const * const rhs){
+#ifdef PSQN_W_LAPACK
+    // handle the global parameters
+    lp::copy(res, rhs, global_dim);
+    lp::precondition_chol_solve(precond_mem, res, global_dim);
+
+    // handle the private parameters
+    psqn_uint const n_funcs{static_cast<psqn_uint>(funcs.size())};
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(n_threads)
+#endif
+    for(psqn_uint i = 0; i < n_funcs; ++i)
+      funcs[i].apply_precond(res, rhs);
+
+#else // #ifdef PSQN_W_LAPACK
+    throw std::runtime_error("not build with LAPACK");
+#endif
   }
 
 public:
@@ -1309,9 +1463,10 @@ public:
       out += f.private_dim();
     return out;
   })()),
-  n_mem(([&]() -> std::array<std::size_t, 3L> {
-    std::size_t out(0L),
-           max_priv(0L);
+  n_mem(([&]() -> std::array<std::size_t, 4L> {
+    std::size_t worker_mem{},
+               precond_mem{},
+                  max_priv{};
     for(auto &f : funcs_in){
       if(f.global_dim() != global_dim)
         throw std::invalid_argument(
@@ -1324,22 +1479,26 @@ public:
       if(max_priv < private_dim)
         max_priv = private_dim;
 
-      out += worker::n_perm_mem(n_ele);
+      worker_mem += worker::n_perm_mem(n_ele);
+      precond_mem += (private_dim * (private_dim + 1)) / 2;
     }
 
-    constexpr std::size_t mult = cacheline_size() / sizeof(double),
-                            min_size = 2L * mult;
+    constexpr std::size_t mult{cacheline_size() / sizeof(double)},
+                      min_size{2L * mult};
 
-    std::size_t thread_mem = std::max(
-      worker::n_temp_mem(global_dim + max_priv), min_size);
+    precond_mem += (global_dim * (global_dim + 1)) / 2;
+
+    std::size_t thread_mem = std::max
+      (worker::n_temp_mem(global_dim + max_priv), min_size);
+    thread_mem = std::max(thread_mem, 2 * max_priv * max_priv);
+    thread_mem = std::max<size_t>(thread_mem, 2 * global_dim * global_dim);
     thread_mem = (thread_mem + mult - 1L) / mult;
     thread_mem *= mult;
 
     std::size_t master_mem(5L * n_par);
     master_mem += (global_dim * (global_dim + 1L)) / 2L;
 
-    std::array<std::size_t, 3L> ret {out, master_mem, thread_mem };
-    return ret;
+    return {worker_mem, precond_mem, master_mem, thread_mem };
   })()),
   max_threads(max_threads > 0 ? max_threads : 1L),
   funcs(([&]() -> std::vector<worker> {
@@ -1347,13 +1506,16 @@ public:
     psqn_uint const n_ele(funcs_in.size());
     out.reserve(funcs_in.size());
 
-    double * mem_ptr = mem.get();
+    double * mem_ptr{mem.get()};
+    double * pre_mem{precond_mem + (global_dim * (global_dim + 1)) / 2};
     psqn_uint i_start(global_dim);
     for(psqn_uint i = 0; i < n_ele; ++i){
-      out.emplace_back(std::move(funcs_in[i]), mem_ptr, i_start);
+      out.emplace_back(std::move(funcs_in[i]), mem_ptr, i_start, pre_mem);
       psqn_uint const n_ele = out.back().n_ele;
       mem_ptr += n_ele * 4L + (n_ele * (n_ele + 1L)) / 2L;
-      i_start += out.back().func.private_dim();
+      psqn_uint const priv_dim{out.back().func.private_dim()};
+      i_start += priv_dim;
+      pre_mem += (priv_dim * (priv_dim + 1)) / 2;
     }
 
     return out;
@@ -1410,7 +1572,7 @@ public:
     {
     double * r_mem = get_thread_mem(),
            * v_mem =
-               r_mem + global_dim + 1L /* leave 1 ele for func value*/;
+               r_mem + global_dim + 1L /* leave 1 ele for func value */;
     lp::copy(v_mem, val, global_dim);
     if(comp_grad)
       std::fill(r_mem, r_mem + global_dim, 0.);
@@ -1477,17 +1639,8 @@ public:
     psqn_uint const n_funcs = funcs.size();
 
     // aggregate the first part of B if needed
-    if(comp_B_start){
-      psqn_uint const B_sub_ele = (global_dim * (global_dim + 1)) / 2;
-      std::fill(B_start, B_start + B_sub_ele, 0);
-      for(psqn_uint i = 0; i < n_funcs; ++i){
-        auto &f = funcs[i];
-        double * b = B_start;
-        double const *b_inc = f.B;
-        for(psqn_uint j = 0; j < B_sub_ele; ++j)
-          *b++ += *b_inc++;
-      }
-    }
+    if(comp_B_start)
+      aggregate_global_hess_aprx(B_start);
 
     // compute the first part
     lp::mat_vec_dot(B_start, val, res, global_dim);
@@ -2372,6 +2525,15 @@ private:
   }
 
 #endif // PSQN_USE_EIGEN
+
+  void setup_custom_preconditioning(){
+    throw std::runtime_error("there is no custom preconditioner");
+  }
+
+  void custom_preconditioning(double * const PSQN_RESTRICT res,
+                              double const * const rhs){
+    throw std::runtime_error("there is no custom preconditioner");
+  }
 
 public:
   /***

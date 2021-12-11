@@ -91,7 +91,7 @@ test_that("mixed logit model gives the same", {
                check.attributes = FALSE)
 
   # works with other preconditioners
-  for(i in 0:2){
+  for(i in 0:3){
     opt_new <- optim_mlogit(
       val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
       c1 = 1e-4, c2 = .9, n_threads = 2L, pre_method = i)

@@ -189,8 +189,11 @@ List wrap_optim_info(NumericVector par_res, NumericVector multipliers,
 //' @param max_cg Maximum number of conjugate gradient iterations in each
 //' iteration. Use zero if there should not be a limit.
 //' @param pre_method Preconditioning method in the conjugate gradient method.
-//' Zero yields no preconditioning, one yields diagonal preconditioning, and
-//' two yields the incomplete Cholesky factorization from Eigen.
+//' Zero yields no preconditioning, one yields diagonal preconditioning,
+//' two yields the incomplete Cholesky factorization from Eigen, and
+//' three yields a block diagonal preconditioning. One and three are fast
+//' options with three seeming to work well for some poorly conditioned
+//' problems.
 //' @param mask zero based indices for parameters to mask (i.e. fix).
 //' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
 //' value yields no check.
@@ -1268,7 +1271,7 @@ List psqn_generic
     throw std::invalid_argument("psqn_generic: env is not an environment");
   if(!Rf_isFunction(fn))
     throw std::invalid_argument("psqn_generic: fn is not a function");
-  if(pre_method < 0L or pre_method > 2L)
+  if(pre_method < 0L or pre_method > 3L)
     throw std::invalid_argument("psqn_generic: invalid pre_method");
 
   std::vector<r_worker_optimizer_generic> funcs;

@@ -28,8 +28,11 @@
 #' @param max_cg Maximum number of conjugate gradient iterations in each
 #' iteration. Use zero if there should not be a limit.
 #' @param pre_method Preconditioning method in the conjugate gradient method.
-#' Zero yields no preconditioning, one yields diagonal preconditioning, and
-#' two yields the incomplete Cholesky factorization from Eigen.
+#' Zero yields no preconditioning, one yields diagonal preconditioning,
+#' two yields the incomplete Cholesky factorization from Eigen, and
+#' three yields a block diagonal preconditioning. One and three are fast
+#' options with three seeming to work well for some poorly conditioned
+#' problems.
 #' @param mask zero based indices for parameters to mask (i.e. fix).
 #' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
 #' value yields no check.

@@ -1,6 +1,11 @@
 // we will use OpenMP to perform the computation in parallel
 // [[Rcpp::plugins(openmp, cpp11)]]
 
+// we want to use the preconditioner with the Cholesky factorizations in the
+// the diagonal. This requires that we link with BLAS and LAPACK. This is
+// automatically done when we depend on RcppArmadillo
+#define PSQN_W_LAPACK
+
 // we use RcppArmadillo to simplify the code
 // [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>

@@ -4,9 +4,18 @@
 #include "constant.h"
 #include "psqn-misc.h"
 #include <numeric>
+#include <cmath>
+#include <stdexcept>
+#include <limits.h>
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+
+#ifdef PSQN_W_LAPACK
+// TODO: need to deal with the possible char length arguments of Fortran calls.
+//       Would  be nice to avoid.
+#include <R_ext/Lapack.h>
 #endif
 
 namespace lp {
@@ -249,6 +258,113 @@ inline void Kahan(double &sum, double &comp, double const new_val) noexcept {
 inline void Kahan(double * sum_n_comp, double const new_val) noexcept {
   Kahan(*sum_n_comp, sum_n_comp[1], new_val);
 }
+
+/***
+ * Computes the Cholesky decomposition of a n x n symmetric matrix A.
+ * The function uses LAPACK's dpotrf routine. The result is also stored as the
+ * n(n + 1)/2 upper triangle.
+ *
+ * If the factorization fails then the factorization is formed for
+ *
+ *    A + (epsilon + g) I
+ *
+ * where epsilon is 1e-3 and g is |A_min| where A_min is the smallest element
+ * of the diagonal of A if A_min < 0. Otherwise, g is zero.
+ *
+ * If this fails, than epsilon <- epsilon * 10 is attempted. This repeat up
+ * to a given number of times until the factorization succeed. If all of this
+ * fails, the factorization is set to the absolute value of the diagonal
+ * elements of A plus 1e-3.
+ *
+ * working memory of size n x n is required
+ */
+void setup_precondition_chol(double const *A, double *out, int const n,
+                             double *wrk);
+
+/***
+ * given the output from setup_precondition_chol and a n dimensional vector x,
+ * the fucntion solves
+ *
+ *   A.y = x
+ *
+ * or the solution with A replaced by A + (epsilon * 10^k + g) I.
+ */
+void precondition_chol_solve(double const *A_chol, double *x, int const n);
+
+#ifdef PSQN_W_LAPACK
+inline void setup_precondition_chol
+  (double const *A, double *out, int const n, double *wrk){
+  // find the smallest diagonal element
+  double Amin{std::numeric_limits<double>::max()};
+  {
+    double const *a{A};
+    for(int i = 0; i < n; ++i, a += n + 1)
+      Amin = std::min(Amin, *a);
+  }
+
+  // attempt to compute the factorization
+  size_t const n_ele = n * n;
+  constexpr double epsilon_start{1e-3},
+                   epsilon_mult{10};
+  double epsilon{epsilon_start / epsilon_mult};
+  int info{Amin > 0 ? 0 : 1};
+  Amin = Amin < 0 ? std::abs(Amin) : 0; // maybe flip the sign
+
+  for(unsigned i = 0; i < 10; ++i){
+    if(info > 0)
+      epsilon *= epsilon_mult;
+
+    // setup the working memory object
+    std::copy(A, A + n_ele, wrk);
+    if(info > 0){
+      // add to the diagonal
+      double *w{wrk};
+      for(int i = 0; i < n; ++i, w += n + 1)
+        *w += Amin + epsilon;
+    }
+
+    F77_CALL(dpotrf)("U", &n, wrk, &n, &info FCONE);
+    if(info == 0)
+      break;
+  }
+
+  if(info != 0){
+    // set the factorization to be diagonal matrix
+    std::fill(wrk, wrk + n_ele, 0);
+
+    double const *a{A};
+    double *w{wrk};
+    for(int i = 0; i < n; ++i, w += n + 1, a += n + 1)
+      *w += std::sqrt(std::abs(*a) + epsilon_start);
+  }
+
+  // copy the result
+  double *o{out};
+  double const *w{wrk};
+  for(int j = 0; j < n; ++j, o += j, w += n)
+    std::copy(w, w + j + 1, o);
+}
+
+inline void precondition_chol_solve
+  (double const *A_chol, double *x, int const n){
+  int const incx{1L};
+  F77_CALL(dtpsv)("U", "T", "N", &n, A_chol, x, &incx FCONE FCONE FCONE);
+  F77_CALL(dtpsv)("U", "N", "N", &n, A_chol, x, &incx FCONE FCONE FCONE);
+}
+#else // #ifdef PSQN_W_LAPACK
+
+inline void setup_precondition_chol
+  (double const *A, double *out, int const n, double *wrk){
+  throw std::runtime_error("not compiled with LACPACK");
+}
+
+inline void precondition_chol_solve
+  (double const *A_chol, double *x, int const n){
+  throw std::runtime_error("not compiled with LACPACK");
+}
+
+#endif
+
 
 } // namespace lp
 

@@ -367,12 +367,16 @@ a number of iterations close to the number of distinct clusters.
 In practice, we terminate the conjugate gradient method when 
 $\lVert\vec r_k\rVert < \min (c, \sqrt{\lVert\nabla f(\vec x_{k -1})\rVert})\lVert\nabla f(\vec x_{k -1})\rVert$
 where $c$ is a constant the user can set. Moreover, we the package supports
-diagonal preconditioning or incomplete Cholesky factorization preconditioning 
+diagonal preconditioning, incomplete Cholesky factorization preconditioning 
+from Eigen, and for the `psqn` function there is also a preconditioning which 
+is based on a block diagonal matrix which ignores the Hessian terms between the
+global parameters and the private parameters.
 The diagonal preconditioning is very cheap and may reduce the number of required 
 conjugate gradient iterations. The incomplete Cholesky factorization 
-preconditioning is from Eigen and may greatly reduce the number of required 
+preconditioning may greatly reduce the number of required 
 conjugate gradient iterations at the cost of having to factorize the 
-Hessian approximation.
+Hessian approximation. The block diagonal approach works very well for some 
+problems and is usually much faster than Eigen.
 
 We can compare the flops of the matrix product in BFGS with applying the 
 conjugate gradient method. Assume that all $q_i$s are almost $\bar q$. 
@@ -801,7 +805,7 @@ image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
       col = gray.colors(2L, 1, 0))
 ```
 
-The true Hessian is very sparse. 
+The true Hessian is very sparse.
 
 #### Getting the True Hessian
 
@@ -857,15 +861,51 @@ psqn_res_no_pre$counts
 psqn_res_cholesky <- psqn_func(start_val, pre_method = 2L)
 all.equal(psqn_res$value, psqn_res_cholesky$value)
 
+# with the Cholesky factorizations in the diagonal
+psqn_res_cholesky_diag <- psqn_func(start_val, pre_method = 3L)
+all.equal(psqn_res$value, psqn_res_cholesky_diag$value)
+
 # we use fewer conjugate gradient steps
-psqn_res_cholesky$counts
-psqn_res         $counts
+psqn_res_cholesky_diag$counts
+psqn_res_cholesky     $counts
+psqn_res              $counts
 
 # we can equally use the R interface
 psqn_res_cholesky_R <- r_psqn_func(start_val, pre_method = 2L)
 
 all.equal(psqn_res_cholesky_R[c("par", "value", "counts")], 
           psqn_res_cholesky  [c("par", "value", "counts")])
+```
+
+We can also illustrate why fewer iterations are needed with the block diagonal 
+preconditioning by looking at the Eigen values. 
+We will need fewer iterations if the Eigen values are clustered or if many 
+are identical.
+
+```{r precond_illustration, cache=1}
+# look at the original Eigen values
+aprox_hes <- get_Hess_approx_mlogit(ptr = optimizer)
+hess_sub <- aprox_hes[1:(5 + 200 * 4L), 1:(5 + 200 * 4L)]
+eg <- eigen(hess_sub)$values
+par(mar = c(5, 5, 1, 1))
+hist(eg, breaks = 100L, main = "",
+     xlab = "Eigen values without preconditioning")
+# compute the Hessian after the block diagonal preconditioning
+hess_sub_precond <- hess_sub
+hess_sub_precond[  1:5 , -(1:5)] <- 0
+hess_sub_precond[-(1:5),   1:5 ] <- 0
+Cm <- t(chol(hess_sub_precond))
+
+hess_after_cond <- solve(Cm, t(solve(Cm, hess_sub)))
+eg_new <- eigen(hess_after_cond)$values
+hist(eg_new, breaks = 100L, main = "",
+     xlab = "Eigen values with block diagonal preconditioning")
+# we can compare this with a diagonal preconditioning
+tmp <- diag(diag(hess_sub)^(-2))
+hess_after_cond_diag <- tmp %*% hess_sub %*% tmp
+eg_diag <- eigen(hess_after_cond_diag)$values
+hist(eg_diag, breaks = 100L, main = "",
+     xlab = "Eigen values with diagonal preconditioning")
 ```
 
 #### Benchmarking
@@ -895,6 +935,10 @@ bench::mark(
                                               pre_method = 0L),
   `psqn (1 thread; Cholesky)` = psqn_func    (start_val, n_threads = 1L, 
                                               pre_method = 2L),
+  `psqn   (1 thread; custom)` = psqn_func    (start_val, n_threads = 1L, 
+                                              pre_method = 3L),
+  `psqn   (2 thread; custom)` = psqn_func    (start_val, n_threads = 2L, 
+                                              pre_method = 3L),
   `          psqn (1 thread)` = psqn_func    (start_val, n_threads = 1L),
   `          psqn(2 threads)` = psqn_func    (start_val, n_threads = 2L),
   `          psqn(4 threads)` = psqn_func    (start_val, n_threads = 4L),
@@ -1201,6 +1245,14 @@ r_psqn_func <- function(par, n_threads = 2L, c1 = 1e-4, cg_tol = .5,
 
 R_res <- r_psqn_func(numeric(idx_start))
 all.equal(exp_res, R_res$par)
+
+# with the Cholesky factorizations in the diagonal
+R_res_chol_diag <- r_psqn_func(numeric(idx_start), pre_method = 3L)
+all.equal(exp_res, R_res_chol_diag$par)
+
+# some reduction in the number of conjugate gradient steps
+R_res$counts
+R_res_chol_diag$counts
 ```
 
 ### Generic Example

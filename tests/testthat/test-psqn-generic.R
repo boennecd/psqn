@@ -55,6 +55,14 @@ test_that("the R and C++ interface gives the same and correct result", {
   expect_known_value(R_res_mask[c("par", "value")],
                      "psqn_generic-glm-res-mask.RDS")
 
+  # check for an error message
+  expect_error(
+    R_res <- psqn_generic(
+      par = numeric(K), fn = r_func, n_ele_func = length(dat), c1 = 1e-4, c2 = .1,
+      trace = 0L, rel_eps = 1e-9, max_it = 1000L, env = environment(),
+      pre_method = 3L),
+    "there is no custom preconditioner")
+
   # check that the C++ version gives the same
   skip_if_not_installed("Matrix")
   skip_on_macOS()
@@ -143,5 +151,13 @@ test_that("the R and C++ interface gives the same and correct result", {
       val = numeric(K), ptr = ptr, rel_eps = 1e-9, max_it = 1000L,
       n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5)
     expect_equal(Cpp_res$value, R_res$value)
+
+    # check for an error message
+    expect_error(
+      optim_generic_ex(
+        val = numeric(K), ptr = ptr, rel_eps = 1e-9, max_it = 1000L,
+        n_threads = 1L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5,
+        pre_method = 3L),
+      "there is no custom preconditioner")
   })()
 })

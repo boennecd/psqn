@@ -5,6 +5,7 @@ Changes in version 0.3.0
  * computation of the hessian is now supported using numerical differentiation
    with Richardson extrapolation to refine the estimate.
  * the gradient norm can be used as a convergence criterion.
+ * A diagonal preconditioning methods has been added to the psqn method.
 
 Changes in version 0.2.1
  * tests that compile files using Rcpp::sourceCpp() now do so in a temporary

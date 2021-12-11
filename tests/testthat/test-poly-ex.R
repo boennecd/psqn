@@ -114,6 +114,12 @@ test_that("Poly example gives the same", {
         c1 = 1e-4, c2 = .9, n_threads = 1L, pre_method = 2L),
       regexp = "include Eigen or RcppEigen")
 
+    expect_error(
+      optim_poly(
+        val = val, ptr = optimizer, rel_eps = rel_eps, max_it = 100L,
+        c1 = 1e-4, c2 = .9, n_threads = 1L, pre_method = 3L),
+      regexp = "not build with LAPACK")
+
     expect_error(dum_get_hess_sparse_call(optimizer),
                  regexp = "include Eigen or RcppEigen")
   })()
