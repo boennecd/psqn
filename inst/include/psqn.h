@@ -1568,14 +1568,19 @@ public:
       return serial_version();
 
 #ifdef _OPENMP
+    if(comp_grad)
+      // there is no guarantee that each thread runs
+      for(int t = 0; t < n_threads; t++){
+        double *r_mem{get_thread_mem(t)};
+        std::fill(r_mem, r_mem + global_dim + 1, 0);
+      }
+
 #pragma omp parallel num_threads(n_threads)
     {
     double * r_mem = get_thread_mem(),
            * v_mem =
                r_mem + global_dim + 1L /* leave 1 ele for func value */;
     lp::copy(v_mem, val, global_dim);
-    if(comp_grad)
-      std::fill(r_mem, r_mem + global_dim, 0.);
 
     double &thread_terms = *(r_mem + global_dim);
     thread_terms = 0;
@@ -1611,7 +1616,7 @@ public:
 
     // add to global parameters
     double out(0.);
-    for (int t = 0; t < n_threads; t++){
+    for(int t = 0; t < n_threads; t++){
       double const *r_mem = get_thread_mem(t);
       if(comp_grad)
         for(psqn_uint i = 0; i < global_dim; ++i)
@@ -1664,12 +1669,17 @@ public:
     }
 
 #ifdef _OPENMP
+    for(int t = 0; t < n_threads; t++){
+      // there is no guarantee that each thread runs
+      double * r_mem{get_thread_mem(t)};
+      std::fill(r_mem, r_mem + global_dim, 0.);
+    }
+
 #pragma omp parallel num_threads(n_threads)
     {
     double * r_mem = get_thread_mem(),
            * v_mem = r_mem + global_dim;
     lp::copy(v_mem, val, global_dim);
-    std::fill(r_mem, r_mem + global_dim, 0.);
 
 #pragma omp for schedule(static)
     for(psqn_uint i = 0; i < n_funcs; ++i){

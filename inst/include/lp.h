@@ -39,16 +39,16 @@ double vec_dot(double const *x, psqn_uint const n) noexcept {
   });
 }
 
-template<>
-inline double vec_dot<true>(double const *x, psqn_uint const n) noexcept {
-  double out(0.);
-#ifdef _OPENMP
-#pragma omp parallel for reduction(+:out)
-#endif
-  for(psqn_uint i = 0; i < n; ++i)
-    out += x[i] * x[i];
-  return out;
-}
+// template<>
+// inline double vec_dot<true>(double const *x, psqn_uint const n) noexcept {
+//   double out(0.);
+// #ifdef _OPENMP
+// #pragma omp parallel for reduction(+:out)
+// #endif
+//   for(psqn_uint i = 0; i < n; ++i)
+//     out += x[i] * x[i];
+//   return out;
+// }
 
 template<bool DoParallel>
 double vec_dot
@@ -57,18 +57,18 @@ double vec_dot
   return std::inner_product(x, x + n, y, 0.);
 }
 
-template<>
-inline double vec_dot<true>
-(double const * PSQN_RESTRICT x, double const * PSQN_RESTRICT y,
- psqn_uint const n) noexcept {
-  double out(0.);
-#ifdef _OPENMP
-#pragma omp parallel for reduction(+:out)
-#endif
-  for(psqn_uint i = 0; i < n; ++i)
-    out += x[i] * y[i];
-  return out;
-}
+// template<>
+// inline double vec_dot<true>
+// (double const * PSQN_RESTRICT x, double const * PSQN_RESTRICT y,
+//  psqn_uint const n) noexcept {
+//   double out(0.);
+// #ifdef _OPENMP
+// #pragma omp parallel for reduction(+:out)
+// #endif
+//   for(psqn_uint i = 0; i < n; ++i)
+//     out += x[i] * y[i];
+//   return out;
+// }
 
 /**
  computes b <- b + Xx where is is a n x n symmetric matrix containing only
