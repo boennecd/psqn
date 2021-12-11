@@ -13,9 +13,8 @@
 #endif
 
 #ifdef PSQN_W_LAPACK
-// TODO: need to deal with the possible char length arguments of Fortran calls.
-//       Would  be nice to avoid.
-#include <R_ext/Lapack.h>
+// TODO: need to deal with the possible underscore in Fotran definitions
+#include <R_ext/RS.h>
 #endif
 
 namespace lp {
@@ -292,6 +291,15 @@ void setup_precondition_chol(double const *A, double *out, int const n,
 void precondition_chol_solve(double const *A_chol, double *x, int const n);
 
 #ifdef PSQN_W_LAPACK
+extern "C" {
+  void F77_NAME(dpotrf)
+  (const char*, const int*, double*, const int*, int*, size_t);
+
+  void F77_NAME(dtpsv)
+    (const char*, const char*, const char*, const int*,
+    const double*, double*, const int*, size_t, size_t, size_t);
+}
+
 inline void setup_precondition_chol
   (double const *A, double *out, int const n, double *wrk){
   // find the smallest diagonal element
@@ -323,7 +331,7 @@ inline void setup_precondition_chol
         *w += Amin + epsilon;
     }
 
-    F77_CALL(dpotrf)("U", &n, wrk, &n, &info FCONE);
+    F77_CALL(dpotrf)("U", &n, wrk, &n, &info, 1);
     if(info == 0)
       break;
   }
@@ -348,8 +356,8 @@ inline void setup_precondition_chol
 inline void precondition_chol_solve
   (double const *A_chol, double *x, int const n){
   int const incx{1L};
-  F77_CALL(dtpsv)("U", "T", "N", &n, A_chol, x, &incx FCONE FCONE FCONE);
-  F77_CALL(dtpsv)("U", "N", "N", &n, A_chol, x, &incx FCONE FCONE FCONE);
+  F77_CALL(dtpsv)("U", "T", "N", &n, A_chol, x, &incx, 1, 1, 1);
+  F77_CALL(dtpsv)("U", "N", "N", &n, A_chol, x, &incx, 1, 1, 1);
 }
 #else // #ifdef PSQN_W_LAPACK
 

@@ -20,7 +20,7 @@ class problem {
 public:
   /** returns the number of parameters. */
   virtual psqn_uint size() const = 0;
-  /** returns evalutes the function at val. */
+  /** returns evaluates the function at val. */
   virtual double func(double const *val) = 0;
   /** evaluates the function and compute the gradient. */
   virtual double grad(double const * PSQN_RESTRICT val,
