@@ -1543,6 +1543,36 @@ image(abs(aprox_hes[, NCOL(aprox_hes):1]) > 0, xaxt = "n", yaxt = "n",
       col = gray.colors(2L, 1, 0))
 ```
 
+#### Getting the True Hessian
+
+We can also get the true Hessian as before using numerical differentiation.
+
+```{r generic_true_hess, cache = 1}
+# compute the hessian with the package
+system.time(hess <- true_hess_sparse(val = opt_psqn$par, ptr = ptr))
+
+# we can also compute it from R
+system.time(hess_R <- psqn_generic_hess(
+  val = opt_psqn$par, fn = r_func, n_ele_func = length(dat)))
+
+# compare with numerical differentiation from R. We only check the first 
+# elements
+n_comp <- 600L
+system.time(
+  hess_num_deriv <- jacobian(
+      function(x) {
+        par <- opt_psqn$par
+        par[1:n_comp] <- x
+        grad_generic_ex(val = par, ptr = ptr, n_threads = 2L)[1:n_comp]
+      }, 
+      head(opt_psqn$par, n_comp)))
+
+# we got the same
+all.equal(hess, hess_R)
+all.equal(Matrix::Matrix(hess_num_deriv, sparse = TRUE),
+          hess[1:n_comp, 1:n_comp])
+```
+
 #### Using Different Preconditioners
 We can use different preconditioner. We illustrate this below. Notice that 
 you have to define the `PSQN_USE_EIGEN` macro variable prior to including any of

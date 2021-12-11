@@ -173,6 +173,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// psqn_generic_hess
+Eigen::SparseMatrix<double> psqn_generic_hess(NumericVector val, SEXP fn, unsigned const n_ele_func, unsigned const n_threads, SEXP env, double const eps, double const scale, double const tol, unsigned const order);
+RcppExport SEXP _psqn_psqn_generic_hess(SEXP valSEXP, SEXP fnSEXP, SEXP n_ele_funcSEXP, SEXP n_threadsSEXP, SEXP envSEXP, SEXP epsSEXP, SEXP scaleSEXP, SEXP tolSEXP, SEXP orderSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type val(valSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type fn(fnSEXP);
+    Rcpp::traits::input_parameter< unsigned const >::type n_ele_func(n_ele_funcSEXP);
+    Rcpp::traits::input_parameter< unsigned const >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
+    Rcpp::traits::input_parameter< double const >::type eps(epsSEXP);
+    Rcpp::traits::input_parameter< double const >::type scale(scaleSEXP);
+    Rcpp::traits::input_parameter< double const >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< unsigned const >::type order(orderSEXP);
+    rcpp_result_gen = Rcpp::wrap(psqn_generic_hess(val, fn, n_ele_func, n_threads, env, eps, scale, tol, order));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP run_testthat_tests(SEXP);
 
@@ -183,6 +202,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_psqn_psqn_bfgs", (DL_FUNC) &_psqn_psqn_bfgs, 10},
     {"_psqn_psqn_generic", (DL_FUNC) &_psqn_psqn_generic, 17},
     {"_psqn_psqn_aug_Lagrang_generic", (DL_FUNC) &_psqn_psqn_aug_Lagrang_generic, 24},
+    {"_psqn_psqn_generic_hess", (DL_FUNC) &_psqn_psqn_generic_hess, 9},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };

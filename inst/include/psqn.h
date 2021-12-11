@@ -2067,10 +2067,10 @@ class optimizer_generic :
         x_new[i] = point[*idx_i];
 
       if(!comp_grad)
-        return call_obj.eval_func(func, static_cast<double const *>(x_new));
+        return call_obj.eval_func(func, const_cast<double const *>(x_new));
 
       double const out = call_obj.eval_grad(
-        func, static_cast<double const *>(x_new), gr);
+        func, const_cast<double const *>(x_new), gr);
 
       return out;
     }
@@ -2554,6 +2554,58 @@ public:
     fill_sparse_B_mat();
     return sparse_B_mat;
   }
+
+  /***
+   returns the true Hessian as a sparse matrix.
+
+   @param val where to evaluate the function at
+   @param eps determines the step size given by max(eps, |x| * eps)
+   @param scale scaling factor in the Richardson extrapolation
+   @param tol relative convergence criteria given by max(tol, |f| * tol)
+   @param order maximum number of iteration of the Richardson extrapolation
+   */
+  Eigen::SparseMatrix<double> true_hess_sparse
+    (double const *val, double const eps = 1e-4, double const scale = 2,
+     double const tol = 1e-8, unsigned const order = 6){
+    // setup
+    std::vector<double> val_cp(n_par);
+    std::copy(val, val + n_par, val_cp.begin());
+    std::vector<double> wk_mem;
+
+    // compute the Hessian
+    for(auto &f : funcs){
+      // compute the approximation of the worker's Hessian
+      double *h{f.B};
+      psqn_uint const n_args{f.n_args};
+      psqn_uint const * const indices{f.indices()};
+      for(psqn_uint i = 0; i < n_args; ++i, h += i){
+        auto deriv_functor = [&](double const x, double *gr){
+          psqn_uint const idx{indices[i]};
+          double const old_val{val_cp[idx]};
+          val_cp[idx] = x;
+
+          // unfortunately we have to call this every time
+          caller.setup(val_cp.data(), true);
+          f(val_cp.data(), true, caller);
+
+          std::copy(f.gr, f.gr + i + 1, gr);
+          val_cp[idx] = old_val;
+        };
+
+        using comp_obj = richardson_extrapolation<decltype(deriv_functor)>;
+        unsigned const n_wk_mem{comp_obj::n_wk_mem(n_args, order)};
+        wk_mem.resize(n_wk_mem);
+
+        comp_obj
+          (deriv_functor, order, wk_mem.data(), eps, scale, tol, i + 1)
+          (val_cp[indices[i]], h);
+      }
+    }
+
+    fill_sparse_B_mat();
+    return sparse_B_mat;
+  }
+
 #else
   void get_hess_sparse() {
     throw_no_eigen_error();

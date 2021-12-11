@@ -441,7 +441,7 @@ Eigen::SparseMatrix<double> true_hess_sparse
 
   // check that we pass a parameter value of the right length
   if(optim->n_par != static_cast<psqn_uint>(val.size()))
-    throw std::invalid_argument("eval_mlogit: invalid parameter size");
+    throw std::invalid_argument("true_hess_sparse: invalid parameter size");
 
   return optim->true_hess_sparse(&val[0], eps, scale, tol, order);
 }

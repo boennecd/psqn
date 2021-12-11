@@ -55,6 +55,13 @@ test_that("the R and C++ interface gives the same and correct result", {
   expect_known_value(R_res_mask[c("par", "value")],
                      "psqn_generic-glm-res-mask.RDS")
 
+  # check the Hessian
+  true_hess <- readRDS("psqn_generic-hess-res.RDS")
+  expect_equal(
+    as.matrix(psqn_generic_hess(
+      R_res_mask$par, fn = r_func, n_ele_func = length(dat))),
+    true_hess, check.attributes = FALSE)
+
   # check for an error message
   expect_error(
     R_res <- psqn_generic(
@@ -89,6 +96,15 @@ test_that("the R and C++ interface gives the same and correct result", {
   hess_ress <- get_Hess_approx_generic(ptr)
   expect_equal(as.matrix(hess_ress_sparse), hess_ress,
                check.attributes = FALSE)
+
+  # check the true Hessian
+  # truth <- numDeriv::jacobian(grad_generic_ex, ptr = ptr, n_threads = 1L,
+  #                             R_res_mask$par)
+  # saveRDS(truth, "psqn_generic-hess-res.RDS")
+  true_hess <- readRDS("psqn_generic-hess-res.RDS")
+  expect_equal(
+    as.matrix(true_hess_sparse(ptr, R_res_mask$par)),
+    true_hess, check.attributes = FALSE)
 
   # we get the same with more threads
   Cpp_res <- optim_generic_ex(

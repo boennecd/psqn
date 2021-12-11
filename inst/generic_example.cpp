@@ -185,6 +185,20 @@ Eigen::SparseMatrix<double> get_sparse_Hess_approx_generic(SEXP ptr){
 }
 
 // [[Rcpp::export]]
+Eigen::SparseMatrix<double> true_hess_sparse
+  (SEXP ptr, NumericVector val, double const eps = 0.001, double const scale = 2,
+   double const tol = 0.000000001, unsigned const order = 6){
+
+  XPtr<generic_opt> optim(ptr);
+
+  // check that we pass a parameter value of the right length
+  if(optim->n_par != static_cast<psqn_uint>(val.size()))
+    throw std::invalid_argument("true_hess_sparse: invalid parameter size");
+
+  return optim->true_hess_sparse(&val[0], eps, scale, tol, order);
+}
+
+// [[Rcpp::export]]
 void set_masked(SEXP ptr, Rcpp::IntegerVector indices){
   XPtr<generic_opt>(ptr)->set_masked(indices.begin(), indices.end());
 }

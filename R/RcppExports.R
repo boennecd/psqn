@@ -228,7 +228,7 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #'
 #' @inheritParams psqn
 #' @param fn Function to compute the element functions and their derivatives.
-#' See \code{\link{psqn}}.
+#' See \code{\link{psqn}} and \code{\link{psqn_generic}}.
 #' @param val Where to evaluate the function at.
 #' @param eps Determines the step size. See the details.
 #' @param scale Scaling factor in the Richardson extrapolation. See the
@@ -335,7 +335,7 @@ psqn <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L, n_thre
 #' }
 #'
 #' @export
-psqn_hess <- function(val, fn, n_ele_func, n_threads = 1L, env = NULL, eps = 0.001, scale = 2L, tol = 0.000000001, order = 6L) {
+psqn_hess <- function(val, fn, n_ele_func, n_threads = 1L, env = NULL, eps = 0.001, scale = 2., tol = 0.000000001, order = 6L) {
     .Call(`_psqn_psqn_hess`, val, fn, n_ele_func, n_threads, env, eps, scale, tol, order)
 }
 
@@ -658,5 +658,11 @@ psqn_generic <- function(par, fn, n_ele_func, rel_eps = .00000001, max_it = 100L
 #' @export
 psqn_aug_Lagrang_generic <- function(par, fn, n_ele_func, consts, n_constraints, multipliers = as.numeric( c()), penalty_start = 1L, rel_eps = .00000001, max_it = 100L, max_it_outer = 100L, violations_norm_thresh = 0.000001, n_threads = 1L, c1 = .0001, c2 = .9, tau = 1.5, use_bfgs = TRUE, trace = 0L, cg_tol = .5, strong_wolfe = TRUE, env = NULL, max_cg = 0L, pre_method = 1L, mask = as.integer( c()), gr_tol = -1.) {
     .Call(`_psqn_psqn_aug_Lagrang_generic`, par, fn, n_ele_func, consts, n_constraints, multipliers, penalty_start, rel_eps, max_it, max_it_outer, violations_norm_thresh, n_threads, c1, c2, tau, use_bfgs, trace, cg_tol, strong_wolfe, env, max_cg, pre_method, mask, gr_tol)
+}
+
+#' @rdname psqn_hess
+#' @export
+psqn_generic_hess <- function(val, fn, n_ele_func, n_threads = 1L, env = NULL, eps = 0.001, scale = 2., tol = 0.000000001, order = 6L) {
+    .Call(`_psqn_psqn_generic_hess`, val, fn, n_ele_func, n_threads, env, eps, scale, tol, order)
 }
 

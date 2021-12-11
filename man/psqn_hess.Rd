@@ -2,6 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{psqn_hess}
 \alias{psqn_hess}
+\alias{psqn_generic_hess}
 \title{Computes the Hessian.}
 \usage{
 psqn_hess(
@@ -11,7 +12,19 @@ psqn_hess(
   n_threads = 1L,
   env = NULL,
   eps = 0.001,
-  scale = 2L,
+  scale = 2,
+  tol = 1e-09,
+  order = 6L
+)
+
+psqn_generic_hess(
+  val,
+  fn,
+  n_ele_func,
+  n_threads = 1L,
+  env = NULL,
+  eps = 0.001,
+  scale = 2,
   tol = 1e-09,
   order = 6L
 )
@@ -20,7 +33,7 @@ psqn_hess(
 \item{val}{Where to evaluate the function at.}
 
 \item{fn}{Function to compute the element functions and their derivatives.
-See \code{\link{psqn}}.}
+See \code{\link{psqn}} and \code{\link{psqn_generic}}.}
 
 \item{n_ele_func}{Number of element functions.}
 

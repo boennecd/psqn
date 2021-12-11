@@ -434,7 +434,7 @@ List psqn
 //'
 //' @inheritParams psqn
 //' @param fn Function to compute the element functions and their derivatives.
-//' See \code{\link{psqn}}.
+//' See \code{\link{psqn}} and \code{\link{psqn_generic}}.
 //' @param val Where to evaluate the function at.
 //' @param eps Determines the step size. See the details.
 //' @param scale Scaling factor in the Richardson extrapolation. See the
@@ -545,7 +545,7 @@ List psqn
 Eigen::SparseMatrix<double> psqn_hess
   (NumericVector val, SEXP fn, unsigned const n_ele_func,
    unsigned const n_threads = 1L, SEXP env = R_NilValue,
-   double const eps = 0.001, double const scale = 2,
+   double const eps = 0.001, double const scale = 2.,
    double const tol = 0.000000001, unsigned const order = 6){
   if(n_ele_func < 1L)
     throw std::invalid_argument("n_ele_func < 1L");
@@ -1376,4 +1376,39 @@ List psqn_aug_Lagrang_generic
   res.value = optim.eval(&par_arg[0], nullptr, false);
 
   return wrap_optim_info(par_arg, multipliers_arg, res);
+}
+
+//' @rdname psqn_hess
+//' @export
+// [[Rcpp::export]]
+Eigen::SparseMatrix<double> psqn_generic_hess
+  (NumericVector val, SEXP fn, unsigned const n_ele_func,
+   unsigned const n_threads = 1L, SEXP env = R_NilValue,
+   double const eps = 0.001, double const scale = 2.,
+   double const tol = 0.000000001, unsigned const order = 6){
+  if(n_ele_func < 1L)
+    throw std::invalid_argument("psqn_generic_hess: n_ele_func < 1L");
+
+  if(Rf_isNull(env))
+    env = Environment::global_env();
+  if(!Rf_isEnvironment(env))
+    throw std::invalid_argument("psqn_generic_hess: env is not an environment");
+  if(!Rf_isFunction(fn))
+    throw std::invalid_argument("psqn_generic_hess: fn is not a function");
+
+  std::vector<r_worker_optimizer_generic> funcs;
+  funcs.reserve(n_ele_func);
+  for(psqn_uint i = 0; i < n_ele_func; ++i)
+    funcs.emplace_back(fn, i, env);
+
+  using opt_obj =
+    PSQN::optimizer_generic<r_worker_optimizer_generic, PSQN::R_reporter,
+                            PSQN::R_interrupter>;
+  opt_obj optim(funcs, n_threads);
+
+  // check that we pass a parameter value of the right length
+  if(optim.n_par != static_cast<psqn_uint>(val.size()))
+    throw std::invalid_argument("invalid parameter size");
+
+  return optim.true_hess_sparse(&val[0], eps, scale, tol, order);
 }
