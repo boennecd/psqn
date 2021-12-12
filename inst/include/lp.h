@@ -6,7 +6,7 @@
 #include <numeric>
 #include <cmath>
 #include <stdexcept>
-#include <limits.h>
+#include <limits>
 
 #ifdef _OPENMP
 #include <omp.h>

@@ -1,6 +1,6 @@
 #include <cmath>
 #include <algorithm>
-#include <exception>
+#include <stdexcept>
 #include <vector>
 #include <numeric>
 

@@ -5,7 +5,10 @@ Changes in version 0.3.0
  * computation of the hessian is now supported using numerical differentiation
    with Richardson extrapolation to refine the estimate.
  * the gradient norm can be used as a convergence criterion.
- * a diagonal preconditioning methods has been added to the psqn method.
+ * a diagonal preconditioning method has been added to the psqn method. This
+   requires that one defines PSQN_W_LAPACK prior to including the header files
+   from the package and links with LAPACK and BLAS.
+ * the license has been changed to the Apache license.
 
 Changes in version 0.2.1
  * tests that compile files using Rcpp::sourceCpp() now do so in a temporary

@@ -14,3 +14,5 @@
 ^inst/include/prof\.h
 ^CRAN-RELEASE$
 ^\.github$
+^LICENSE\.md$
+^tests/testthat/_snaps
