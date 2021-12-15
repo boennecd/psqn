@@ -133,6 +133,7 @@ optim_info bfgs(
       double const f0, double * PSQN_RESTRICT x0, double * PSQN_RESTRICT gr0,
       double * PSQN_RESTRICT dir, double &fnew) -> bool {
     double * const x_mem = wrk;
+    double const forg{fnew};
 
     // declare 1D functions
     auto psi = [&](double const alpha) -> double {
@@ -229,7 +230,10 @@ optim_info bfgs(
       if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
         intrapolate inter(f0, dpsi_zero, ai, fi);
         bool const out = zoom(a_prev, ai, inter);
-        lp::copy(x0, x_mem, n_ele);
+        if(out || (std::isfinite(fnew) && fnew < forg))
+          lp::copy(x0, x_mem, n_ele);
+        else
+          fnew = forg; // we did not change x0
         return out;
       }
 
@@ -259,8 +263,10 @@ optim_info bfgs(
           return intrapolate(f0, dpsi_zero, ai, fi);
         })();
         bool const out = zoom(ai, a_prev, inter);
-        if(out)
+        if(out || (std::isfinite(fnew) && fnew < forg))
           lp::copy(x0, x_mem, n_ele);
+        else
+          fnew = forg; // we did not change x0
         return out;
       }
 
@@ -304,6 +310,7 @@ optim_info bfgs(
     }
 
     bool const has_converged =
+      n_line_search_fail < 1 &&
       abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps) &&
       // TODO: implement something like BLAS nrm2 function
       (gr_tol <= 0 || lp::vec_dot<false>(gr, n_ele) < gr_tol * gr_tol);

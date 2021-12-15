@@ -633,6 +633,7 @@ public:
       double * PSQN_RESTRICT dir, double &fnew, double const c1,
       double const c2, bool const strong_wolfe, int const trace){
     double * const x_mem = temp_mem();
+    double const forg{fnew};
 
     // declare 1D functions
     auto psi = [&](double const alpha) -> double {
@@ -736,7 +737,10 @@ public:
       if(fi > f0 + c1 * ai * dpsi_zero or (found_ok_prev and fi > fold)){
         intrapolate inter(f0, dpsi_zero, ai, fi);
         bool const out = zoom(a_prev, ai, inter);
-        lp::copy(x0, x_mem, n_par());
+        if(out || (std::isfinite(fnew) && fnew < forg))
+          lp::copy(x0, x_mem, n_par());
+        else
+          fnew = forg; // we do not change anything
         return out;
       }
 
@@ -768,7 +772,10 @@ public:
           return intrapolate(f0, dpsi_zero, ai, fi);
         })();
         bool const out = zoom(ai, a_prev, inter);
-        lp::copy(x0, x_mem, n_par());
+        if(out || (std::isfinite(fnew) && fnew < forg))
+          lp::copy(x0, x_mem, n_par());
+        else
+          fnew = forg; // we do not change anything
         return out;
       }
 
@@ -865,7 +872,7 @@ public:
            const_cast<double const *>(val), opt_obj().n_print());
         if(++n_line_search_fail > 2)
           break;
-      } else{
+      } else {
         n_line_search_fail = 0;
         OptT::Reporter::line_search
           (trace, i, n_eval, n_grad, fval_old, fval,
@@ -875,6 +882,7 @@ public:
       }
 
       bool const has_converged =
+        n_line_search_fail < 1 &&
         abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps)  &&
         // TODO: implement something like BLAS nrm2 function
         (gr_tol <= 0 || lp::vec_dot<true>(gr.get(), n_par()) < gr_tol * gr_tol);
