@@ -259,7 +259,8 @@ optim_info bfgs(
           return intrapolate(f0, dpsi_zero, ai, fi);
         })();
         bool const out = zoom(ai, a_prev, inter);
-        lp::copy(x0, x_mem, n_ele);
+        if(out)
+          lp::copy(x0, x_mem, n_ele);
         return out;
       }
 
