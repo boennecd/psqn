@@ -302,6 +302,9 @@ extern "C" {
 
 inline void setup_precondition_chol
   (double const *A, double *out, int const n, double *wrk){
+  if(n < 1)
+    return;
+
   // find the smallest diagonal element
   double Amin{std::numeric_limits<double>::max()};
   {
@@ -355,6 +358,9 @@ inline void setup_precondition_chol
 
 inline void precondition_chol_solve
   (double const *A_chol, double *x, int const n){
+  if(n < 1)
+    return;
+
   int const incx{1L};
   F77_CALL(dtpsv)("U", "T", "N", &n, A_chol, x, &incx, 1, 1, 1);
   F77_CALL(dtpsv)("U", "N", "N", &n, A_chol, x, &incx, 1, 1, 1);

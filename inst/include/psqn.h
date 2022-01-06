@@ -121,65 +121,83 @@ public:
       }
 
     if(!all_unchanged){
-      lp::vec_diff(gr, gr_old, y, n_ele);
+      bool all_unchanged_gr{true};
+      for(psqn_uint i = 0; i < n_ele && all_unchanged_gr; ++i)
+        all_unchanged_gr &= gr[i] == gr_old[i];
 
-      if(use_bfgs){
-        double const s_y = lp::vec_dot<false>(y, s, n_ele);
+      if(all_unchanged_gr){
+        // the point changed but the gradient did not. The updating formulas
+        // makes no sense
         if(first_call){
+          // we set the Hessian to a full rank matrix with high precision
           first_call = false;
-          // make update on page 143
-          double const scal = lp::vec_dot<false>(y, n_ele) / s_y;
-          double *b = B;
+          double const val
+            {std::pow(std::numeric_limits<double>::epsilon(), .5)};
+          double *b{B};
           for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
-            *b = scal;
+            *b = val;
         }
-
-        // perform BFGS update
-        std::fill(wrk, wrk + n_ele, 0.);
-        lp::mat_vec_dot(B, s, wrk, n_ele);
-        double const s_B_s = lp::vec_dot<false>(s, wrk, n_ele);
-
-        lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
-
-        if(s_y < .2 * s_B_s){
-          // damped BFGS
-          double const theta = .8 * s_B_s / (s_B_s - s_y);
-          double *yi = y,
-            *wi = wrk;
-          for(psqn_uint i = 0; i < n_ele; ++i, ++yi, ++wi)
-            *yi = theta * *yi + (1 - theta) * *wi;
-          double const s_r = lp::vec_dot<false>(y, s, n_ele);
-          lp::rank_one_update(B, y, 1. / s_r, n_ele);
-
-        } else
-          // regular BFGS
-          lp::rank_one_update(B, y, 1. / s_y, n_ele);
-
       } else {
-        if(first_call){
-          first_call = false;
-          // make update on page 143
-          double const scal =
-            lp::vec_dot<false>(y, n_ele) / lp::vec_dot<false>(y, s, n_ele);
-          double *b = B;
-          for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
-            *b = scal;
-        }
+        lp::vec_diff(gr, gr_old, y, n_ele);
 
-        /// maybe perform SR1
-        std::fill(wrk, wrk + n_ele, 0.);
-        lp::mat_vec_dot(B, s, wrk, n_ele);
-        for(psqn_uint i = 0; i < n_ele; ++i){
-          wrk[i] *= -1;
-          wrk[i] += y[i];
-        }
-        double const s_w = lp::vec_dot<false>(s, wrk, n_ele),
-                  s_norm = sqrt(abs(lp::vec_dot<false>(s, n_ele))),
-                wrk_norm = sqrt(abs(lp::vec_dot<false>(wrk, n_ele)));
-        constexpr double r = 1e-8;
-        if(abs(s_w) > r * s_norm * wrk_norm)
-          lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
+        if(use_bfgs){
+          double const s_y = lp::vec_dot<false>(y, s, n_ele);
+          if(first_call){
+            first_call = false;
+            // make update on page 143
+            double const scal = lp::vec_dot<false>(y, n_ele) / s_y;
+            double *b = B;
+            for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
+              *b = scal;
+          }
 
+          // perform BFGS update
+          std::fill(wrk, wrk + n_ele, 0.);
+          lp::mat_vec_dot(B, s, wrk, n_ele);
+          double const s_B_s = lp::vec_dot<false>(s, wrk, n_ele);
+
+          lp::rank_one_update(B, wrk, -1. / s_B_s, n_ele);
+
+          if(s_y < .2 * s_B_s){
+            // damped BFGS
+            double const theta = .8 * s_B_s / (s_B_s - s_y);
+            double *yi = y,
+              *wi = wrk;
+            for(psqn_uint i = 0; i < n_ele; ++i, ++yi, ++wi)
+              *yi = theta * *yi + (1 - theta) * *wi;
+            double const s_r = lp::vec_dot<false>(y, s, n_ele);
+            lp::rank_one_update(B, y, 1. / s_r, n_ele);
+
+          } else
+            // regular BFGS
+            lp::rank_one_update(B, y, 1. / s_y, n_ele);
+
+        } else {
+          if(first_call){
+            first_call = false;
+            // make update on page 143
+            double const scal =
+              lp::vec_dot<false>(y, n_ele) / lp::vec_dot<false>(y, s, n_ele);
+            double *b = B;
+            for(psqn_uint i = 0; i < n_ele; ++i, b += i + 1)
+              *b = scal;
+          }
+
+          /// maybe perform SR1
+          std::fill(wrk, wrk + n_ele, 0.);
+          lp::mat_vec_dot(B, s, wrk, n_ele);
+          for(psqn_uint i = 0; i < n_ele; ++i){
+            wrk[i] *= -1;
+            wrk[i] += y[i];
+          }
+          double const s_w = lp::vec_dot<false>(s, wrk, n_ele),
+                    s_norm = sqrt(abs(lp::vec_dot<false>(s, n_ele))),
+                  wrk_norm = sqrt(abs(lp::vec_dot<false>(wrk, n_ele)));
+          constexpr double r = 1e-8;
+          if(abs(s_w) > r * s_norm * wrk_norm)
+            lp::rank_one_update(B, wrk, 1. / s_w, n_ele);
+
+        }
       }
     } else
       // essentially no change in the input. Reset the Hessian
@@ -1168,6 +1186,9 @@ class optimizer :
       psqn_uint const d_global {func.global_dim()},
                       d_private{func.private_dim()};
 
+      if(d_private < 1)
+        return;
+
       // we have to copy the current Hessian approximation
       double * const A{wrk};
       wrk += d_private * d_private;
@@ -1191,6 +1212,9 @@ class optimizer :
      */
     void apply_precond(double * const res, double const * const rhs){
       psqn_uint const d_private{func.private_dim()};
+      if(d_private < 1)
+        return;
+
       lp::copy(res + par_start, rhs + par_start, d_private);
       lp::precondition_chol_solve
         (precond_factorization, res + par_start, d_private);
@@ -1803,6 +1827,9 @@ public:
 #endif
     for(psqn_uint i = 0; i < funcs.size(); ++i){
       auto &f = funcs[i];
+      if(f.func.private_dim() < 1)
+        continue;
+
       sub_problem prob(f, val, caller);
       double * const p_val = val + f.par_start;
 
