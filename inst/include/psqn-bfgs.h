@@ -3,10 +3,9 @@
 #include "constant.h"
 #include <cstddef>
 #include "psqn-misc.h"
-#include "memory.h"
 #include "lp.h"
 #include "intrapolate.h"
-#include <memory>
+#include <vector>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -14,6 +13,15 @@
 namespace PSQN {
 using std::abs;
 using std::sqrt;
+
+namespace bfgs_defaults {
+constexpr double rel_tol{.00000001},
+                 c1{.0001},
+                 c2{.9},
+                 gr_tol{-1};
+constexpr psqn_uint max_it{100};
+constexpr int trace{0};
+}
 
 /** base problem class to pass to optimization method. */
 class problem {
@@ -29,9 +37,23 @@ public:
 };
 
 /**
+ returns the required working memory for bfgs.
+ @param n_ele the number of parameters.
+ */
+constexpr psqn_uint bfgs_n_wmem(psqn_uint const n_ele){
+  return 7 * n_ele + (n_ele * (n_ele + 1)) / 2;
+}
+
+/// overload that takes a problem
+inline psqn_uint bfgs_n_wmem(problem const &prob){
+  return bfgs_n_wmem(prob.size());
+}
+
+/**
  minimizes a function.
  @param prob problem with function to be minimized.
  @param val starting value. Result on return.
+ @param mem working memory.
  @param rel_eps relative convergence threshold.
  @param max_it maximum number of iterations.
  @param c1,c2 thresholds for Wolfe condition.
@@ -43,16 +65,17 @@ public:
 template<class Reporter = dummy_reporter,
          class interrupter = dummy_interrupter>
 optim_info bfgs(
-    problem &prob, double *val, double const rel_eps = .00000001,
-    psqn_uint const max_it = 100, double const c1 = .0001,
-    double const c2 = .9, int const trace = 0L, double const gr_tol = -1){
+    problem &prob, double *val, double * const mem,
+    double const rel_eps = bfgs_defaults::rel_tol,
+    psqn_uint const max_it = bfgs_defaults::max_it,
+    double const c1 = bfgs_defaults::c1, double const c2 = bfgs_defaults::c2,
+    int const trace = bfgs_defaults::trace,
+    double const gr_tol = bfgs_defaults::gr_tol){
   // allocate the memory we need
   /* non-const due to
    *    https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg531670.html */
   psqn_uint n_ele = prob.size();
-  std::unique_ptr<double[]>
-    mem(new double[7 * n_ele + (n_ele * (n_ele + 1)) / 2]);
-  double * PSQN_RESTRICT const v_old  = mem.get(),
+  double * PSQN_RESTRICT const v_old  = mem,
          * PSQN_RESTRICT const gr     = v_old  + n_ele,
          * PSQN_RESTRICT const gr_old = gr     + n_ele,
          * PSQN_RESTRICT const s      = gr_old + n_ele,
@@ -329,6 +352,20 @@ optim_info bfgs(
   }
 
   return { fval, info, n_eval, n_grad, 0 };
+}
+
+/// overload that allocates working memory
+template<class Reporter = dummy_reporter,
+         class interrupter = dummy_interrupter>
+optim_info bfgs(
+    problem &prob, double *val, double const rel_eps = bfgs_defaults::rel_tol,
+    psqn_uint const max_it = bfgs_defaults::max_it,
+    double const c1 = bfgs_defaults::c1, double const c2 = bfgs_defaults::c2,
+    int const trace = bfgs_defaults::trace,
+    double const gr_tol = bfgs_defaults::gr_tol){
+  std::vector<double> mem(bfgs_n_wmem(prob));
+  return bfgs<Reporter, interrupter>
+    (prob, val, mem.data(), rel_eps, max_it, c1, c2, trace, gr_tol);
 }
 } // namespace PSQN
 
