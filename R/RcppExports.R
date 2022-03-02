@@ -391,8 +391,10 @@ psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipl
 #' attribute called \code{"value"}.
 #' @param env Environment to evaluate \code{fn} and \code{gr} in.
 #' \code{NULL} yields the global environment.
-#' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+#' @param gr_tol Convergence tolerance for the Euclidean norm of the gradient. A negative
 #' value yields no check.
+#' @param abs_eps Absolute convergence threshold. A negative values yields no
+#' check.
 #'
 #' @export
 #'
@@ -436,8 +438,11 @@ psqn_aug_Lagrang <- function(par, fn, n_ele_func, consts, n_constraints, multipl
 #'
 #' new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4, gr_tol = 1e-8)
 #' sqrt(sum(gr_psqn(new_res$par)^2))
-psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .0001, c2 = .9, trace = 0L, env = NULL, gr_tol = -1.) {
-    .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env, gr_tol)
+#'
+#' new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1, abs_eps = 1e-2)
+#' new_res$value - org$value # ~ there (but this is not guaranteed)
+psqn_bfgs <- function(par, fn, gr, rel_eps = .00000001, max_it = 100L, c1 = .0001, c2 = .9, trace = 0L, env = NULL, gr_tol = -1., abs_eps = -1.) {
+    .Call(`_psqn_psqn_bfgs`, par, fn, gr, rel_eps, max_it, c1, c2, trace, env, gr_tol, abs_eps)
 }
 
 #' Generic Partially Separable Function Optimization

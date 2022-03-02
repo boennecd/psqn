@@ -18,7 +18,8 @@ namespace bfgs_defaults {
 constexpr double rel_tol{.00000001},
                  c1{.0001},
                  c2{.9},
-                 gr_tol{-1};
+                 gr_tol{-1},
+                 abs_tol{-1};
 constexpr psqn_uint max_it{100};
 constexpr int trace{0};
 }
@@ -61,6 +62,8 @@ inline psqn_uint bfgs_n_wmem(problem const &prob){
  @param trace controls the amount of tracing information.
  @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
  value yields no check.
+ @param abs_tol absolute convergence threshold. A negative value yields not
+ check.
  */
 template<class Reporter = dummy_reporter,
          class interrupter = dummy_interrupter>
@@ -70,7 +73,8 @@ optim_info bfgs(
     psqn_uint const max_it = bfgs_defaults::max_it,
     double const c1 = bfgs_defaults::c1, double const c2 = bfgs_defaults::c2,
     int const trace = bfgs_defaults::trace,
-    double const gr_tol = bfgs_defaults::gr_tol){
+    double const gr_tol = bfgs_defaults::gr_tol,
+    double const abs_tol = bfgs_defaults::abs_tol){
   // allocate the memory we need
   /* non-const due to
    *    https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg531670.html */
@@ -332,11 +336,14 @@ optim_info bfgs(
          std::min(n_print, n_ele));
     }
 
-    bool const has_converged =
-      n_line_search_fail < 1 &&
-      abs(fval - fval_old) < rel_eps * (abs(fval_old) + rel_eps) &&
-      // TODO: implement something like BLAS nrm2 function
-      (gr_tol <= 0 || lp::vec_dot<false>(gr, n_ele) < gr_tol * gr_tol);
+    double const err{abs(fval - fval_old)};
+    bool const passed_rel_tol{err < rel_eps * (abs(fval_old) + rel_eps)},
+               passed_abs_tol{abs_tol < 0 || err < abs_tol},
+               passed_gr_tol
+      {gr_tol < 0 || lp::vec_dot<false>(gr, n_ele) < gr_tol * gr_tol};
+    bool const has_converged
+      {n_line_search_fail < 1 &&
+        passed_rel_tol && passed_abs_tol && passed_gr_tol};
     if(has_converged){
       info = info_code::converged;
       break;
@@ -362,10 +369,11 @@ optim_info bfgs(
     psqn_uint const max_it = bfgs_defaults::max_it,
     double const c1 = bfgs_defaults::c1, double const c2 = bfgs_defaults::c2,
     int const trace = bfgs_defaults::trace,
-    double const gr_tol = bfgs_defaults::gr_tol){
+    double const gr_tol = bfgs_defaults::gr_tol,
+    double const abs_tol = bfgs_defaults::abs_tol){
   std::vector<double> mem(bfgs_n_wmem(prob));
   return bfgs<Reporter, interrupter>
-    (prob, val, mem.data(), rel_eps, max_it, c1, c2, trace, gr_tol);
+    (prob, val, mem.data(), rel_eps, max_it, c1, c2, trace, gr_tol, abs_tol);
 }
 } // namespace PSQN
 

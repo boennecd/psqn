@@ -859,8 +859,10 @@ public:
 //' attribute called \code{"value"}.
 //' @param env Environment to evaluate \code{fn} and \code{gr} in.
 //' \code{NULL} yields the global environment.
-//' @param gr_tol convergence tolerance for the Euclidean norm of the gradient. A negative
+//' @param gr_tol Convergence tolerance for the Euclidean norm of the gradient. A negative
 //' value yields no check.
+//' @param abs_eps Absolute convergence threshold. A negative values yields no
+//' check.
 //'
 //' @export
 //'
@@ -904,12 +906,16 @@ public:
 //'
 //' new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1e-4, gr_tol = 1e-8)
 //' sqrt(sum(gr_psqn(new_res$par)^2))
+//'
+//' new_res <- psqn_bfgs(c(-1.2, 1), fn, gr_psqn, rel_eps = 1, abs_eps = 1e-2)
+//' new_res$value - org$value # ~ there (but this is not guaranteed)
 // [[Rcpp::export]]
 List psqn_bfgs
   (NumericVector par, SEXP fn, SEXP gr,
    double const rel_eps = .00000001, unsigned int const max_it = 100,
    double const c1 = .0001, double const c2 = .9, int const trace = 0L,
-   SEXP env = R_NilValue, double const gr_tol = -1.){
+   SEXP env = R_NilValue, double const gr_tol = -1.,
+   double const abs_eps = -1.){
   if(Rf_isNull(env))
     env = Environment::global_env();
   if(!Rf_isEnvironment(env))
@@ -923,7 +929,8 @@ List psqn_bfgs
 
   NumericVector par_res = clone(par);
   auto const out = PSQN::bfgs<PSQN::R_reporter, PSQN::R_interrupter>
-    (problem, &par_res[0], rel_eps, max_it, c1, c2, trace, gr_tol);
+    (problem, &par_res[0], rel_eps, max_it, c1, c2, trace, gr_tol,
+     abs_eps);
 
   return wrap_optim_info(par_res, out);
 }

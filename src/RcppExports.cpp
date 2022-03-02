@@ -93,8 +93,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // psqn_bfgs
-List psqn_bfgs(NumericVector par, SEXP fn, SEXP gr, double const rel_eps, unsigned int const max_it, double const c1, double const c2, int const trace, SEXP env, double const gr_tol);
-RcppExport SEXP _psqn_psqn_bfgs(SEXP parSEXP, SEXP fnSEXP, SEXP grSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP traceSEXP, SEXP envSEXP, SEXP gr_tolSEXP) {
+List psqn_bfgs(NumericVector par, SEXP fn, SEXP gr, double const rel_eps, unsigned int const max_it, double const c1, double const c2, int const trace, SEXP env, double const gr_tol, double const abs_eps);
+RcppExport SEXP _psqn_psqn_bfgs(SEXP parSEXP, SEXP fnSEXP, SEXP grSEXP, SEXP rel_epsSEXP, SEXP max_itSEXP, SEXP c1SEXP, SEXP c2SEXP, SEXP traceSEXP, SEXP envSEXP, SEXP gr_tolSEXP, SEXP abs_epsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -108,7 +108,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int const >::type trace(traceSEXP);
     Rcpp::traits::input_parameter< SEXP >::type env(envSEXP);
     Rcpp::traits::input_parameter< double const >::type gr_tol(gr_tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(psqn_bfgs(par, fn, gr, rel_eps, max_it, c1, c2, trace, env, gr_tol));
+    Rcpp::traits::input_parameter< double const >::type abs_eps(abs_epsSEXP);
+    rcpp_result_gen = Rcpp::wrap(psqn_bfgs(par, fn, gr, rel_eps, max_it, c1, c2, trace, env, gr_tol, abs_eps));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -199,7 +200,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_psqn_psqn", (DL_FUNC) &_psqn_psqn, 17},
     {"_psqn_psqn_hess", (DL_FUNC) &_psqn_psqn_hess, 9},
     {"_psqn_psqn_aug_Lagrang", (DL_FUNC) &_psqn_psqn_aug_Lagrang, 24},
-    {"_psqn_psqn_bfgs", (DL_FUNC) &_psqn_psqn_bfgs, 10},
+    {"_psqn_psqn_bfgs", (DL_FUNC) &_psqn_psqn_bfgs, 11},
     {"_psqn_psqn_generic", (DL_FUNC) &_psqn_psqn_generic, 17},
     {"_psqn_psqn_aug_Lagrang_generic", (DL_FUNC) &_psqn_psqn_aug_Lagrang_generic, 24},
     {"_psqn_psqn_generic_hess", (DL_FUNC) &_psqn_psqn_generic_hess, 9},
