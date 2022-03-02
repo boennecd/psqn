@@ -1,3 +1,8 @@
+Changes in version 0.3.1
+ * the BFGS implementation supports an aboslute convergence treshold.
+ * the user can provide pre-allocated memory to the C++ API for the BFGS
+   implementation.
+
 Changes in version 0.3.0
  * it is possible to mask (fix) some of the parameters. Non-linear equality
    constraints are also supported with an augmented Lagrangian method.
