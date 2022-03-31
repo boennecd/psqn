@@ -97,7 +97,7 @@ test_that("the R and C++ interface gives the same and correct result", {
   expect_equal(as.matrix(hess_ress_sparse), hess_ress,
                check.attributes = FALSE)
 
-  # check the true Hessian
+  # # check the true Hessian
   # truth <- numDeriv::jacobian(grad_generic_ex, ptr = ptr, n_threads = 1L,
   #                             R_res_mask$par)
   # saveRDS(truth, "psqn_generic-hess-res.RDS")
@@ -120,7 +120,7 @@ test_that("the R and C++ interface gives the same and correct result", {
   clear_masked(ptr)
 
   # the gradient tolerance works
-  gr_tol <- 1e-6
+  gr_tol <- 1e-5
   Cpp_res <- optim_generic_ex(
     val = numeric(K), ptr = ptr, rel_eps = 1, max_it = 1000L,
     n_threads = 2L, c1 = 1e-4, c2 = .1, trace = 0L, cg_tol = .5,

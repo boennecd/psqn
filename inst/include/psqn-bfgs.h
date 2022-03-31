@@ -189,7 +189,7 @@ optim_info bfgs(
     auto zoom =
       [&](double a_low, double a_high, intrapolate &inter) -> bool {
         double f_low = psi(a_low);
-        for(psqn_uint i = 0; i < 25L; ++i){
+        for(psqn_uint i = 0; i < 12L; ++i){
           double const ai = inter.get_value(a_low, a_high),
                        fi = psi(ai);
           if(!std::isfinite(fi)){
@@ -227,13 +227,14 @@ optim_info bfgs(
         return false;
       };
 
+    constexpr double mult_start{4};
     double fold(f0),
          a_prev(0),
-             ai(.5);
+             ai(1/mult_start);
     bool found_ok_prev = false,
            failed_once = false;
-    double mult = 2;
-    for(psqn_uint i = 0; i < 25L; ++i){
+    double mult = mult_start;
+    for(psqn_uint i = 0; i < 12L; ++i){
       ai *= mult;
       double fi = psi(ai);
       Reporter::line_search_inner(trace, a_prev, ai, fi, false,

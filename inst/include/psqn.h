@@ -664,7 +664,7 @@ public:
       // not a descent direction
       return false;
 
-    constexpr psqn_uint max_it = 20L;
+    constexpr psqn_uint max_it = 12L;
     static double const NaNv = std::numeric_limits<double>::quiet_NaN();
     auto zoom =
       [&](double a_low, double a_high, intrapolate &inter) -> bool {
@@ -708,12 +708,13 @@ public:
         return false;
       };
 
+    constexpr double mult_start{4};
     double fold(f0),
          a_prev(0),
-             ai(.5);
+             ai(1/mult_start);
     bool found_ok_prev = false,
          failed_once   = false;
-    double mult = 2;
+    double mult = mult_start;
     for(psqn_uint i = 0; i < max_it; ++i){
       ai *= mult;
       double fi = psi(ai);
