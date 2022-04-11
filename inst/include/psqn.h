@@ -532,9 +532,6 @@ public:
     auto diag_solve = [&](double       * PSQN_RESTRICT vy,
                           double const * PSQN_RESTRICT vx) -> void {
       double * di = B_diag;
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
       for(psqn_uint i = 0; i < n_par(); ++i)
         vy[i] = vx[i] * di[i];
     };
@@ -581,9 +578,6 @@ public:
       }
       double const alpha = old_r_v_dot / p_B_p;
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
       for(psqn_uint j = 0; j < n_par(); ++j){
         y[j] += alpha *   p[j];
         r[j] += alpha * B_p[j];
@@ -602,9 +596,6 @@ public:
 
       double const beta = r_v_dot / old_r_v_dot;
       old_r_v_dot = r_v_dot;
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
       for(psqn_uint j = 0; j < n_par(); ++j){
         p[j] *= beta;
         p[j] -= do_pre ? v[j] : r[j];
@@ -637,9 +628,6 @@ public:
 
     // declare 1D functions
     auto psi = [&](double const alpha) -> double {
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
       for(psqn_uint i = 0; i < n_par(); ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
@@ -648,9 +636,6 @@ public:
 
     // returns the function value and the gradient
     auto dpsi = [&](double const alpha) -> double {
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
       for(psqn_uint i = 0; i < n_par(); ++i)
         x_mem[i] = x0[i] + alpha * dir[i];
 
