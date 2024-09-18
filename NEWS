@@ -1,3 +1,7 @@
+Changes in version 0.3.2
+ * Do not use sourceCpp in tests where the files include
+   [[Rcpp::plugins(openmp)]] on CRAN.
+
 Changes in version 0.3.1
  * the BFGS implementation supports an aboslute convergence treshold.
  * the user can provide pre-allocated memory to the C++ API for the BFGS

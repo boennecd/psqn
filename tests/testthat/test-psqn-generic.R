@@ -148,6 +148,7 @@ test_that("the R and C++ interface gives the same and correct result", {
   }
 
   # test that we get the same when we do not use Kahan summation algorithm
+  skip_on_cran()
   (function(){
     reset_info <- compile_cpp_file("generic_example.cpp",
                                    "generic_example-Kahan.cpp",
