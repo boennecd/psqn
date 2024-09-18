@@ -36,4 +36,3 @@ Suggests:
     lbfgs, 
     alabama
 VignetteBuilder: R.rsp
-SystemRequirements: C++11
