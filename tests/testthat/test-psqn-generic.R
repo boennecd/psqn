@@ -73,7 +73,6 @@ test_that("the R and C++ interface gives the same and correct result", {
   # check that the C++ version gives the same
   skip_if_not_installed("Matrix")
   skip_on_macOS()
-  skip_if(!has_openmp())
   library(Rcpp)
   library(Matrix)
   reset_info <- compile_cpp_file("generic_example.cpp")
@@ -148,7 +147,7 @@ test_that("the R and C++ interface gives the same and correct result", {
   }
 
   # test that we get the same when we do not use Kahan summation algorithm
-  skip_on_cran()
+  skip_if(!has_openmp())
   (function(){
     reset_info <- compile_cpp_file("generic_example.cpp",
                                    "generic_example-Kahan.cpp",

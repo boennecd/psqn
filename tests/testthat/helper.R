@@ -38,7 +38,13 @@ reset_compile_cpp_file <- function(reset_info)
   setwd(reset_info$old_wd)
 
 has_openmp <- \(){
-  make_conf <- R.home() |> paste0("/etc/Makeconf") |> readLines()
+  make_conf_file <- list.files(
+    path=file.path(R.home(), "etc"), pattern="Makeconf$", full.names = TRUE, recursive=TRUE
+  )
+  if(length(make_conf_file) < 1)
+    return(FALSE)
+
+  make_conf <- readLines(make_conf_file[1])
   to_find <- "SHLIB_OPENMP_CXXFLAGS = "
   for(conf_line in make_conf){
     if(startsWith(conf_line, to_find))

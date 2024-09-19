@@ -29,8 +29,8 @@ cluster_dat <- readRDS(f)
 test_that("Poly example gives the same", {
   skip_if_not_installed("Rcpp")
   skip_if_not_installed("RcppArmadillo")
-  skip_on_macOS()
   skip_if(!has_openmp())
+  skip_on_macOS()
 
   # we also want to check that we get the right error when we do not define
   # PSQN_USE_EIGEN so we alter the file a bit
