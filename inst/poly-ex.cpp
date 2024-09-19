@@ -1,7 +1,7 @@
 // see `mlogit-ex.cpp` for an example with more comments
 
 // we will use OpenMP to perform the computation in parallel
-// [[Rcpp::plugins(openmp, cpp11)]]
+// [[Rcpp::plugins(openmp)]]
 
 // we use RcppArmadillo to simplify the code
 // [[Rcpp::depends(RcppArmadillo)]]

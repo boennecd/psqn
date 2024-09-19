@@ -36,3 +36,13 @@ compile_cpp_file <- function(f, new_name = f, do_compile = TRUE){
 # resets everything following a call to compile_cpp_file
 reset_compile_cpp_file <- function(reset_info)
   setwd(reset_info$old_wd)
+
+has_openmp <- \(){
+  make_conf <- R.home() |> paste0("/etc/Makeconf") |> readLines()
+  to_find <- "SHLIB_OPENMP_CXXFLAGS = "
+  for(conf_line in make_conf){
+    if(startsWith(conf_line, to_find))
+      return(nchar(conf_line) > nchar(to_find))
+  }
+  return(FALSE)
+}

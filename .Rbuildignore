@@ -16,3 +16,4 @@
 ^\.github$
 ^LICENSE\.md$
 ^tests/testthat/_snaps
+^CRAN-SUBMISSION$

@@ -31,7 +31,7 @@ sim_dat <- readRDS(f)
 test_that("mixed logit model gives the same", {
   skip_if_not_installed("RcppArmadillo")
   skip_on_macOS()
-  skip_on_cran()
+  skip_if(!has_openmp())
 
   reset_info <- compile_cpp_file("mlogit-ex.cpp")
   on.exit(reset_compile_cpp_file(reset_info), add = TRUE)

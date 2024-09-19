@@ -1,5 +1,5 @@
 // we will use OpenMP to perform the computation in parallel
-// [[Rcpp::plugins(openmp, cpp11)]]
+// [[Rcpp::plugins(openmp)]]
 
 // we want to use the preconditioner with the Cholesky factorizations in the
 // the diagonal. This requires that we link with BLAS and LAPACK. This is

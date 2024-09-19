@@ -73,7 +73,7 @@ test_that("the R and C++ interface gives the same and correct result", {
   # check that the C++ version gives the same
   skip_if_not_installed("Matrix")
   skip_on_macOS()
-  skip_on_cran()
+  skip_if(!has_openmp())
   library(Rcpp)
   library(Matrix)
   reset_info <- compile_cpp_file("generic_example.cpp")
