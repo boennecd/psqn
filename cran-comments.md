@@ -8,3 +8,6 @@ There were no WARNINGs or ERRORs.
 ## Resubmission
 This is a resubmission. In this version I:
 * only skipped the test if OpenMP is not supported.
+* I moved the skip_if(!has_openmp()) which I accidentally placed in the wrong 
+  place in one of the three cases. I am very sorry for this. I wanted to send 
+  a new submission in late in the evening and I did that too quickly.
